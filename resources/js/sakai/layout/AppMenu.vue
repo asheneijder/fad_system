@@ -4,43 +4,46 @@ import AppMenuItem from './AppMenuItem.vue';
 
 const model = ref([
     {
-        items: [{ label: 'Dashboard', icon: 'pi pi-fw pi-chart-bar', to: '/dashboard' }]
-    },
-    {
-        items: [{ label: 'Asset', icon: 'pi pi-fw pi-box', to: '/admin/asset/view-asset' }]
-    },
-    {
-        items: [{ label: 'License', icon: 'pi pi-fw pi-id-card', to: '/admin/license/view-license' }]
-    },
-    {
-        items: [{ label: 'Stock Stationary', icon: 'pi pi-fw pi-cog', to: '/admin/stationary-items' }]
-    },
-    {
-        items: [{ label: 'Users', icon: 'pi pi-fw pi-users', to: '/admin/users' }]
-    },
-    {
-        items: [{ label: 'Audit Log', icon: 'pi pi-fw pi-history', to: '/admin/settings/general' }]
-    },
-    {
-        items: [{ label: 'Requestable Items', icon: 'pi pi-fw pi-file', to: '/admin/request/view-request-items' }]
-    },
-    {
-        items: [{ label: 'Report', icon: 'pi pi-fw pi-print', to: '/admin/settings/general' }]
-    },
-    {
+        label: 'Overview',
         items: [
-            {
-                label: 'Settings',
-                icon: 'pi pi-fw pi-sliders-h',
-                items: [
-                    { label: 'Import', icon: 'pi pi-fw pi-download', to: '/admin/settings/import' },
-                    { label: 'Profile', icon: 'pi pi-fw pi-user', to: '/admin/settings/profile' },
-                    { label: 'Security', icon: 'pi pi-fw pi-lock', to: '/admin/settings/security' }
-                ]
-            }
+            { label: 'Dashboard', icon: 'pi pi-home', to: '/dashboard' }
         ]
     },
+    {
+        label: 'Inventory',
+        items: [
+            { label: 'Assets', icon: 'pi pi-desktop', to: '/admin/assets' },
+            { label: 'Models', icon: 'pi pi-table', to: '/admin/models' },
+            { label: 'Categories', icon: 'pi pi-tags', to: '/admin/categories' },
+            { label: 'Licenses', icon: 'pi pi-id-card', to: '/admin/licenses' },
+            { label: 'Stationery Stock', icon: 'pi pi-briefcase', to: '/admin/stationary-items' }
+        ]
+    },
+    {
+        label: 'Requests',
+        items: [
+            { label: 'Manage Requests', icon: 'pi pi-folder-open', to: '/admin/request-items' }, 
+            { label: 'Available Items', icon: 'pi pi-list', to: '/user/request-items' },
+            { label: 'My Cart', icon: 'pi pi-shopping-cart', to: '/user/cart' }
+        ]
+    },
+    {
+        label: 'Administration',
+        items: [
+            { label: 'Users', icon: 'pi pi-users', to: '/admin/users' },
+            { label: 'Audit Logs', icon: 'pi pi-clock', to: '/admin/settings/general' },
+            { label: 'Reports', icon: 'pi pi-chart-line', to: '/admin/reports' }
+        ]
+    },
+    {
+        label: 'Settings',
+        icon: 'pi pi-cog',
+        items: [
+            { label: 'Profile', icon: 'pi pi-user', to: '/profile' },
+        ]
+    }
 ]);
+
 </script>
 
 <template>

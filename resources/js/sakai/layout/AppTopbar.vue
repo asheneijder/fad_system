@@ -14,8 +14,8 @@ const { onMenuToggle, toggleDarkMode, isDarkTheme } = useLayout();
                 <i class="pi pi-bars"></i>
             </button>
             <nav-link href="/dashboard" class="layout-topbar-logo">
-                <img src="/images/art_icon.png" alt="logo" />
-                <span>FAD System</span>
+                <!-- <img src="/images/icon-system.jpg" alt="logo" /> -->
+                <span>ARTB AssetSys</span>
             </nav-link>
         </div>
 

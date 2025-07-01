@@ -1,69 +1,45 @@
 <script setup>
 import AppLayout from "@/sakai/layout/AppLayout.vue";
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
-import InputText from 'primevue/inputtext';
-import Dropdown from 'primevue/dropdown';
-import Button from 'primevue/button';
-import ConfirmDialog from 'primevue/confirmdialog';
-import { useConfirm } from 'primevue/useconfirm';
+import DataTable from "primevue/datatable";
+import Column from "primevue/column";
+import InputText from "primevue/inputtext";
+import Button from "primevue/button";
+import ConfirmDialog from "primevue/confirmdialog";
+import Toast from "primevue/toast";
+import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
-import { ref, computed } from "vue";
-import Toast from 'primevue/toast';
+import { router, Head } from "@inertiajs/vue3";
+import { ref, watch } from "vue";
 
 const confirm = useConfirm();
 const toast = useToast();
 
-const months = ref([
-    { label: "January", value: 1 },
-    { label: "February", value: 2 },
-    { label: "March", value: 3 },
-    { label: "April", value: 4 },
-    { label: "May", value: 5 },
-    { label: "June", value: 6 },
-    { label: "July", value: 7 },
-    { label: "August", value: 8 },
-    { label: "September", value: 9 },
-    { label: "October", value: 10 },
-    { label: "November", value: 11 },
-    { label: "December", value: 12 }
-]);
-
-const years = ref([
-    { label: "2023", value: 2023 },
-    { label: "2024", value: 2024 },
-    { label: "2025", value: 2025 }
-]);
-
-const selectedMonth = ref(null);
-const selectedYear = ref(null);
-const search = ref("");
-
-// Dummy data for testing
-const stationeryStock = ref({
-    data: [
-        { id: 1, name: "A4 Paper", description: "High-quality paper", category: "Paper", unit: "sheets", bf: 500, in: 100, out: 50, quantity: 550, unit_cost: 0.10, stock_value: 55.00, month: 1, year: 2024 },
-        { id: 2, name: "Stapler", description: "Staple for binding", category: "Office Supplies", unit: "pieces", bf: 20, in: 10, out: 5, quantity: 25, unit_cost: 5.00, stock_value: 125.00, month: 2, year: 2024 },
-        { id: 3, name: "Pens (Blue)", description: "Writing pens", category: "Writing", unit: "pieces", bf: 100, in: 50, out: 20, quantity: 130, unit_cost: 1.50, stock_value: 195.00, month: 3, year: 2024 },
-        { id: 4, name: "Notebooks", description: "Note-taking tools", category: "Paper", unit: "pieces", bf: 50, in: 30, out: 10, quantity: 70, unit_cost: 3.00, stock_value: 210.00, month: 1, year: 2023 },
-        { id: 5, name: "Whiteboard Markers", description: "Markers for whiteboards", category: "Markers", unit: "pieces", bf: 30, in: 20, out: 5, quantity: 45, unit_cost: 2.50, stock_value: 112.50, month: 2, year: 2023 },
-    ]
+const props = defineProps({
+    stationaryItems: Object,
+    filters: Object,
 });
 
-// Filtered data based on search, month, and year
-const filteredStock = computed(() => {
-    return stationeryStock.value.data.filter(item => {
-        const matchesSearch = search.value === "" || item.name.toLowerCase().includes(search.value.toLowerCase());
-        const matchesMonth = selectedMonth.value === null || item.month === selectedMonth.value;
-        const matchesYear = selectedYear.value === null || item.year === selectedYear.value;
-        return matchesSearch && matchesMonth && matchesYear;
-    });
+const search = ref(props.filters?.search || "");
+const items = ref(props.stationaryItems);
+
+watch(() => props.stationaryItems, (newData) => {
+    items.value = newData;
 });
 
-const editItem = (id) => {
-    toast.add({ severity: "info", summary: "Edit", detail: `Editing item ID: ${id}`, life: 2000 });
+watch(search, (newSearch) => {
+    router.get(route("admin.stationary-items.index"), { search: newSearch }, { preserveState: true, replace: true });
+});
+
+const onPageChange = (event) => {
+    router.get(route("admin.stationary-items.index"), {
+        search: search.value,
+        page: event.page + 1,
+    }, { preserveState: true, replace: true });
 };
 
+const createItem = () => router.get(route("admin.stationary-items.create"));
+const editItem = (id) => router.get(route("admin.stationary-items.edit", id));
+const viewItem = (id) => router.get(route("admin.stationary-items.show", id));
 const deleteItem = (id) => {
     confirm.require({
         message: "Are you sure you want to delete this item?",
@@ -71,97 +47,109 @@ const deleteItem = (id) => {
         icon: "pi pi-exclamation-triangle",
         acceptClass: "p-button-danger",
         accept: () => {
-            stationeryStock.value.data = stationeryStock.value.data.filter(item => item.id !== id);
-            toast.add({ severity: "success", summary: "Deleted", detail: "Item deleted successfully", life: 3000 });
-        }
+            router.delete(route("admin.stationary-items.destroy", { item: id }), {
+                preserveState: true,
+                replace: true,
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Deleted",
+                        detail: "Item deleted successfully",
+                        life: 3000,
+                    });
+                },
+            });
+        },
     });
-};
-
-const createItem = () => {
-    toast.add({ severity: "success", summary: "Create", detail: "Opening create item form...", life: 2000 });
 };
 </script>
 
 <template>
-    <app-layout>
+
+    <Head title="Stationary Items" />
+    <AppLayout>
         <Toast />
         <ConfirmDialog />
-        <div class="card">
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-                <Button 
-                    label="Add New Item" 
-                    icon="pi pi-plus" 
-                    class="p-button-sm p-button-success" 
-                    @click="createItem" 
-                />
 
-                <div class="flex flex-wrap gap-2">
-                    <Dropdown 
-                        v-model="selectedMonth" 
-                        :options="months" 
-                        optionLabel="label" 
-                        optionValue="value" 
-                        placeholder="Select Month" 
-                        class="p-dropdown-sm"
-                    />
-                    <Dropdown 
-                        v-model="selectedYear" 
-                        :options="years" 
-                        optionLabel="label" 
-                        optionValue="value" 
-                        placeholder="Select Year" 
-                        class="p-dropdown-sm"
-                    />
-                    <InputText 
-                        v-model="search" 
-                        placeholder="Search items..." 
-                        class="p-inputtext-sm" 
-                    />
-                </div>
+        <div class="p-6 card">
+            <div class="flex flex-col items-start justify-between gap-4 mb-6 sm:flex-row sm:items-center">
+                <Button label="Create New Item" icon="pi pi-plus" class="p-button-success p-button-sm"
+                    @click="createItem" />
+                <InputText v-model="search" placeholder="Search items..." class="w-full p-inputtext-sm sm:w-64" />
             </div>
 
-            <DataTable 
-                :value="filteredStock" 
-                showGridlines 
-                :rowHover="true" 
-                tableStyle="min-width: 50rem" 
-                responsiveLayout="scroll"
-            >
-                <Column field="name" header="Item Name"></Column>
-                <Column field="description" header="Item Description"></Column>
-                <Column field="category" header="Category"></Column>
-                <Column field="unit" header="Unit"></Column>
-                <Column field="bf" header="Brought Forward (BF)"></Column>
-                <Column field="in" header="IN"></Column>
-                <Column field="out" header="OUT"></Column>
-                <Column field="quantity" header="Quantity"></Column>
-                <Column field="unit_cost" header="Unit Cost"></Column>
-                <Column field="stock_value" header="Stock Value (RM)"></Column>
+            <DataTable :value="items.data" showGridlines :rowHover="true" paginator lazy :rows="items.per_page"
+                :totalRecords="items.total" :first="(items.current_page - 1) * items.per_page" @page="onPageChange"
+                responsiveLayout="scroll" tableStyle="min-width: 70rem">
 
-                <Column header="Actions" style="min-width: 12rem">
+                <template #empty>
+                    <div class="flex flex-col items-center justify-center py-6">
+                        <p class="mt-2 text-lg font-medium text-gray-500">No items found</p>
+                        <p class="text-sm text-gray-400">Try adjusting your filters or add a new item.</p>
+                    </div>
+                </template>
+
+                <!-- Table Columns -->
+                <Column header="#" style="width: 50px">
                     <template #body="slotProps">
-                        <Button 
-                            icon="pi pi-pencil" 
-                            outlined rounded class="mr-2"
-                            @click="editItem(slotProps.data.id)" 
-                        />
-                        <Button 
-                            icon="pi pi-trash" 
-                            outlined rounded severity="danger"
-                            @click="deleteItem(slotProps.data.id)" 
-                        />
+                        {{ (items.current_page - 1) * items.per_page + slotProps.index + 1 }}
+                    </template>
+                </Column>
+
+                <Column field="description" header="Description" />
+                <Column field="unit" header="Unit" />
+                <Column field="unit_cost" header="Unit Cost (RM)" />
+                <Column header="Stock In">
+                    <template #body="slotProps">
+                        {{ slotProps.data.stationary_item_movements[0]?.in || 0 }}
+                    </template>
+                </Column>
+                <Column header="Stock Out">
+                    <template #body="slotProps">
+                        {{ slotProps.data.stationary_item_movements[0]?.out || 0 }}
+                    </template>
+                </Column>
+                <Column header="Stock Quantity">
+                    <template #body="slotProps">
+                        {{ slotProps.data.stationary_item_movements[0]?.closing_balance || 0 }}
+                    </template>
+                </Column>
+                <Column header="Stock Value (RM)">
+                    <template #body="slotProps">
+                        {{
+                            (slotProps.data.stationary_item_movements[0]?.closing_balance || 0) *
+                            (slotProps.data.unit_cost || 0)
+                        }}
+                    </template>
+                </Column>
+                <Column header="Status">
+                    <template #body="slotProps">
+                        <span :class="{
+                            'bg-green-100 text-green-800 border border-green-300': slotProps.data.status,
+                            'bg-red-100 text-red-800 border border-red-300': !slotProps.data.status
+                        }" class="px-3 py-1 text-sm font-semibold rounded-full">
+                            {{ slotProps.data.status ? 'Active' : 'Inactive' }}
+                        </span>
+                    </template>
+                </Column>
+
+                <Column header="Actions" style="min-width: 14rem">
+                    <template #body="slotProps">
+                        <Button icon="pi pi-eye" outlined rounded severity="info" class="mr-2"
+                            @click="viewItem(slotProps.data.id)" />
+                        <Button icon="pi pi-pencil" outlined rounded class="mr-2"
+                            @click="editItem(slotProps.data.id)" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger"
+                            @click="deleteItem(slotProps.data.id)" />
                     </template>
                 </Column>
             </DataTable>
         </div>
-    </app-layout>
+    </AppLayout>
 </template>
 
 <style scoped>
 .p-inputtext-sm {
-    width: 200px;
-}
-.p-dropdown-sm {
-    width: 150px;
+    width: 250px;
 }
 </style>

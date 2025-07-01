@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ModelType;
+use App\Enums\AssetStatus;
 use App\Models\CategoryType;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
@@ -20,7 +21,7 @@ return new class extends Migration
             $table->string('serial_no')->unique();
             $table->foreignIdFor(ModelType::class);
             $table->foreignIdFor(CategoryType::class);
-            $table->tinyInteger('status')->default(1);
+            $table->string('status')->default(AssetStatus::ACTIVE->value);
             $table->integer('qty')->nullable();
             $table->string('location')->nullable();
             $table->decimal('purchase_cost', 10, 2)->nullable();

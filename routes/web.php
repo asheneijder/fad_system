@@ -6,10 +6,11 @@ use App\Models\Asset;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\AssetController;
-use App\Http\Controllers\RequestItemController;
+use App\Http\Controllers\Admin\ModelController;
+use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\LicensesController;
-use App\Http\Controllers\Admin\UserAzureController;
 use App\Http\Controllers\Admin\ManageUserController;
+use App\Http\Controllers\User\RequestItemController;
 use App\Http\Controllers\Admin\StationaryItemController;
 
 Route::get("/", function () {
@@ -35,49 +36,30 @@ Route::group([
     'middleware' => ['auth', 'verified'],
 ], function () {
 
-    Route::group(['prefix' => 'asset', 'middleware' => ['auth', 'verified']], function () {
-        Route::get('view-asset', [AssetController::class, 'index'])->name('index.asset');
-        Route::get('create-asset', [AssetController::class, 'create'])->name('asset.create');
-        Route::post('store-asset', [AssetController::class, 'store'])->name('asset.store');
-        Route::get('edit-asset/{id}', [AssetController::class, 'edit'])->name('asset.edit');
-    });
+    Route::resource('assets', AssetController::class);
 
-    Route::group(['prefix' => 'license', 'middleware' => ['auth', 'verified']], function () {
-        Route::get('view-license', [LicensesController::class, 'index'])->name('index.license');
-    });
+    Route::put('assets/{asset}/status', [AssetController::class, 'updateStatus'])->name('assets.updateStatus');
 
-    Route::group(['prefix' => 'settings', 'middleware' => ['auth', 'verified']], function () {
-        Route::get('import', [UserAzureController::class, 'index'])->name('index.import');
-        Route::post('import', [UserAzureController::class, 'store'])->name('import.store');
-    });
+    Route::post('asset/assign', [AssetController::class, 'assignToUser'])->name('asset.assign');
 
-    Route::resource('users', ManageUserController::class)
-        ->only([
-            'index',
-            'show',
-            'create',
-            'store',
-            'edit',
-            'update',
-            'destroy'
-        ]);
+    Route::resource('models', ModelController::class);
 
-        Route::resource('stationary-items', StationaryItemController::class)
-        ->only([
-            'index',
-            'show',
-            'create',
-            'store',
-            'edit',
-            'update',
-            'destroy'
-        ]);
+    Route::resource('categories', CategoryController::class);
 
-    Route::group(['prefix' => 'request', 'middleware' => ['auth', 'verified']], function () {
-        Route::get('view-request-items', [RequestItemController::class, 'index'])->name('index.request');
-        Route::get('create-request-item', [RequestItemController::class, 'create'])->name('request.create');
-        Route::post('store-request-item', [RequestItemController::class, 'store'])->name('request.store');
-    });
+    Route::resource('licenses', LicensesController::class);
+
+    Route::resource('users', ManageUserController::class);
+
+    Route::resource('stationary-items', StationaryItemController::class);
+});
+
+Route::group([
+    'prefix' => 'user',
+    'as' => 'user.',
+    'middleware' => ['auth', 'verified'],
+], function () {
+
+    Route::resource('request-items', RequestItemController::class);
 });
 
 require __DIR__ . '/auth.php';

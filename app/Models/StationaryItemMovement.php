@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
-use App\Models\StationaryItemMovement;
+use App\Models\StationaryItem;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class StationaryItem extends Model
+class StationaryItemMovement extends Model
 {
-    protected $table = 'stationary_items';
+    protected $table = 'stationary_item_movements';
 
     protected $guarded = [];
 
@@ -18,9 +18,9 @@ class StationaryItem extends Model
     {
         return $this->created_at->format('d-m-Y H:i');
     }
-
-    public function stationaryItemMovements(): HasMany
+    
+    public function stationaryItem(): BelongsTo
     {
-        return $this->hasMany(StationaryItemMovement::class);
+        return $this->belongsTo(StationaryItem::class);
     }
 }

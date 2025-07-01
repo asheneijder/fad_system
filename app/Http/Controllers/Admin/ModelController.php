@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use Inertia\Inertia;
+use App\Models\ModelType;
 use Illuminate\Http\Request;
-use App\Models\StationaryItem;
 use App\Http\Controllers\Controller;
 
-class StationaryItemController extends Controller
+class ModelController extends Controller
 {
+    public function __construct(protected ModelType $model) {}
     /**
      * Display a listing of the resource.
      */
@@ -16,18 +17,21 @@ class StationaryItemController extends Controller
     {
         $search = $req->query('search');
 
-        $stationaryItems = StationaryItem::with(['stationaryItemMovements' => function ($query) {
-            $query->latest('movement_date')->limit(1); // Only get the latest movement
-        }])
-            ->when($search, fn($q) =>
-            $q->where('description', 'like', "%{$search}%"))
+        $models = $this->model->query()
+            ->with(['categoryType'])
+            ->when(
+                $search,
+                fn($query) =>
+                $query->where('model_name', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+            )
             ->orderBy('created_at', 'desc')
             ->paginate(10)
             ->withQueryString();
 
-        return Inertia::render('Admin/StationaryItem/Index', [
-            'stationaryItems' => $stationaryItems,
-            'filters' => $req->only(['search']) + ['page' => $stationaryItems->currentPage()],
+        return Inertia::render('Admin/Model/Index', [
+            'models' => $models,
+            'filters' => $req->only(['search']) + ['page' => $models->currentPage()],
         ]);
     }
 
