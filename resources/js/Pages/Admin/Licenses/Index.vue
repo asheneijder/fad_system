@@ -64,14 +64,30 @@ const deleteLicense = (id) => {
 };
 
 const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(text).then(() => {
+            toast.add({
+                severity: 'info',
+                summary: 'Copied',
+                detail: 'Product key copied to clipboard',
+                life: 2000,
+            });
+        }).catch(() => {
+            toast.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: 'Failed to copy to clipboard',
+                life: 2000,
+            });
+        });
+    } else {
         toast.add({
-            severity: 'info',
-            summary: 'Copied',
-            detail: 'Product key copied to clipboard',
+            severity: 'warn',
+            summary: 'Unsupported',
+            detail: 'Clipboard not supported in this browser',
             life: 2000,
         });
-    });
+    }
 };
 </script>
 
@@ -99,7 +115,7 @@ const copyToClipboard = (text) => {
                         <p class="text-sm text-gray-400">Try adjusting your filters or add a new license.</p>
                     </div>
                 </template>
-                
+
                 <Column header="#" style="width: 50px">
                     <template #body="slotProps">
                         {{ (licenses.current_page - 1) * licenses.per_page + slotProps.index + 1 }}
