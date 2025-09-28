@@ -24,7 +24,7 @@ const model = ref([
         items: [
             { label: 'Manage Requests', icon: 'pi pi-folder-open', to: '/admin/request-items' }, 
             { label: 'Available Items', icon: 'pi pi-list', to: '/user/request-items' },
-            { label: 'My Cart', icon: 'pi pi-shopping-cart', to: '/user/cart' }
+            { label: 'My Cart', icon: 'pi pi-shopping-cart', to: '/user/cart-list' }
         ]
     },
     {

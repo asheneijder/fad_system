@@ -16,6 +16,7 @@ use App\Http\Requests\UpdateAssetRequest;
 class AssetController extends Controller
 {
     public function __construct(protected Asset $asset, protected User $user, protected AssetAssignment $assetAssignment) {}
+    
     public function index(Request $req)
     {
         $search = $req->query('search');
@@ -56,6 +57,7 @@ class AssetController extends Controller
 
     public function store(StoreAssetRequest $req)
     {
+        dd($req->all());
         $data = $req->validated();
 
         unset($data['image']);

@@ -13,6 +13,7 @@ class StoreAssetRequest extends FormRequest
 
     public function rules(): array
     {
+        dd($this->all());
         return [
             'asset_name' => 'required|string|max:255',
             'asset_tag_no' => 'required|string|max:50|unique:assets,asset_tag_no,' . $this->asset->id,

@@ -23,10 +23,30 @@ class LicensesController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+            dd($licenses);
+
         return Inertia::render('Admin/Licenses/Index', [
             'licenses' => $licenses,
             'filters' => $req->only(['search']) + ['page' => $licenses->currentPage()],
         ]);
+    }
+
+    public function create()
+    {
+        return Inertia::render('Admin/Licenses/Create');
+    }
+
+    public function store(Request $req)
+    {
+        $req->validate([
+            'license_name' => 'required|string|max:255',
+            'product_key' => 'required|string|max:255',
+            'expiry_date' => 'required|date',
+        ]);
+
+        License::create($req->all());
+
+        return redirect()->route('admin.licenses.index')->with('success', 'License created successfully');
     }
 
     public function show(License $license)
@@ -37,4 +57,5 @@ class LicensesController extends Controller
             'license' => $license,
         ]);
     }
+    
 }

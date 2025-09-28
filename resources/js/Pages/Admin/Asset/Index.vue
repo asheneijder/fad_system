@@ -127,23 +127,6 @@ const deleteAsset = (id) => {
         <ConfirmDialog />
 
         <div class="p-6 card">
-            <div class="flex items-center justify-between mb-6">
-                <div>
-                    <h2 class="mb-1 text-xl font-semibold text-gray-800">Assets Listing</h2>
-                    <!-- <Breadcrumb :home="home" :model="items">
-                        <template #item="{ item }">
-                            <Link v-if="item.url" :href="item.url"
-                                class="inline-flex items-center space-x-2 text-sm text-green-600 hover:underline">
-                            <i :class="item.icon" v-if="item.icon" />
-                            <span>{{ item.label }}</span>
-                            </Link>
-                            <span v-else class="inline-flex items-center space-x-2 text-sm text-gray-500">
-                                <span>{{ item.label }}</span>
-                            </span>
-                        </template>
-</Breadcrumb> -->
-                </div>
-            </div>
             <!-- Header -->
             <div class="flex flex-col items-start justify-between gap-4 mb-6 sm:flex-row sm:items-center">
                 <Button label="Create New Asset" icon="pi pi-plus" class="p-button-success p-button-sm"

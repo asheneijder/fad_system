@@ -1,26 +1,27 @@
 <?php
 
-use App\Models\User;
-use Inertia\Inertia;
-use App\Models\Asset;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\AssetController;
-use App\Http\Controllers\Admin\ModelController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\LicensesController;
 use App\Http\Controllers\Admin\ManageUserController;
-use App\Http\Controllers\User\RequestItemController;
+use App\Http\Controllers\Admin\ModelController;
 use App\Http\Controllers\Admin\StationaryItemController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\User\CartController;
+use App\Http\Controllers\User\RequestItemController;
+use App\Models\Asset;
+use App\Models\User;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
-Route::get("/", function () {
+Route::get('/', function () {
     return redirect()->route('login');
 });
 
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard', [
-        'users'         => (int) User::count(),
-        'assets'        => (int) Asset::count(),
+        'users' => (int) User::count(),
+        'assets' => (int) Asset::count(),
     ]);
 })->middleware(['auth', 'verified'])->name('dashboard');
 
@@ -60,6 +61,8 @@ Route::group([
 ], function () {
 
     Route::resource('request-items', RequestItemController::class);
+
+    Route::resource('cart-list', CartController::class);
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';
