@@ -2,21 +2,20 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
-use App\Models\User;
-use App\Models\ModelType;
 use App\Enums\AssetStatus;
-use App\Models\CategoryType;
-use App\Models\AssetAssignment;
-use Spatie\MediaLibrary\HasMedia;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
-use Spatie\MediaLibrary\InteractsWithMedia;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Asset extends Model implements HasMedia
 {
     use InteractsWithMedia;
+    use LogsActivity;
 
     protected $table = 'assets';
 
@@ -69,5 +68,10 @@ class Asset extends Model implements HasMedia
             ->width(368)
             ->height(232)
             ->sharpen(10);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()->useLogName('asset');
     }
 }

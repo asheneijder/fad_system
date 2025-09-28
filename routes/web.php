@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AssetController;
+use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\LicensesController;
 use App\Http\Controllers\Admin\ManageUserController;
@@ -52,6 +53,8 @@ Route::group([
     Route::resource('users', ManageUserController::class);
 
     Route::resource('stationary-items', StationaryItemController::class);
+
+    Route::resource('audit-logs', AuditLogController::class)->only(['index', 'show']);
 });
 
 Route::group([
