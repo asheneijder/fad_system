@@ -2,42 +2,39 @@
 
 namespace App\Models;
 
-use App\Enums\AssetStatus;
-use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Spatie\Activitylog\LogOptions;
-use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Asset extends Model implements HasMedia
 {
-    use InteractsWithMedia;
-    use LogsActivity;
+    use HasFactory, InteractsWithMedia;
 
-    protected $table = 'assets';
-
-    protected $guarded = [];
-
-    protected $casts = [
-        'status' => AssetStatus::class,
+    protected $fillable = [
+        'asset_name',
+        'asset_tag_no',
+        'serial_no',
+        'model_type_id',
+        'qty',
+        'status',
+        'description',
+        'purchase_date',
+        'purchase_price',
+        'warranty_expiry',
+        'updated_by',
     ];
 
-    public function modelType(): BelongsTo
-    {
-        return $this->belongsTo(ModelType::class, 'model_type_id');
-    }
+    protected $casts = [
+        'purchase_date' => 'date',
+        'warranty_expiry' => 'date',
+        'purchase_price' => 'decimal:2',
+    ];
 
-    public function categoryType(): BelongsTo
+    // Relationships
+    public function modelType()
     {
-        return $this->belongsTo(CategoryType::class, 'category_type_id');
-    }
-
-    public function users(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(ModelType::class);
     }
 
     public function assignments()
@@ -47,31 +44,68 @@ class Asset extends Model implements HasMedia
 
     public function currentAssignment()
     {
-        return $this->hasOne(AssetAssignment::class)
-            ->whereNull('returned_at')
-            ->latestOfMany();
+        return $this->hasOne(AssetAssignment::class)->whereNull('returned_at')->latest();
     }
 
-    public function getCreatedAtAttribute($value)
+    // Get users through assignments (corrected relationship)
+    public function assignedUsers()
     {
-        return Carbon::parse($value)->format('d-m-Y H:i:s');
+        return $this->hasManyThrough(
+            User::class,
+            AssetAssignment::class,
+            'asset_id', // Foreign key on AssetAssignment table
+            'id', // Foreign key on User table
+            'id', // Local key on Asset table
+            'assigned_to' // Local key on AssetAssignment table
+        );
     }
 
-    public function setPurchaseDateAttribute($value)
+    public function createdBy()
     {
-        $this->attributes['purchase_date'] = Carbon::parse($value)->format('Y-m-d');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function registerMediaConversions(?Media $media = null): void
+    public function updatedBy()
     {
-        $this->addMediaConversion('thumb')
-            ->width(368)
-            ->height(232)
-            ->sharpen(10);
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
-    public function getActivitylogOptions(): LogOptions
+    // Scopes
+    public function scopeAvailable($query)
     {
-        return LogOptions::defaults()->useLogName('asset');
+        return $query->where('status', 'available');
+    }
+
+    public function scopeAssigned($query)
+    {
+        return $query->where('status', 'assigned');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
+    }
+
+    // Methods
+    public function isAvailable()
+    {
+        return $this->status === 'available';
+    }
+
+    public function isAssigned()
+    {
+        return $this->status === 'assigned';
+    }
+
+    public function getAssignedUser()
+    {
+        return $this->currentAssignment?->user;
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('images')
+            ->singleFile()
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/jpg', 'image/gif']);
     }
 }

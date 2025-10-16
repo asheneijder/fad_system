@@ -2,14 +2,29 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class AssetAssignment extends Model
 {
-    protected $table = 'asset_assignments';
+    use HasFactory;
 
-    protected $guarded = [];
+    protected $fillable = [
+        'asset_id',
+        'assigned_to',
+        'assigned_by',
+        'assigned_at',
+        'returned_at',
+        'remarks',
+        'updated_by',
+    ];
 
+    protected $casts = [
+        'assigned_at' => 'datetime',
+        'returned_at' => 'datetime',
+    ];
+
+    // Relationships
     public function asset()
     {
         return $this->belongsTo(Asset::class);
@@ -23,5 +38,21 @@ class AssetAssignment extends Model
     public function assignedBy()
     {
         return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    // Scopes
+    public function scopeActive($query)
+    {
+        return $query->whereNull('returned_at');
+    }
+
+    public function scopeCompleted($query)
+    {
+        return $query->whereNotNull('returned_at');
     }
 }

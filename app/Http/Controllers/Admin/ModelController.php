@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\CategoryType;
+use App\Models\Category;
 use App\Models\ModelType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,156 +15,202 @@ class ModelController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $req)
+    public function index(Request $request)
     {
-        $search = $req->query('search');
+        $search = $request->query('search');
+        $status = $request->query('status');
+        $category_id = $request->query('category_id');
+        $page = $request->query('page', 1);
 
-        $models = $this->model->query()
-            ->with(['categoryType'])
-            ->when(
-                $search,
-                fn ($query) => $query->where('model_name', 'like', "%{$search}%")
-                    ->orWhere('model_no', 'like', "%{$search}%")
+        $models = ModelType::with(['category'])
+            ->when($search, function ($query) use ($search) {
+                return $query->where('name', 'like', "%{$search}%")
                     ->orWhere('description', 'like', "%{$search}%")
-            )
+                    ->orWhere('brand', 'like', "%{$search}%")
+                    ->orWhere('model_number', 'like', "%{$search}%");
+            })
+            ->when($status, function ($query) use ($status) {
+                return $query->where('status', $status);
+            })
+            ->when($category_id, function ($query) use ($category_id) {
+                return $query->where('category_id', $category_id);
+            })
             ->orderBy('created_at', 'desc')
             ->paginate(10)
             ->withQueryString();
 
-        // Get category types for the dropdown
-        $categoryTypes = CategoryType::select('id', 'category_name')
-            ->orderBy('category_name')
-            ->get();
+        // Get categories for filter
+        $categories = Category::where('status', true)->get();
+
+        // Statistics
+        $statistics = [
+            'total' => ModelType::count(),
+            'active' => ModelType::where('status', true)->count(),
+            'inactive' => ModelType::where('status', false)->count(),
+            'with_images' => ModelType::whereNotNull('image')->count(),
+            'without_images' => ModelType::whereNull('image')->count(),
+        ];
 
         return Inertia::render('Admin/Model/Index', [
             'models' => $models,
-            'categoryTypes' => $categoryTypes,
-            'filters' => $req->only(['search']) + ['page' => $models->currentPage()],
-        ]);
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     * This method can be removed since we're using modals
-     */
-    public function create()
-    {
-        // This method can be removed or kept for backward compatibility
-        $categoryTypes = CategoryType::select('id', 'category_name')
-            ->orderBy('category_name')
-            ->get();
-
-        return Inertia::render('Admin/Model/Create', [
-            'categoryTypes' => $categoryTypes,
+            'categories' => $categories,
+            'statistics' => $statistics,
+            'filters' => $request->only(['search', 'status', 'category_id']) + ['page' => $page],
         ]);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $req)
+    public function store(Request $request)
     {
-        $validated = $req->validate([
-            'model_name' => 'required|string|max:255',
-            'model_no' => 'nullable|string|max:255',
-            'description' => 'required|string|max:500',
-            'category_type_id' => 'required|exists:category_types,id',
+        // dd($request->all());
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:model_types,name',
+            'description' => 'nullable|string|max:1000',
+            'category_id' => 'required|exists:categories,id',
+            'brand' => 'required|string|max:255',
+            'model_number' => 'nullable|string|max:100',
+            'specifications' => 'nullable|array',
+            'warranty_period' => 'nullable|integer|min:0',
+            'status' => 'required|boolean',
+            'image' => 'nullable|string|max:500',
+            'sort_order' => 'nullable|integer|min:0',
         ]);
 
-        $model = $this->model->create($validated);
+        ModelType::create($validated);
 
-        // Return JSON response for AJAX requests (modals)
-        if ($req->wantsJson() || $req->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Model created successfully',
-                'model' => $model->load('categoryType'),
-            ]);
-        }
-
-        // Fallback for non-AJAX requests
-        return redirect()->route('admin.models.index')->with('success', 'Model created successfully');
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        $model = $this->model->findOrFail($id);
-        $model->load(['categoryType']);
-
-        return Inertia::render('Admin/Model/Show', [
-            'model' => $model,
-        ]);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     * This method can be removed since we're using modals
-     */
-    public function edit(string $id)
-    {
-        // This method can be removed or kept for backward compatibility
-        $model = $this->model->findOrFail($id);
-        $model->load(['categoryType']);
-
-        $categoryTypes = CategoryType::select('id', 'category_name')
-            ->orderBy('category_name')
-            ->get();
-
-        return Inertia::render('Admin/Model/Edit', [
-            'model' => $model,
-            'categoryTypes' => $categoryTypes,
-        ]);
+        return redirect()->route('admin.models.index')
+            ->with('success', 'Model created successfully.');
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $req, string $id)
+    public function update(Request $request, ModelType $model)
     {
-        $model = $this->model->findOrFail($id);
-
-        $validated = $req->validate([
-            'model_name' => 'required|string|max:255',
-            'model_no' => 'nullable|string|max:255',
-            'description' => 'required|string|max:500',
-            'category_type_id' => 'required|exists:category_types,id',
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:model_types,name,'.$model->id,
+            'description' => 'nullable|string|max:1000',
+            'category_id' => 'required|exists:categories,id',
+            'brand' => 'required|string|max:255',
+            'model_number' => 'nullable|string|max:100',
+            'specifications' => 'nullable|array',
+            'warranty_period' => 'nullable|integer|min:0',
+            'status' => 'required|boolean',
+            'image' => 'nullable|string|max:500',
+            'sort_order' => 'nullable|integer|min:0',
         ]);
 
         $model->update($validated);
 
-        // Return JSON response for AJAX requests (modals)
-        if ($req->wantsJson() || $req->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Model updated successfully',
-                'model' => $model->load('categoryType'),
-            ]);
-        }
-
-        // Fallback for non-AJAX requests
-        return redirect()->route('admin.models.index')->with('success', 'Model updated successfully');
+        return redirect()->route('admin.models.index')
+            ->with('success', 'Model updated successfully.');
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(ModelType $model)
     {
-        $model = $this->model->findOrFail($id);
         $model->delete();
 
-        // Return JSON response for AJAX requests
-        if (request()->wantsJson() || request()->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Model deleted successfully',
-            ]);
-        }
+        return redirect()->route('admin.models.index')
+            ->with('success', 'Model deleted successfully.');
+    }
 
-        // Fallback for non-AJAX requests
-        return redirect()->route('admin.models.index')->with('success', 'Model deleted successfully');
+    /**
+     * Bulk update status
+     */
+    public function bulkUpdateStatus(Request $request)
+    {
+        $validated = $request->validate([
+            'model_ids' => 'required|array',
+            'model_ids.*' => 'exists:model_types,id',
+            'status' => 'required|boolean',
+        ]);
+
+        ModelType::whereIn('id', $validated['model_ids'])
+            ->update(['status' => $validated['status']]);
+
+        return response()->json([
+            'success' => true,
+            'message' => count($validated['model_ids']).' model(s) updated successfully.',
+        ]);
+    }
+
+    /**
+     * Bulk delete
+     */
+    public function bulkDelete(Request $request)
+    {
+        $validated = $request->validate([
+            'model_ids' => 'required|array',
+            'model_ids.*' => 'exists:model_types,id',
+        ]);
+
+        ModelType::whereIn('id', $validated['model_ids'])->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => count($validated['model_ids']).' model(s) deleted successfully.',
+        ]);
+    }
+
+    /**
+     * Export models
+     */
+    public function export(Request $request)
+    {
+        $modelIds = $request->input('model_ids', []);
+
+        $models = ModelType::with(['categoryType'])
+            ->when(! empty($modelIds), function ($query) use ($modelIds) {
+                return $query->whereIn('id', $modelIds);
+            })
+            ->get();
+
+        $fileName = 'models_'.date('Y-m-d_H-i-s').'.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+        ];
+
+        $callback = function () use ($models) {
+            $file = fopen('php://output', 'w');
+
+            // Add CSV headers
+            fputcsv($file, [
+                'Name',
+                'Brand',
+                'Model Number',
+                'Category Type',
+                'Description',
+                'Warranty Period',
+                'Status',
+                'Sort Order',
+                'Created At',
+            ]);
+
+            // Add data rows
+            foreach ($models as $model) {
+                fputcsv($file, [
+                    $model->name,
+                    $model->brand,
+                    $model->model_number,
+                    $model->category ? $model->category->name : '',
+                    $model->description,
+                    $model->warranty_period,
+                    $model->status ? 'Active' : 'Inactive',
+                    $model->sort_order,
+                    $model->created_at->format('Y-m-d H:i:s'),
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }

@@ -19,7 +19,7 @@ import InputNumber from 'primevue/inputnumber';
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { Link, router, Head, useForm } from "@inertiajs/vue3";
-import { ref, watch, computed, reactive } from "vue";
+import { ref, watch, computed, reactive, onMounted } from "vue";
 
 const confirm = useConfirm();
 const toast = useToast();
@@ -29,7 +29,6 @@ const props = defineProps({
     filters: Object,
     users: Array,
     categories: Array,
-    models: Array,
 });
 
 const home = { icon: 'pi pi-home', url: route('dashboard') };
@@ -41,14 +40,25 @@ const selectedAssetId = ref(null);
 const showAssignToDialog = ref(false);
 const showCreateEditDialog = ref(false);
 const showViewDialog = ref(false);
+const showStatusDialog = ref(false);
+const showUnassignDialog = ref(false);
 const selectedUserId = ref(null);
 const showFilters = ref(false);
 const isEditMode = ref(false);
 const viewAssetData = ref(null);
+const statusForm = useForm({
+    status: '',
+    remarks: '',
+    returned_at: null,
+});
+const unassignForm = useForm({
+    remarks: '',
+    returned_at: null,
+});
 
 // Filter states
-const selectedStatuses = ref([]);
-const selectedCategories = ref([]);
+const selectedStatuses = ref(props.filters?.statuses || []);
+const selectedCategories = ref(props.filters?.categories || []);
 const dateRange = ref(null);
 
 // Form data
@@ -64,7 +74,11 @@ const assetForm = useForm({
     purchase_date: null,
     purchase_price: null,
     warranty_expiry: null,
+    image: null,
 });
+
+// Models data
+const models = ref([]);
 
 // Export menu
 const exportMenu = ref();
@@ -89,11 +103,13 @@ const exportItems = ref([
 // Status options
 const statusOptions = [
     { label: 'Available', value: 'available' },
-    { label: 'Active', value: 'active' },
     { label: 'Assigned', value: 'assigned' },
+    { label: 'Active', value: 'active' },
     { label: 'Inactive', value: 'inactive' },
     { label: 'Damaged', value: 'damaged' },
-    { label: 'Lost', value: 'lost' }
+    { label: 'Lost', value: 'lost' },
+    { label: 'Retired', value: 'retired' },
+    { label: 'Disposed', value: 'disposed' }
 ];
 
 // Statistics
@@ -103,15 +119,24 @@ const statistics = computed(() => {
         total: assets.value.total || 0,
         available: data.filter(a => a.status === 'available').length,
         assigned: data.filter(a => a.status === 'assigned').length,
-        damaged: data.filter(a => a.status === 'damaged' || a.status === 'lost').length
+        damaged: data.filter(a => ['damaged', 'lost', 'retired', 'disposed'].includes(a.status)).length
     };
 });
 
+// Watch for props changes
 watch(() => props.assets, (newAssets) => {
     assets.value = newAssets;
 });
 
 watch(search, (newSearch) => {
+    applyFilters();
+});
+
+watch(selectedStatuses, () => {
+    applyFilters();
+});
+
+watch(selectedCategories, () => {
     applyFilters();
 });
 
@@ -127,6 +152,25 @@ watch(showCreateEditDialog, (val) => {
         resetForm();
     }
 });
+
+watch(() => assetForm.category_id, async (newCategoryId) => {
+    if (newCategoryId) {
+        await loadModels(newCategoryId);
+    } else {
+        models.value = [];
+        assetForm.model_type_id = null;
+    }
+});
+
+const loadModels = async (categoryId) => {
+    try {
+        const response = await fetch(route('admin.assets.models', categoryId));
+        models.value = await response.json();
+    } catch (error) {
+        console.error('Error loading models:', error);
+        models.value = [];
+    }
+};
 
 const applyFilters = () => {
     router.get(route("admin.assets.index"), {
@@ -186,6 +230,7 @@ const resetForm = () => {
     assetForm.reset();
     isEditMode.value = false;
     selectedAssetId.value = null;
+    models.value = [];
 };
 
 const openCreateDialog = () => {
@@ -203,12 +248,17 @@ const openEditDialog = (asset) => {
     assetForm.serial_no = asset.serial_no;
     assetForm.qty = asset.qty;
     assetForm.model_type_id = asset.model_type_id;
-    assetForm.category_id = asset.category_id;
+    assetForm.category_id = asset.model_type?.category_type_id || null;
     assetForm.status = asset.status;
     assetForm.description = asset.description || '';
     assetForm.purchase_date = asset.purchase_date;
     assetForm.purchase_price = asset.purchase_price;
     assetForm.warranty_expiry = asset.warranty_expiry;
+    
+    // Load models for the category
+    if (asset.model_type?.category_type_id) {
+        loadModels(asset.model_type.category_type_id);
+    }
     
     showCreateEditDialog.value = true;
 };
@@ -216,6 +266,21 @@ const openEditDialog = (asset) => {
 const viewAsset = (asset) => {
     viewAssetData.value = asset;
     showViewDialog.value = true;
+};
+
+const openStatusDialog = (asset) => {
+    selectedAssetId.value = asset.id;
+    statusForm.status = asset.status;
+    statusForm.remarks = '';
+    statusForm.returned_at = null;
+    showStatusDialog.value = true;
+};
+
+const openUnassignDialog = (asset) => {
+    selectedAssetId.value = asset.id;
+    unassignForm.remarks = '';
+    unassignForm.returned_at = new Date();
+    showUnassignDialog.value = true;
 };
 
 const saveAsset = () => {
@@ -266,6 +331,7 @@ const saveAsset = () => {
 
 const openAssignDialog = (assetId) => {
     selectedAssetId.value = assetId;
+    selectedUserId.value = null;
     showAssignToDialog.value = true;
 };
 
@@ -294,6 +360,58 @@ const assignAsset = () => {
 
             showAssignToDialog.value = false;
             selectedUserId.value = null;
+        },
+        onError: (errors) => {
+            toast.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: errors.message || 'Failed to assign asset',
+                life: 3000
+            });
+        }
+    });
+};
+
+const updateStatus = () => {
+    statusForm.put(route('admin.asset.status', selectedAssetId.value), {
+        onSuccess: () => {
+            toast.add({
+                severity: 'success',
+                summary: 'Success',
+                detail: 'Asset status updated successfully.',
+                life: 3000
+            });
+            showStatusDialog.value = false;
+        },
+        onError: (errors) => {
+            toast.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: 'Failed to update asset status',
+                life: 3000
+            });
+        }
+    });
+};
+
+const unassignAsset = () => {
+    unassignForm.post(route('admin.asset.unassign', selectedAssetId.value), {
+        onSuccess: () => {
+            toast.add({
+                severity: 'success',
+                summary: 'Success',
+                detail: 'Asset unassigned successfully.',
+                life: 3000
+            });
+            showUnassignDialog.value = false;
+        },
+        onError: (errors) => {
+            toast.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: errors.message || 'Failed to unassign asset',
+                life: 3000
+            });
         }
     });
 };
@@ -316,8 +434,47 @@ const deleteAsset = (id) => {
                         life: 3000,
                     });
                 },
+                onError: (errors) => {
+                    toast.add({
+                        severity: "error",
+                        summary: "Error",
+                        detail: errors.message || "Failed to delete asset",
+                        life: 3000,
+                    });
+                }
             });
         },
+    });
+};
+
+const getStatusSeverity = (status) => {
+    switch (status) {
+        case 'available': return 'success';
+        case 'assigned': return 'info';
+        case 'active': return 'warning';
+        case 'inactive': return 'secondary';
+        case 'damaged': return 'danger';
+        case 'lost': return 'danger';
+        case 'retired': return 'contrast';
+        case 'disposed': return 'contrast';
+        default: return 'info';
+    }
+};
+
+const formatCurrency = (amount) => {
+    if (!amount) return '—';
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+    }).format(amount);
+};
+
+const formatDate = (date) => {
+    if (!date) return '—';
+    return new Date(date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
     });
 };
 </script>
@@ -419,7 +576,7 @@ const deleteAsset = (id) => {
                             </div>
 
                             <div class="flex flex-col w-full gap-3 lg:flex-row lg:w-auto">
-                                <InputText v-model="search" placeholder="Search assets..." icon="pi pi-search"
+                                <InputText v-model="search" placeholder="Search assets..." 
                                     class="lg:w-80">
                                     <template #prefix>
                                         <i class="pi pi-search"></i>
@@ -444,12 +601,19 @@ const deleteAsset = (id) => {
                                 </div>
 
                                 <div class="flex flex-col gap-2">
+                                    <label class="text-sm font-semibold text-gray-700">Category</label>
+                                    <MultiSelect v-model="selectedCategories" :options="props.categories || []"
+                                        optionLabel="category_name" optionValue="id" placeholder="Select Categories"
+                                        class="w-full" display="chip" />
+                                </div>
+
+                                <div class="flex flex-col gap-2">
                                     <label class="text-sm font-semibold text-gray-700">Date Range</label>
                                     <Calendar v-model="dateRange" selectionMode="range" placeholder="Select Date Range"
                                         class="w-full" dateFormat="yy-mm-dd" />
                                 </div>
 
-                                <div class="flex items-end gap-2">
+                                <div class="flex items-end gap-2 md:col-span-3">
                                     <Button label="Apply Filters" icon="pi pi-check" severity="info"
                                         @click="applyFilters" class="flex-1" />
                                     <Button label="Clear" icon="pi pi-times" severity="secondary" outlined
@@ -490,16 +654,16 @@ const deleteAsset = (id) => {
                             <Column field="asset_name" header="Asset Name" sortable>
                                 <template #body="slotProps">
                                     <div class="font-semibold text-gray-900">{{ slotProps.data.asset_name }}</div>
+                                    <div class="text-sm text-gray-500">{{ slotProps.data.asset_tag_no }}</div>
                                 </template>
                             </Column>
 
-                            <Column field="asset_tag_no" header="Tag No." sortable>
+                            <Column field="serial_no" header="Serial No." sortable>
                                 <template #body="slotProps">
-                                    <Badge :value="slotProps.data.asset_tag_no" severity="contrast" />
+                                    <span v-if="slotProps.data.serial_no">{{ slotProps.data.serial_no }}</span>
+                                    <span v-else class="text-gray-400">—</span>
                                 </template>
                             </Column>
-
-                            <Column field="serial_no" header="Serial No." sortable />
 
                             <Column field="qty" header="Qty" sortable style="width: 100px;">
                                 <template #body="slotProps">
@@ -507,30 +671,38 @@ const deleteAsset = (id) => {
                                 </template>
                             </Column>
 
-                            <Column header="Model">
+                            <Column header="Model & Category">
                                 <template #body="slotProps">
-                                    <Badge :value="slotProps.data.model_type?.model_name || '—'" severity="warn" />
+                                    <div>
+                                        <div class="font-medium text-gray-900">
+                                            {{ slotProps.data.model_type?.model_name || '—' }}
+                                        </div>
+                                        <div class="text-sm text-gray-500">
+                                            {{ slotProps.data.model_type?.category_type?.category_name || '—' }}
+                                        </div>
+                                    </div>
                                 </template>
                             </Column>
 
-                            <Column header="Category">
+                            <Column header="Status" sortable style="width: 120px;">
                                 <template #body="slotProps">
-                                    <Badge :value="slotProps.data.model_type?.category_type?.category_name || '—'"
-                                        class="px-3 py-1 text-sm font-semibold text-purple-800 bg-purple-100 border border-purple-300 rounded-full" />
+                                    <Badge :value="slotProps.data.status" 
+                                        :severity="getStatusSeverity(slotProps.data.status)" 
+                                        class="capitalize" />
                                 </template>
                             </Column>
 
-                            <Column header="Status" sortable>
+                            <Column header="Assigned To" style="width: 150px;">
                                 <template #body="slotProps">
-                                    <span :class="{
-                                        'bg-green-100 text-green-800 border border-green-300': slotProps.data.status === 'active',
-                                        'bg-yellow-100 text-yellow-800 border border-yellow-300': slotProps.data.status === 'assigned',
-                                        'bg-gray-100 text-gray-800 border border-gray-300': slotProps.data.status === 'inactive',
-                                        'bg-red-100 text-red-800 border border-red-300': slotProps.data.status === 'damaged' || slotProps.data.status === 'lost',
-                                        'bg-blue-100 text-blue-800 border border-blue-300': slotProps.data.status === 'available'
-                                    }" class="px-3 py-1 text-sm font-semibold capitalize rounded-full">
-                                        {{ slotProps.data.status.replace('_', ' ') }}
-                                    </span>
+                                    <div v-if="slotProps.data.current_assignment">
+                                        <div class="font-medium text-gray-900">
+                                            {{ slotProps.data.current_assignment.user?.name }}
+                                        </div>
+                                        <div class="text-xs text-gray-500">
+                                            {{ formatDate(slotProps.data.current_assignment.assigned_at) }}
+                                        </div>
+                                    </div>
+                                    <span v-else class="text-gray-400">—</span>
                                 </template>
                             </Column>
 
@@ -544,6 +716,13 @@ const deleteAsset = (id) => {
                                         <Button v-if="slotProps.data.status === 'available'" icon="pi pi-user-plus"
                                             outlined rounded severity="help" size="small" v-tooltip.top="'Assign to User'"
                                             @click="openAssignDialog(slotProps.data.id)" />
+
+                                        <Button v-if="slotProps.data.status === 'assigned'" icon="pi pi-user-minus"
+                                            outlined rounded severity="warning" size="small" v-tooltip.top="'Unassign'"
+                                            @click="openUnassignDialog(slotProps.data)" />
+
+                                        <Button icon="pi pi-cog" outlined rounded severity="secondary" size="small"
+                                            v-tooltip.top="'Change Status'" @click="openStatusDialog(slotProps.data)" />
 
                                         <Button icon="pi pi-pencil" outlined rounded severity="warning" size="small"
                                             v-tooltip.top="'Edit Asset'" @click="openEditDialog(slotProps.data)" />
@@ -599,7 +778,11 @@ const deleteAsset = (id) => {
                             <label class="block text-sm font-semibold text-gray-700">Serial Number</label>
                             <InputText v-model="assetForm.serial_no" 
                                 placeholder="Enter serial number" 
-                                class="w-full" />
+                                class="w-full"
+                                :class="{ 'p-invalid': assetForm.errors.serial_no }" />
+                            <small class="text-red-500" v-if="assetForm.errors.serial_no">
+                                {{ assetForm.errors.serial_no }}
+                            </small>
                         </div>
 
                         <!-- Quantity -->
@@ -618,24 +801,37 @@ const deleteAsset = (id) => {
 
                         <!-- Category -->
                         <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Category</label>
+                            <label class="block text-sm font-semibold text-gray-700">
+                                Category <span class="text-red-500">*</span>
+                            </label>
                             <Select v-model="assetForm.category_id" 
                                 :options="props.categories || []" 
                                 optionLabel="category_name" 
                                 optionValue="id"
                                 placeholder="Select category" 
-                                class="w-full" />
+                                class="w-full"
+                                :class="{ 'p-invalid': assetForm.errors.category_id }" />
+                            <small class="text-red-500" v-if="assetForm.errors.category_id">
+                                {{ assetForm.errors.category_id }}
+                            </small>
                         </div>
 
                         <!-- Model -->
                         <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Model</label>
+                            <label class="block text-sm font-semibold text-gray-700">
+                                Model <span class="text-red-500">*</span>
+                            </label>
                             <Select v-model="assetForm.model_type_id" 
-                                :options="props.models || []" 
+                                :options="models" 
                                 optionLabel="model_name" 
                                 optionValue="id"
                                 placeholder="Select model" 
-                                class="w-full" />
+                                class="w-full"
+                                :disabled="!assetForm.category_id"
+                                :class="{ 'p-invalid': assetForm.errors.model_type_id }" />
+                            <small class="text-red-500" v-if="assetForm.errors.model_type_id">
+                                {{ assetForm.errors.model_type_id }}
+                            </small>
                         </div>
 
                         <!-- Status -->
@@ -648,7 +844,11 @@ const deleteAsset = (id) => {
                                 optionLabel="label" 
                                 optionValue="value"
                                 placeholder="Select status" 
-                                class="w-full" />
+                                class="w-full"
+                                :class="{ 'p-invalid': assetForm.errors.status }" />
+                            <small class="text-red-500" v-if="assetForm.errors.status">
+                                {{ assetForm.errors.status }}
+                            </small>
                         </div>
 
                         <!-- Purchase Date -->
@@ -687,6 +887,14 @@ const deleteAsset = (id) => {
                             rows="4" 
                             placeholder="Enter asset description..."
                             class="w-full" />
+                    </div>
+
+                    <!-- Image Upload -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">Asset Image</label>
+                        <input type="file" @change="assetForm.image = $event.target.files[0]" 
+                            accept="image/*" class="w-full" />
+                        <small class="text-gray-500">Supported formats: JPEG, PNG, JPG, GIF (Max: 2MB)</small>
                     </div>
 
                     <!-- Footer Actions -->
@@ -735,37 +943,32 @@ const deleteAsset = (id) => {
                         </div>
                         <div>
                             <p class="text-sm font-medium text-gray-500">Status</p>
-                            <span :class="{
-                                'bg-green-100 text-green-800 border border-green-300': viewAssetData.status === 'active',
-                                'bg-yellow-100 text-yellow-800 border border-yellow-300': viewAssetData.status === 'assigned',
-                                'bg-gray-100 text-gray-800 border border-gray-300': viewAssetData.status === 'inactive',
-                                'bg-red-100 text-red-800 border border-red-300': viewAssetData.status === 'damaged' || viewAssetData.status === 'lost',
-                                'bg-blue-100 text-blue-800 border border-blue-300': viewAssetData.status === 'available'
-                            }" class="inline-block px-3 py-1 mt-1 text-sm font-semibold capitalize rounded-full">
-                                {{ viewAssetData.status.replace('_', ' ') }}
-                            </span>
+                            <Badge :value="viewAssetData.status" 
+                                :severity="getStatusSeverity(viewAssetData.status)" 
+                                class="mt-1 capitalize" />
                         </div>
                         <div>
                             <p class="text-sm font-medium text-gray-500">Purchase Date</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">{{ viewAssetData.purchase_date || '—' }}</p>
+                            <p class="mt-1 text-base font-semibold text-gray-900">{{ formatDate(viewAssetData.purchase_date) }}</p>
                         </div>
                         <div>
                             <p class="text-sm font-medium text-gray-500">Purchase Price</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">{{ viewAssetData.purchase_price ? '₹' + viewAssetData.purchase_price : '—' }}</p>
+                            <p class="mt-1 text-base font-semibold text-gray-900">{{ formatCurrency(viewAssetData.purchase_price) }}</p>
                         </div>
                         <div>
                             <p class="text-sm font-medium text-gray-500">Warranty Expiry</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">{{ viewAssetData.warranty_expiry || '—' }}</p>
+                            <p class="mt-1 text-base font-semibold text-gray-900">{{ formatDate(viewAssetData.warranty_expiry) }}</p>
                         </div>
-                        <div v-if="viewAssetData.assigned_to" class="col-span-2">
-                            <p class="text-sm font-medium text-gray-500">Assigned To</p>
-                            <div class="flex items-center gap-3 mt-2">
+                        <div v-if="viewAssetData.current_assignment" class="col-span-2">
+                            <p class="text-sm font-medium text-gray-500">Currently Assigned To</p>
+                            <div class="flex items-center gap-3 mt-2 p-3 bg-gray-50 rounded-lg">
                                 <div class="flex items-center justify-center w-10 h-10 text-white bg-purple-500 rounded-full">
-                                    <span class="font-semibold">{{ viewAssetData.assigned_to.name.charAt(0) }}</span>
+                                    <span class="font-semibold">{{ viewAssetData.current_assignment.user?.name?.charAt(0) }}</span>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-900">{{ viewAssetData.assigned_to.name }}</p>
-                                    <p class="text-sm text-gray-500">{{ viewAssetData.assigned_to.email }}</p>
+                                    <p class="font-semibold text-gray-900">{{ viewAssetData.current_assignment.user?.name }}</p>
+                                    <p class="text-sm text-gray-500">{{ viewAssetData.current_assignment.user?.email }}</p>
+                                    <p class="text-xs text-gray-400">Assigned on: {{ formatDate(viewAssetData.current_assignment.assigned_at) }}</p>
                                 </div>
                             </div>
                         </div>
@@ -830,6 +1033,68 @@ const deleteAsset = (id) => {
                     <div class="flex justify-end gap-3 pt-4 border-t">
                         <Button label="Cancel" severity="secondary" outlined @click="showAssignToDialog = false" />
                         <Button label="Assign Asset" icon="pi pi-check" severity="success" @click="assignAsset" />
+                    </div>
+                </div>
+            </Dialog>
+
+            <!-- Status Update Dialog -->
+            <Dialog v-model:visible="showStatusDialog" modal header="Update Asset Status" :style="{ width: '500px' }"
+                :breakpoints="{ '1199px': '50vw', '575px': '90vw' }">
+                <div class="space-y-6">
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">Status *</label>
+                        <Select v-model="statusForm.status" :options="statusOptions" optionLabel="label" optionValue="value"
+                            placeholder="Select status" class="w-full" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">Remarks</label>
+                        <Textarea v-model="statusForm.remarks" rows="3" placeholder="Enter remarks..."
+                            class="w-full" />
+                    </div>
+
+                    <div v-if="['retired', 'disposed', 'lost', 'damaged', 'inactive'].includes(statusForm.status)" 
+                         class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">Return Date *</label>
+                        <Calendar v-model="statusForm.returned_at" dateFormat="yy-mm-dd" 
+                            placeholder="Select return date" class="w-full" />
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <Button label="Cancel" severity="secondary" outlined @click="showStatusDialog = false" />
+                        <Button label="Update Status" icon="pi pi-check" severity="success" 
+                            @click="updateStatus" :loading="statusForm.processing" />
+                    </div>
+                </div>
+            </Dialog>
+
+            <!-- Unassign Dialog -->
+            <Dialog v-model:visible="showUnassignDialog" modal header="Unassign Asset" :style="{ width: '500px' }"
+                :breakpoints="{ '1199px': '50vw', '575px': '90vw' }">
+                <div class="space-y-6">
+                    <div class="p-4 border-l-4 border-yellow-500 rounded bg-yellow-50">
+                        <p class="text-sm text-yellow-800">
+                            <i class="mr-2 pi pi-exclamation-triangle"></i>
+                            This will mark the asset as available and record the return details.
+                        </p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">Return Date *</label>
+                        <Calendar v-model="unassignForm.returned_at" dateFormat="yy-mm-dd" 
+                            placeholder="Select return date" class="w-full" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">Remarks</label>
+                        <Textarea v-model="unassignForm.remarks" rows="3" placeholder="Enter return remarks..."
+                            class="w-full" />
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <Button label="Cancel" severity="secondary" outlined @click="showUnassignDialog = false" />
+                        <Button label="Unassign Asset" icon="pi pi-check" severity="warning" 
+                            @click="unassignAsset" :loading="unassignForm.processing" />
                     </div>
                 </div>
             </Dialog>

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\StationaryItem;
 use App\Models\StationaryItemMovement;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -15,32 +14,28 @@ class StationaryItemController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $req)
+    public function index(Request $request)
     {
-        $search = $req->query('search');
+        $search = $request->query('search');
+        $page = $request->query('page', 1);
 
-        $stationaryItems = StationaryItem::with(['stationaryItemMovements' => function ($query) {
-            $query->latest('movement_date')->limit(1); // Only get the latest movement
-        }])
-            ->when($search, fn ($q) => $q->where('description', 'like', "%{$search}%")
-                ->orWhere('unit', 'like', "%{$search}%")
-            )
-            ->orderBy('created_at', 'desc')
+        $stationaryItems = StationaryItem::when($search, function ($query) use ($search) {
+            return $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('sku', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('supplier', 'like', "%{$search}%")
+                    ->orWhere('location', 'like', "%{$search}%");
+            });
+        })
+            ->orderBy('name', 'asc')
             ->paginate(10)
             ->withQueryString();
 
         return Inertia::render('Admin/StationaryItem/Index', [
             'stationaryItems' => $stationaryItems,
-            'filters' => $req->only(['search']) + ['page' => $stationaryItems->currentPage()],
+            'filters' => $request->only(['search']) + ['page' => $page],
         ]);
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        return Inertia::render('Admin/StationaryItem/Create');
     }
 
     /**
@@ -49,404 +44,259 @@ class StationaryItemController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'description' => 'required|string|max:500',
-            'unit' => 'required|string|max:50',
-            'unit_cost' => 'required|numeric|min:0',
-            'status' => 'required|boolean',
-            'initial_stock' => 'nullable|numeric|min:0',
-        ], [
-            'description.required' => 'Description is required.',
-            'unit.required' => 'Unit is required.',
-            'unit_cost.required' => 'Unit cost is required.',
-            'unit_cost.min' => 'Unit cost cannot be negative.',
-            'status.required' => 'Status is required.',
-            'initial_stock.min' => 'Initial stock cannot be negative.',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'category' => 'required|string|in:writing,paper,desk,filing,computer,mailing,cleaning,other',
+            'unit' => 'required|string|in:pcs,boxes,packs,reams,sets,bottles,rolls,units',
+            'sku' => 'nullable|string|max:100|unique:stationary_items,sku',
+            'min_stock' => 'nullable|integer|min:0',
+            'current_stock' => 'nullable|integer|min:0',
+            'cost_price' => 'nullable|numeric|min:0',
+            'selling_price' => 'nullable|numeric|min:0',
+            'supplier' => 'nullable|string|max:255',
+            'location' => 'nullable|string|max:255',
+            'status' => 'boolean',
         ]);
 
-        DB::beginTransaction();
-        try {
-            // Create the stationary item
-            $item = StationaryItem::create([
-                'description' => $validated['description'],
-                'unit' => $validated['unit'],
-                'unit_cost' => $validated['unit_cost'],
-                'status' => $validated['status'],
-            ]);
+        StationaryItem::create($validated);
 
-            // Create initial stock movement if initial stock is provided
-            if (isset($validated['initial_stock']) && $validated['initial_stock'] > 0) {
-                StationaryItemMovement::create([
-                    'stationary_item_id' => $item->id,
-                    'movement_date' => Carbon::now(),
-                    'movement_type' => 'opening_balance',
-                    'in' => $validated['initial_stock'],
-                    'out' => 0,
-                    'opening_balance' => 0,
-                    'closing_balance' => $validated['initial_stock'],
-                    'remarks' => 'Initial stock entry',
-                ]);
-            }
-
-            DB::commit();
-
-            // Load the item with its latest movement for response
-            $item->load(['stationaryItemMovements' => function ($query) {
-                $query->latest('movement_date')->limit(1);
-            }]);
-
-            // Return JSON response for AJAX requests (modals)
-            if ($request->wantsJson() || $request->expectsJson()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Stationary item created successfully',
-                    'item' => $item,
-                ]);
-            }
-
-            return redirect()->route('admin.stationary-items.index')
-                ->with('success', 'Stationary item created successfully');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            if ($request->wantsJson() || $request->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to create stationary item',
-                    'error' => $e->getMessage(),
-                ], 500);
-            }
-
-            return redirect()->back()
-                ->with('error', 'Failed to create stationary item')
-                ->withInput();
-        }
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        $item = StationaryItem::with(['stationaryItemMovements' => function ($query) {
-            $query->orderBy('movement_date', 'desc');
-        }])->findOrFail($id);
-
-        return Inertia::render('Admin/StationaryItem/Show', [
-            'item' => $item,
-        ]);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        $item = StationaryItem::findOrFail($id);
-
-        return Inertia::render('Admin/StationaryItem/Edit', [
-            'item' => $item,
-        ]);
+        return redirect()->route('admin.stationary-items.index')
+            ->with('success', 'Stationary item created successfully.');
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, StationaryItem $stationaryItem)
     {
-        $item = StationaryItem::findOrFail($id);
-
         $validated = $request->validate([
-            'description' => 'required|string|max:500',
-            'unit' => 'required|string|max:50',
-            'unit_cost' => 'required|numeric|min:0',
-            'status' => 'required|boolean',
-        ], [
-            'description.required' => 'Description is required.',
-            'unit.required' => 'Unit is required.',
-            'unit_cost.required' => 'Unit cost is required.',
-            'unit_cost.min' => 'Unit cost cannot be negative.',
-            'status.required' => 'Status is required.',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'category' => 'required|string|in:writing,paper,desk,filing,computer,mailing,cleaning,other',
+            'unit' => 'required|string|in:pcs,boxes,packs,reams,sets,bottles,rolls,units',
+            'sku' => 'nullable|string|max:100|unique:stationary_items,sku,'.$stationaryItem->id,
+            'min_stock' => 'nullable|integer|min:0',
+            'current_stock' => 'nullable|integer|min:0',
+            'cost_price' => 'nullable|numeric|min:0',
+            'selling_price' => 'nullable|numeric|min:0',
+            'supplier' => 'nullable|string|max:255',
+            'location' => 'nullable|string|max:255',
+            'status' => 'boolean',
         ]);
 
-        $item->update($validated);
-
-        // Load the item with its latest movement for response
-        $item->load(['stationaryItemMovements' => function ($query) {
-            $query->latest('movement_date')->limit(1);
-        }]);
-
-        // Return JSON response for AJAX requests (modals)
-        if ($request->wantsJson() || $request->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Stationary item updated successfully',
-                'item' => $item,
-            ]);
-        }
+        $stationaryItem->update($validated);
 
         return redirect()->route('admin.stationary-items.index')
-            ->with('success', 'Stationary item updated successfully');
+            ->with('success', 'Stationary item updated successfully.');
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(StationaryItem $stationaryItem)
     {
-        $item = StationaryItem::findOrFail($id);
+        $stationaryItem->delete();
 
-        DB::beginTransaction();
-        try {
-            // Delete all related movements first
-            $item->stationaryItemMovements()->delete();
+        return redirect()->route('admin.stationary-items.index')
+            ->with('success', 'Stationary item deleted successfully.');
+    }
 
-            // Delete the item
-            $item->delete();
+    /**
+     * Update stock for a stationary item
+     */
+    public function updateStock(Request $request, StationaryItem $stationaryItem)
+    {
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:0',
+            'operation' => 'required|in:set,add,subtract',
+            'type' => 'required|in:in,out,adjustment,return',
+            'notes' => 'nullable|string|max:500',
+            'movement_date' => 'required|date',
+        ]);
 
-            DB::commit();
+        DB::transaction(function () use ($stationaryItem, $validated) {
+            $oldStock = $stationaryItem->current_stock;
 
-            // Return JSON response for AJAX requests
-            if (request()->wantsJson() || request()->expectsJson()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Stationary item deleted successfully',
+            switch ($validated['operation']) {
+                case 'set':
+                    $newStock = $validated['quantity'];
+                    break;
+                case 'add':
+                    $newStock = $oldStock + $validated['quantity'];
+                    break;
+                case 'subtract':
+                    $newStock = max(0, $oldStock - $validated['quantity']);
+                    break;
+                default:
+                    $newStock = $oldStock;
+            }
+
+            // Update item stock
+            $stationaryItem->update(['current_stock' => $newStock]);
+
+            // Record movement
+            StationaryItemMovement::create([
+                'stationary_item_id' => $stationaryItem->id,
+                'type' => $validated['type'],
+                'quantity' => $validated['quantity'],
+                'previous_stock' => $oldStock,
+                'new_stock' => $newStock,
+                'notes' => $validated['notes'],
+                'movement_date' => $validated['movement_date'],
+                'reference' => 'STOCK_ADJUSTMENT',
+            ]);
+        });
+
+        return redirect()->route('admin.stationary-items.index')
+            ->with('success', 'Stock updated successfully.');
+    }
+
+    /**
+     * Record movement for a stationary item
+     */
+    public function recordMovement(Request $request, StationaryItem $stationaryItem)
+    {
+        $validated = $request->validate([
+            'type' => 'required|in:in,out,adjustment,return',
+            'quantity' => 'required|integer|min:0',
+            'reference' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:500',
+            'movement_date' => 'required|date',
+        ]);
+
+        DB::transaction(function () use ($stationaryItem, $validated) {
+            $oldStock = $stationaryItem->current_stock;
+            $newStock = $oldStock;
+
+            switch ($validated['type']) {
+                case 'in':
+                case 'return':
+                    $newStock = $oldStock + $validated['quantity'];
+                    break;
+                case 'out':
+                    $newStock = max(0, $oldStock - $validated['quantity']);
+                    break;
+                case 'adjustment':
+                    $newStock = $validated['quantity'];
+                    break;
+            }
+
+            // Update item stock
+            $stationaryItem->update(['current_stock' => $newStock]);
+
+            // Record movement
+            StationaryItemMovement::create([
+                'stationary_item_id' => $stationaryItem->id,
+                'type' => $validated['type'],
+                'quantity' => $validated['quantity'],
+                'previous_stock' => $oldStock,
+                'new_stock' => $newStock,
+                'notes' => $validated['notes'],
+                'movement_date' => $validated['movement_date'],
+                'reference' => $validated['reference'] ?? 'MANUAL_ENTRY',
+            ]);
+        });
+
+        return redirect()->route('admin.stationary-items.index')
+            ->with('success', 'Movement recorded successfully.');
+    }
+
+    /**
+     * Bulk update item status
+     */
+    public function bulkUpdateStatus(Request $request)
+    {
+        $validated = $request->validate([
+            'item_ids' => 'required|array',
+            'item_ids.*' => 'exists:stationary_items,id',
+            'status' => 'required|boolean',
+        ]);
+
+        StationaryItem::whereIn('id', $validated['item_ids'])
+            ->update(['status' => $validated['status']]);
+
+        return response()->json([
+            'success' => true,
+            'message' => count($validated['item_ids']).' item(s) updated successfully.',
+        ]);
+    }
+
+    /**
+     * Export stationary items
+     */
+    public function export(Request $request)
+    {
+        $itemIds = $request->input('item_ids', []);
+
+        $items = StationaryItem::when(! empty($itemIds), function ($query) use ($itemIds) {
+            return $query->whereIn('id', $itemIds);
+        })
+            ->get();
+
+        $fileName = 'stationary_items_'.date('Y-m-d_H-i-s').'.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+        ];
+
+        $callback = function () use ($items) {
+            $file = fopen('php://output', 'w');
+
+            // Add CSV headers
+            fputcsv($file, [
+                'Name',
+                'SKU',
+                'Category',
+                'Unit',
+                'Current Stock',
+                'Minimum Stock',
+                'Cost Price',
+                'Selling Price',
+                'Supplier',
+                'Location',
+                'Status',
+                'Description',
+                'Created At',
+            ]);
+
+            // Add data rows
+            foreach ($items as $item) {
+                fputcsv($file, [
+                    $item->name,
+                    $item->sku,
+                    $item->category,
+                    $item->unit,
+                    $item->current_stock,
+                    $item->min_stock,
+                    $item->cost_price,
+                    $item->selling_price,
+                    $item->supplier,
+                    $item->location,
+                    $item->status ? 'Active' : 'Inactive',
+                    $item->description,
+                    $item->created_at->format('Y-m-d H:i:s'),
                 ]);
             }
 
-            return redirect()->route('admin.stationary-items.index')
-                ->with('success', 'Stationary item deleted successfully');
+            fclose($file);
+        };
 
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            if (request()->wantsJson() || request()->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to delete stationary item',
-                    'error' => $e->getMessage(),
-                ], 500);
-            }
-
-            return redirect()->back()
-                ->with('error', 'Failed to delete stationary item');
-        }
+        return response()->stream($callback, 200, $headers);
     }
 
     /**
-     * Create stock movement (IN)
+     * Get item movements
      */
-    public function stockIn(Request $request, string $id)
+    public function movements(StationaryItem $stationaryItem)
     {
-        $item = StationaryItem::findOrFail($id);
-
-        $validated = $request->validate([
-            'quantity' => 'required|numeric|min:0.01',
-            'movement_date' => 'required|date',
-            'remarks' => 'nullable|string|max:255',
-        ]);
-
-        $this->createStockMovement($item, 'in', $validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Stock added successfully',
-        ]);
-    }
-
-    /**
-     * Create stock movement (OUT)
-     */
-    public function stockOut(Request $request, string $id)
-    {
-        $item = StationaryItem::findOrFail($id);
-
-        $validated = $request->validate([
-            'quantity' => 'required|numeric|min:0.01',
-            'movement_date' => 'required|date',
-            'remarks' => 'nullable|string|max:255',
-        ]);
-
-        // Check if there's enough stock
-        $currentStock = $this->getCurrentStock($item);
-        if ($currentStock < $validated['quantity']) {
-            return response()->json([
-                'success' => false,
-                'message' => "Insufficient stock. Current stock: {$currentStock}",
-            ], 422);
-        }
-
-        $this->createStockMovement($item, 'out', $validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Stock deducted successfully',
-        ]);
-    }
-
-    /**
-     * Get current stock for an item
-     */
-    private function getCurrentStock(StationaryItem $item)
-    {
-        $latestMovement = $item->stationaryItemMovements()
-            ->latest('movement_date')
-            ->latest('id')
-            ->first();
-
-        return $latestMovement ? $latestMovement->closing_balance : 0;
-    }
-
-    /**
-     * Create stock movement record
-     */
-    private function createStockMovement(StationaryItem $item, string $type, array $data)
-    {
-        DB::beginTransaction();
-        try {
-            $currentStock = $this->getCurrentStock($item);
-
-            $movement = StationaryItemMovement::create([
-                'stationary_item_id' => $item->id,
-                'movement_date' => $data['movement_date'],
-                'movement_type' => $type,
-                'in' => $type === 'in' ? $data['quantity'] : 0,
-                'out' => $type === 'out' ? $data['quantity'] : 0,
-                'opening_balance' => $currentStock,
-                'closing_balance' => $type === 'in'
-                    ? $currentStock + $data['quantity']
-                    : $currentStock - $data['quantity'],
-                'remarks' => $data['remarks'] ?? null,
-            ]);
-
-            DB::commit();
-
-            return $movement;
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
-    }
-
-    /**
-     * Monthly stock carry forward
-     * This should be run at the end of each month
-     */
-    public function monthlyCarryForward()
-    {
-        $currentDate = Carbon::now();
-        $lastMonth = $currentDate->copy()->subMonth();
-
-        // Get all active items
-        $items = StationaryItem::where('status', true)->get();
-
-        DB::beginTransaction();
-        try {
-            foreach ($items as $item) {
-                $currentStock = $this->getCurrentStock($item);
-
-                // Only create carry forward if there's stock
-                if ($currentStock > 0) {
-                    StationaryItemMovement::create([
-                        'stationary_item_id' => $item->id,
-                        'movement_date' => $currentDate->startOfMonth(),
-                        'movement_type' => 'carry_forward',
-                        'in' => 0,
-                        'out' => 0,
-                        'opening_balance' => $currentStock,
-                        'closing_balance' => $currentStock,
-                        'remarks' => "Carry forward from {$lastMonth->format('M Y')}",
-                    ]);
-                }
-            }
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Monthly carry forward completed successfully',
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to complete monthly carry forward',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Get stock summary report
-     */
-    public function stockSummary()
-    {
-        $items = StationaryItem::with(['stationaryItemMovements' => function ($query) {
-            $query->latest('movement_date')->limit(1);
-        }])
-            ->where('status', true)
-            ->get()
-            ->map(function ($item) {
-                $latestMovement = $item->stationaryItemMovements->first();
-                $currentStock = $latestMovement ? $latestMovement->closing_balance : 0;
-                $stockValue = $currentStock * $item->unit_cost;
-
-                return [
-                    'id' => $item->id,
-                    'description' => $item->description,
-                    'unit' => $item->unit,
-                    'unit_cost' => $item->unit_cost,
-                    'current_stock' => $currentStock,
-                    'stock_value' => $stockValue,
-                    'status' => $this->getStockStatus($currentStock),
-                ];
-            });
-
-        $totalValue = $items->sum('stock_value');
-        $lowStockCount = $items->where('status', 'low')->count();
-        $outOfStockCount = $items->where('status', 'out_of_stock')->count();
-
-        return Inertia::render('Admin/StationaryItem/StockSummary', [
-            'items' => $items,
-            'summary' => [
-                'total_items' => $items->count(),
-                'total_value' => $totalValue,
-                'low_stock_count' => $lowStockCount,
-                'out_of_stock_count' => $outOfStockCount,
-            ],
-        ]);
-    }
-
-    /**
-     * Get stock status based on quantity
-     */
-    private function getStockStatus($stock)
-    {
-        if ($stock <= 0) {
-            return 'out_of_stock';
-        }
-        if ($stock <= 10) {
-            return 'low';
-        } // You can make this configurable
-
-        return 'normal';
-    }
-
-    /**
-     * Get stock movement history for an item
-     */
-    public function movementHistory(string $id)
-    {
-        $item = StationaryItem::findOrFail($id);
-
-        $movements = StationaryItemMovement::where('stationary_item_id', $id)
+        $movements = $stationaryItem->movements()
             ->orderBy('movement_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate(20);
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
 
-        return Inertia::render('Admin/StationaryItem/MovementHistory', [
-            'item' => $item,
+        return Inertia::render('Admin/StationaryItem/Movements', [
+            'stationaryItem' => $stationaryItem,
             'movements' => $movements,
         ]);
     }

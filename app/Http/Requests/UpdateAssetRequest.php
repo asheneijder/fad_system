@@ -3,29 +3,41 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateAssetRequest extends FormRequest
 {
-    public function authorize(): bool
+    public function authorize()
     {
         return true;
     }
 
-    public function rules(): array
+    public function rules()
     {
+        $assetId = $this->route('asset')->id;
+
         return [
             'asset_name' => 'required|string|max:255',
-            'asset_tag_no' => 'required|string|max:50|unique:assets,asset_tag_no,' . $this->asset->id,
-            'serial_no' => 'nullable|string|max:100|unique:assets,serial_no,' . $this->asset->id,
-            'category_type_id' => 'required|exists:category_types,id',
-            'model_type_id' => 'nullable|exists:model_types,id',
-            'status' => 'required|integer|in:0,1',
-            'location' => 'required|string|max:255',
-            'purchase_date' => 'nullable|date',
+            'asset_tag_no' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('assets')->ignore($assetId),
+            ],
+            'serial_no' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('assets')->ignore($assetId),
+            ],
+            'model_type_id' => 'required|exists:model_types,id',
             'qty' => 'required|integer|min:1',
-            'purchase_cost' => 'required|numeric|min:0',
-            'current_value' => 'required|numeric|min:0',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'status' => 'required|string|in:available,assigned,active,inactive,damaged,lost',
+            'description' => 'nullable|string|max:1000',
+            'purchase_date' => 'nullable|date',
+            'purchase_price' => 'nullable|numeric|min:0',
+            'warranty_expiry' => 'nullable|date|after_or_equal:purchase_date',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ];
     }
 }

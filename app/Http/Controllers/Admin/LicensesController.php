@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\License;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class LicensesController extends Controller
@@ -13,33 +13,28 @@ class LicensesController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $req)
+    public function index(Request $request)
     {
-        $search = $req->query('search');
+        $search = $request->query('search');
+        $page = $request->query('page', 1);
 
-        $licenses = License::when(
-            $search,
-            fn ($q) => $q->where('license_name', 'like', "%{$search}%")
-                ->orWhere('product_key', 'like', "%{$search}%")
-                ->orWhere('description', 'like', "%{$search}%")
-        )
+        $licenses = License::when($search, function ($query) use ($search) {
+            return $query->where(function ($q) use ($search) {
+                $q->where('license_name', 'like', "%{$search}%")
+                    ->orWhere('product_key', 'like', "%{$search}%")
+                    ->orWhere('manufacturer', 'like', "%{$search}%")
+                    ->orWhere('licensed_email', 'like', "%{$search}%")
+                    ->orWhere('licensed_name', 'like', "%{$search}%");
+            });
+        })
             ->orderBy('created_at', 'desc')
             ->paginate(10)
             ->withQueryString();
 
         return Inertia::render('Admin/Licenses/Index', [
             'licenses' => $licenses,
-            'filters' => $req->only(['search']) + ['page' => $licenses->currentPage()],
+            'filters' => $request->only(['search']) + ['page' => $page],
         ]);
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     * This method can be removed since we're using modals
-     */
-    public function create()
-    {
-        return Inertia::render('Admin/Licenses/Create');
     }
 
     /**
@@ -51,62 +46,19 @@ class LicensesController extends Controller
             'license_name' => 'required|string|max:255',
             'product_key' => 'required|string|max:255|unique:licenses,product_key',
             'expiration_date' => 'required|date|after:today',
+            'licensed_email' => 'nullable|email|max:255',
+            'licensed_name' => 'nullable|string|max:255',
+            'manufacturer' => 'nullable|string|max:255',
             'min_qty' => 'nullable|integer|min:0',
-            'available_qty' => 'nullable|integer|min:0',
-            'status' => 'required|boolean',
-            // 'description' => 'nullable|string|max:500',
-        ], [
-            'license_name.required' => 'License name is required.',
-            'product_key.required' => 'Product key is required.',
-            'product_key.unique' => 'This product key already exists.',
-            'expiration_date.required' => 'Expiration date is required.',
-            'expiration_date.after' => 'Expiration date must be in the future.',
-            'min_qty.min' => 'Minimum quantity cannot be negative.',
-            'available_qty.min' => 'Available quantity cannot be negative.',
-            'status.required' => 'Status is required.',
+            'total_qty' => 'required|integer|min:1',
+            'available_qty' => 'nullable|integer|min:0|max:'.$request->total_qty,
+            'status' => 'boolean',
         ]);
 
-        // Set defaults
-        $validated['min_qty'] = $validated['min_qty'] ?? 1;
-        $validated['available_qty'] = $validated['available_qty'] ?? 0;
+        License::create($validated);
 
-        $license = License::create($validated);
-
-        // Return JSON response for AJAX requests (modals)
-        if ($request->wantsJson() || $request->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'License created successfully',
-                'license' => $license,
-            ]);
-        }
-
-        // Fallback for non-AJAX requests
-        return redirect()->route('admin.licenses.index')->with('success', 'License created successfully');
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(License $license)
-    {
-        // You can add relationships here if needed
-        // $license->load(['assignments', 'usageLogs']);
-
-        return Inertia::render('Admin/Licenses/Show', [
-            'license' => $license,
-        ]);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     * This method can be removed since we're using modals
-     */
-    public function edit(License $license)
-    {
-        return Inertia::render('Admin/Licenses/Edit', [
-            'license' => $license,
-        ]);
+        return redirect()->route('admin.licenses.index')
+            ->with('success', 'License created successfully.');
     }
 
     /**
@@ -116,44 +68,21 @@ class LicensesController extends Controller
     {
         $validated = $request->validate([
             'license_name' => 'required|string|max:255',
-            'product_key' => [
-                'required',
-                'string',
-                'max:255',
-                'unique:licenses,product_key,'.$license->id,
-            ],
+            'product_key' => 'required|string|max:255|unique:licenses,product_key,'.$license->id,
             'expiration_date' => 'required|date',
+            'licensed_email' => 'nullable|email|max:255',
+            'licensed_name' => 'nullable|string|max:255',
+            'manufacturer' => 'nullable|string|max:255',
             'min_qty' => 'nullable|integer|min:0',
-            'available_qty' => 'nullable|integer|min:0',
-            'status' => 'required|boolean',
-            'description' => 'nullable|string|max:500',
-        ], [
-            'license_name.required' => 'License name is required.',
-            'product_key.required' => 'Product key is required.',
-            'product_key.unique' => 'This product key already exists.',
-            'expiration_date.required' => 'Expiration date is required.',
-            'min_qty.min' => 'Minimum quantity cannot be negative.',
-            'available_qty.min' => 'Available quantity cannot be negative.',
-            'status.required' => 'Status is required.',
+            'total_qty' => 'required|integer|min:1',
+            'available_qty' => 'nullable|integer|min:0|max:'.$request->total_qty,
+            'status' => 'boolean',
         ]);
-
-        // Set defaults if null
-        $validated['min_qty'] = $validated['min_qty'] ?? 1;
-        $validated['available_qty'] = $validated['available_qty'] ?? 0;
 
         $license->update($validated);
 
-        // Return JSON response for AJAX requests (modals)
-        if ($request->wantsJson() || $request->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'License updated successfully',
-                'license' => $license->fresh(),
-            ]);
-        }
-
-        // Fallback for non-AJAX requests
-        return redirect()->route('admin.licenses.index')->with('success', 'License updated successfully');
+        return redirect()->route('admin.licenses.index')
+            ->with('success', 'License updated successfully.');
     }
 
     /**
@@ -161,36 +90,10 @@ class LicensesController extends Controller
      */
     public function destroy(License $license)
     {
-        // Check if license is being used/assigned
-        // Uncomment and modify based on your relationships
-        /*
-        $assignmentsCount = $license->assignments()->count();
-
-        if ($assignmentsCount > 0) {
-            if (request()->wantsJson() || request()->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "Cannot delete license. It has {$assignmentsCount} assignment(s).",
-                ], 422);
-            }
-
-            return redirect()->route('admin.licenses.index')
-                ->with('error', "Cannot delete license. It has {$assignmentsCount} assignment(s).");
-        }
-        */
-
         $license->delete();
 
-        // Return JSON response for AJAX requests
-        if (request()->wantsJson() || request()->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'License deleted successfully',
-            ]);
-        }
-
-        // Fallback for non-AJAX requests
-        return redirect()->route('admin.licenses.index')->with('success', 'License deleted successfully');
+        return redirect()->route('admin.licenses.index')
+            ->with('success', 'License deleted successfully.');
     }
 
     /**
@@ -199,12 +102,7 @@ class LicensesController extends Controller
     public function generateProductKey()
     {
         do {
-            $segments = [];
-            for ($i = 0; $i < 4; $i++) {
-                $segment = strtoupper(substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 4));
-                $segments[] = $segment;
-            }
-            $productKey = implode('-', $segments);
+            $productKey = strtoupper(Str::random(5).'-'.Str::random(5).'-'.Str::random(5).'-'.Str::random(5));
         } while (License::where('product_key', $productKey)->exists());
 
         return response()->json([
@@ -214,88 +112,42 @@ class LicensesController extends Controller
     }
 
     /**
-     * Update license quantities (for stock management)
+     * Update license quantity
      */
     public function updateQuantity(Request $request, License $license)
     {
         $validated = $request->validate([
             'available_qty' => 'required|integer|min:0',
             'operation' => 'required|in:set,add,subtract',
-            'notes' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:500',
         ]);
 
-        $currentQty = $license->available_qty ?? 0;
+        $newQuantity = $license->available_qty;
 
         switch ($validated['operation']) {
             case 'set':
-                $newQty = $validated['available_qty'];
+                $newQuantity = $validated['available_qty'];
                 break;
             case 'add':
-                $newQty = $currentQty + $validated['available_qty'];
+                $newQuantity += $validated['available_qty'];
                 break;
             case 'subtract':
-                $newQty = max(0, $currentQty - $validated['available_qty']);
+                $newQuantity = max(0, $newQuantity - $validated['available_qty']);
                 break;
         }
 
-        $license->update(['available_qty' => $newQty]);
+        // Ensure available quantity doesn't exceed total quantity
+        $newQuantity = min($newQuantity, $license->total_qty);
 
-        // Optional: Log the quantity change
-        // QuantityLog::create([
-        //     'license_id' => $license->id,
-        //     'old_quantity' => $currentQty,
-        //     'new_quantity' => $newQty,
-        //     'operation' => $validated['operation'],
-        //     'notes' => $validated['notes'],
-        //     'user_id' => auth()->id(),
-        // ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'License quantity updated successfully',
-            'license' => $license->fresh(),
+        $license->update([
+            'available_qty' => $newQuantity,
         ]);
-    }
 
-    /**
-     * Get licenses summary/dashboard data
-     */
-    public function summary()
-    {
-        $today = Carbon::today();
-        $thirtyDaysFromNow = Carbon::today()->addDays(30);
+        // You can log the quantity change here if needed
+        // ActivityLog::create([...]);
 
-        $summary = [
-            'total_licenses' => License::count(),
-            'active_licenses' => License::where('status', true)->count(),
-            'expired_licenses' => License::where('expiration_date', '<', $today)->count(),
-            'expiring_soon' => License::whereBetween('expiration_date', [$today, $thirtyDaysFromNow])->count(),
-            'low_stock' => License::whereRaw('available_qty <= min_qty AND available_qty > 0')->count(),
-            'out_of_stock' => License::where('available_qty', 0)->count(),
-        ];
-
-        $recentlyExpired = License::where('expiration_date', '<', $today)
-            ->where('expiration_date', '>', $today->copy()->subDays(7))
-            ->orderBy('expiration_date', 'desc')
-            ->limit(5)
-            ->get();
-
-        $expiringSoon = License::whereBetween('expiration_date', [$today, $thirtyDaysFromNow])
-            ->orderBy('expiration_date')
-            ->limit(10)
-            ->get();
-
-        $lowStock = License::whereRaw('available_qty <= min_qty AND available_qty > 0')
-            ->orderBy('available_qty')
-            ->limit(10)
-            ->get();
-
-        return Inertia::render('Admin/Licenses/Summary', [
-            'summary' => $summary,
-            'recently_expired' => $recentlyExpired,
-            'expiring_soon' => $expiringSoon,
-            'low_stock' => $lowStock,
-        ]);
+        return redirect()->route('admin.licenses.index')
+            ->with('success', 'License quantity updated successfully.');
     }
 
     /**
@@ -304,86 +156,77 @@ class LicensesController extends Controller
     public function bulkUpdateStatus(Request $request)
     {
         $validated = $request->validate([
-            'license_ids' => 'required|array|min:1',
+            'license_ids' => 'required|array',
             'license_ids.*' => 'exists:licenses,id',
             'status' => 'required|boolean',
         ]);
 
-        $updatedCount = License::whereIn('id', $validated['license_ids'])
+        License::whereIn('id', $validated['license_ids'])
             ->update(['status' => $validated['status']]);
 
-        $statusText = $validated['status'] ? 'activated' : 'deactivated';
-
         return response()->json([
             'success' => true,
-            'message' => "{$updatedCount} license(s) {$statusText} successfully",
+            'message' => count($validated['license_ids']).' license(s) updated successfully.',
         ]);
     }
 
     /**
-     * Export licenses data
+     * Export licenses
      */
-    public function export()
+    public function export(Request $request)
     {
-        $licenses = License::select([
-            'license_name',
-            'product_key',
-            'expiration_date',
-            'min_qty',
-            'available_qty',
-            'status',
-            'description',
-            'created_at',
-        ])
-            ->get()
-            ->map(function ($license) {
-                return [
-                    'License Name' => $license->license_name,
-                    'Product Key' => $license->product_key,
-                    'Expiration Date' => $license->expiration_date->format('Y-m-d'),
-                    'Min Quantity' => $license->min_qty,
-                    'Available Quantity' => $license->available_qty,
-                    'Status' => $license->status ? 'Active' : 'Inactive',
-                    'Description' => $license->description ?? 'N/A',
-                    'Created Date' => $license->created_at->format('Y-m-d'),
-                ];
-            });
+        $licenseIds = $request->input('license_ids', []);
 
-        return response()->json([
-            'success' => true,
-            'data' => $licenses,
-            'filename' => 'licenses_'.now()->format('Y-m-d').'.csv',
-        ]);
-    }
+        $licenses = License::when(! empty($licenseIds), function ($query) use ($licenseIds) {
+            return $query->whereIn('id', $licenseIds);
+        })->get();
 
-    /**
-     * Check license validity by product key
-     */
-    public function checkLicense(Request $request)
-    {
-        $validated = $request->validate([
-            'product_key' => 'required|string',
-        ]);
+        // For CSV export
+        $fileName = 'licenses_'.date('Y-m-d_H-i-s').'.csv';
 
-        $license = License::where('product_key', $validated['product_key'])->first();
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+        ];
 
-        if (! $license) {
-            return response()->json([
-                'valid' => false,
-                'message' => 'License not found',
-            ], 404);
-        }
+        $callback = function () use ($licenses) {
+            $file = fopen('php://output', 'w');
 
-        $isExpired = Carbon::parse($license->expiration_date)->isPast();
-        $isActive = $license->status;
+            // Add CSV headers
+            fputcsv($file, [
+                'License Name',
+                'Product Key',
+                'Manufacturer',
+                'Expiration Date',
+                'Licensed Email',
+                'Licensed To',
+                'Total Quantity',
+                'Available Quantity',
+                'Minimum Quantity',
+                'Status',
+                'Created At',
+            ]);
 
-        return response()->json([
-            'valid' => $isActive && ! $isExpired,
-            'license' => $license,
-            'is_expired' => $isExpired,
-            'is_active' => $isActive,
-            'expires_at' => $license->expiration_date,
-            'days_until_expiry' => Carbon::parse($license->expiration_date)->diffInDays(Carbon::now(), false),
-        ]);
+            // Add data rows
+            foreach ($licenses as $license) {
+                fputcsv($file, [
+                    $license->license_name,
+                    $license->product_key,
+                    $license->manufacturer,
+                    $license->expiration_date,
+                    $license->licensed_email,
+                    $license->licensed_name,
+                    $license->total_qty,
+                    $license->available_qty,
+                    $license->min_qty,
+                    $license->status ? 'Active' : 'Inactive',
+                    $license->created_at->format('Y-m-d H:i:s'),
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }

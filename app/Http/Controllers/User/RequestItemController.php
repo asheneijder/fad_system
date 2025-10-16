@@ -2,26 +2,52 @@
 
 namespace App\Http\Controllers\User;
 
-use Inertia\Inertia;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Models\Cart;
+use App\Models\RequestItem;
+use App\Models\RequestItemDetail;
+use App\Models\StationaryItem;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class RequestItemController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return Inertia::render('User/RequestItem/Index');
-    }
+        $search = $request->query('search');
+        $page = $request->query('page', 1);
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
+        $requests = RequestItem::with(['items.stationaryItem', 'user'])
+            ->where('user_id', auth()->id())
+            ->when($search, function ($query) use ($search) {
+                return $query->where('purpose', 'like', "%{$search}%")
+                    ->orWhere('notes', 'like', "%{$search}%");
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->withQueryString();
+
+        $stationaryItems = StationaryItem::active()
+            ->where('current_stock', '>', 0)
+            ->orderBy('name')
+            ->get()
+            ->toArray();
+
+        $cartItems = Cart::with('stationaryItem')
+            ->where('user_id', auth()->id())
+            ->get()
+            ->toArray();
+
+        return Inertia::render('User/RequestItems/Index', [
+            'requests' => $requests,
+            'stationaryItems' => $stationaryItems,
+            'cartItems' => $cartItems,
+            'filters' => $request->only(['search']) + ['page' => $page],
+        ]);
     }
 
     /**
@@ -29,38 +55,83 @@ class RequestItemController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'purpose' => 'required|string|max:255',
+            'priority' => 'required|in:low,medium,high,urgent',
+            'needed_by' => 'nullable|date|after:today',
+            'notes' => 'nullable|string|max:1000',
+            'cart_item_ids' => 'required|array',
+            'cart_item_ids.*' => 'exists:carts,id,user_id,'.auth()->id(),
+        ]);
+
+        DB::transaction(function () use ($validated) {
+            // Create the request
+            $requestItem = RequestItem::create([
+                'user_id' => auth()->id(),
+                'purpose' => $validated['purpose'],
+                'priority' => $validated['priority'],
+                'needed_by' => $validated['needed_by'],
+                'notes' => $validated['notes'],
+                'status' => 'pending',
+            ]);
+
+            // Get cart items
+            $cartItems = Cart::with('stationaryItem')
+                ->where('user_id', auth()->id())
+                ->whereIn('id', $validated['cart_item_ids'])
+                ->get();
+
+            // Create request details
+            foreach ($cartItems as $cartItem) {
+                RequestItemDetail::create([
+                    'request_item_id' => $requestItem->id,
+                    'stationary_item_id' => $cartItem->stationary_item_id,
+                    'quantity' => $cartItem->quantity,
+                    'notes' => $cartItem->notes,
+                    'unit_price' => $cartItem->stationaryItem->cost_price,
+                ]);
+            }
+
+            // Clear the cart
+            Cart::where('user_id', auth()->id())
+                ->whereIn('id', $validated['cart_item_ids'])
+                ->delete();
+        });
+
+        return redirect()->route('user.request-items.index')
+            ->with('success', 'Request submitted successfully.');
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(RequestItem $requestItem)
     {
-        //
-    }
+        // Ensure user can only view their own requests
+        if ($requestItem->user_id !== auth()->id()) {
+            abort(403);
+        }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
+        $requestItem->load(['items.stationaryItem', 'user', 'approvedBy']);
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
+        return Inertia::render('User/RequestItems/Show', [
+            'requestItem' => $requestItem,
+        ]);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(RequestItem $requestItem)
     {
-        //
+        // Ensure user can only cancel their own pending requests
+        if ($requestItem->user_id !== auth()->id() || $requestItem->status !== 'pending') {
+            abort(403);
+        }
+
+        $requestItem->update(['status' => 'cancelled']);
+
+        return redirect()->route('user.request-items.index')
+            ->with('success', 'Request cancelled successfully.');
     }
 }

@@ -3,43 +3,39 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\CategoryType;
+use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class CategoryController extends Controller
 {
-    public function __construct(protected CategoryType $categoryType) {}
-
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $req)
+    public function index(Request $request)
     {
-        $search = $req->query('search');
+        $search = $request->query('search');
+        $page = $request->query('page', 1);
 
-        $categories = $this->categoryType->query()
-            ->when($search, fn ($q) => $q->where('category_name', 'like', "%{$search}%")
-            )
-            ->orderBy('created_at', 'desc')
+        $categories = Category::with('parent')
+            ->when($search, function ($query) use ($search) {
+                return $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhere('meta_title', 'like', "%{$search}%")
+                        ->orWhere('meta_keywords', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('name', 'asc')
             ->paginate(10)
             ->withQueryString();
 
         return Inertia::render('Admin/Category/Index', [
             'categories' => $categories,
-            'filters' => $req->only(['search']) + ['page' => $categories->currentPage()],
+            'filters' => $request->only(['search']) + ['page' => $page],
         ]);
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     * This method can be removed since we're using modals
-     */
-    public function create()
-    {
-        // This method can be removed or kept for backward compatibility
-        return Inertia::render('Admin/Category/Create');
     }
 
     /**
@@ -48,140 +44,179 @@ class CategoryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'category_name' => [
-                'required',
-                'string',
-                'max:255',
-                'unique:category_types,category_name',
-            ],
-        ], [
-            'category_name.required' => 'Category name is required.',
-            'category_name.unique' => 'This category name already exists.',
-            'category_name.max' => 'Category name must not exceed 255 characters.',
+            'name' => 'required|string|max:255|unique:categories,name',
+            'description' => 'nullable|string|max:1000',
+            'type' => 'required|string|in:product,blog,service,document,general',
+            'status' => 'boolean',
+            'parent_id' => 'nullable|exists:categories,id',
+            'sort_order' => 'nullable|integer|min:0',
+            'meta_title' => 'nullable|string|max:255',
+            'meta_description' => 'nullable|string|max:500',
+            'meta_keywords' => 'nullable|string|max:255',
         ]);
 
-        $category = $this->categoryType->create($validated);
+        Category::create($validated);
 
-        // Return JSON response for AJAX requests (modals)
-        if ($request->wantsJson() || $request->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Category created successfully',
-                'category' => $category,
-            ]);
-        }
-
-        // Fallback for non-AJAX requests
-        return redirect()->route('admin.categories.index')->with('success', 'Category created successfully');
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        $category = $this->categoryType->findOrFail($id);
-
-        return Inertia::render('Admin/Category/Show', [
-            'category' => $category,
-        ]);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     * This method can be removed since we're using modals
-     */
-    public function edit(string $id)
-    {
-        // This method can be removed or kept for backward compatibility
-        $category = $this->categoryType->findOrFail($id);
-
-        return Inertia::render('Admin/Category/Edit', [
-            'category' => $category,
-        ]);
+        return redirect()->route('admin.categories.index')
+            ->with('success', 'Category created successfully.');
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, Category $category)
     {
-        $category = $this->categoryType->findOrFail($id);
-
         $validated = $request->validate([
-            'category_name' => [
+            'name' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('category_types', 'category_name')->ignore($category->id),
+                Rule::unique('categories')->ignore($category->id),
             ],
-        ], [
-            'category_name.required' => 'Category name is required.',
-            'category_name.unique' => 'This category name already exists.',
-            'category_name.max' => 'Category name must not exceed 255 characters.',
+            'description' => 'nullable|string|max:1000',
+            'type' => 'required|string|in:product,blog,service,document,general',
+            'status' => 'boolean',
+            'parent_id' => 'nullable|exists:categories,id',
+            'sort_order' => 'nullable|integer|min:0',
+            'meta_title' => 'nullable|string|max:255',
+            'meta_description' => 'nullable|string|max:500',
+            'meta_keywords' => 'nullable|string|max:255',
         ]);
+
+        // Prevent category from being its own parent
+        if ($validated['parent_id'] == $category->id) {
+            return redirect()->back()->withErrors(['parent_id' => 'Category cannot be its own parent.']);
+        }
 
         $category->update($validated);
 
-        // Return JSON response for AJAX requests (modals)
-        if ($request->wantsJson() || $request->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Category updated successfully',
-                'category' => $category,
-            ]);
-        }
-
-        // Fallback for non-AJAX requests
-        return redirect()->route('admin.categories.index')->with('success', 'Category updated successfully');
+        return redirect()->route('admin.categories.index')
+            ->with('success', 'Category updated successfully.');
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Category $category)
     {
-        $category = $this->categoryType->findOrFail($id);
-
-        // Check if category is being used by any models
-        $modelsCount = $category->modelTypes()->count();
-
-        if ($modelsCount > 0) {
-            // Return error if category is in use
-            if (request()->wantsJson() || request()->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "Cannot delete category. It is being used by {$modelsCount} model(s).",
-                ], 422);
-            }
-
+        // Check if category has children
+        if ($category->children()->exists()) {
             return redirect()->route('admin.categories.index')
-                ->with('error', "Cannot delete category. It is being used by {$modelsCount} model(s).");
+                ->with('error', 'Cannot delete category that has sub-categories.');
         }
 
         $category->delete();
 
-        // Return JSON response for AJAX requests
-        if (request()->wantsJson() || request()->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Category deleted successfully',
-            ]);
-        }
-
-        // Fallback for non-AJAX requests
-        return redirect()->route('admin.categories.index')->with('success', 'Category deleted successfully');
+        return redirect()->route('admin.categories.index')
+            ->with('success', 'Category deleted successfully.');
     }
 
     /**
-     * Get categories for dropdown/select options
+     * Bulk update category status
      */
-    public function getOptions()
+    public function bulkUpdateStatus(Request $request)
     {
-        $categories = $this->categoryType->select('id', 'category_name')
-            ->orderBy('category_name')
+        $validated = $request->validate([
+            'category_ids' => 'required|array',
+            'category_ids.*' => 'exists:categories,id',
+            'status' => 'required|boolean',
+        ]);
+
+        Category::whereIn('id', $validated['category_ids'])
+            ->update(['status' => $validated['status']]);
+
+        return response()->json([
+            'success' => true,
+            'message' => count($validated['category_ids']).' category(s) updated successfully.',
+        ]);
+    }
+
+    /**
+     * Bulk delete categories
+     */
+    public function bulkDelete(Request $request)
+    {
+        $validated = $request->validate([
+            'category_ids' => 'required|array',
+            'category_ids.*' => 'exists:categories,id',
+        ]);
+
+        // Check if any category has children
+        $categoriesWithChildren = Category::whereIn('id', $validated['category_ids'])
+            ->whereHas('children')
+            ->count();
+
+        if ($categoriesWithChildren > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete categories that have sub-categories.',
+            ], 422);
+        }
+
+        Category::whereIn('id', $validated['category_ids'])->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => count($validated['category_ids']).' category(s) deleted successfully.',
+        ]);
+    }
+
+    /**
+     * Export categories
+     */
+    public function export(Request $request)
+    {
+        $categoryIds = $request->input('category_ids', []);
+
+        $categories = Category::with('parent')
+            ->when(! empty($categoryIds), function ($query) use ($categoryIds) {
+                return $query->whereIn('id', $categoryIds);
+            })
             ->get();
 
-        return response()->json($categories);
+        $fileName = 'categories_'.date('Y-m-d_H-i-s').'.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+        ];
+
+        $callback = function () use ($categories) {
+            $file = fopen('php://output', 'w');
+
+            // Add CSV headers
+            fputcsv($file, [
+                'Name',
+                'Type',
+                'Parent Category',
+                'Description',
+                'Sort Order',
+                'Status',
+                'Meta Title',
+                'Meta Description',
+                'Meta Keywords',
+                'Created At',
+            ]);
+
+            // Add data rows
+            foreach ($categories as $category) {
+                fputcsv($file, [
+                    $category->name,
+                    $category->type,
+                    $category->parent ? $category->parent->name : '',
+                    $category->description,
+                    $category->sort_order,
+                    $category->status ? 'Active' : 'Inactive',
+                    $category->meta_title,
+                    $category->meta_description,
+                    $category->meta_keywords,
+                    $category->created_at->format('Y-m-d H:i:s'),
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }
