@@ -78,6 +78,12 @@ Route::group([
         ->name('licenses.export');
 
     Route::resource('users', ManageUserController::class);
+    // Additional User Routes
+    Route::post('/users/{user}/reset-password', [ManageUserController::class, 'resetPassword'])->name('users.reset-password');
+    Route::post('/users/bulk-reset-password', [ManageUserController::class, 'bulkResetPassword'])->name('users.bulk-reset-password');
+    Route::post('/users/bulk-delete', [ManageUserController::class, 'bulkDelete'])->name('users.bulk-delete');
+    Route::post('/users/export', [ManageUserController::class, 'export'])->name('users.export');
+    Route::get('/users/search', [ManageUserController::class, 'search'])->name('users.search');
 
     Route::resource('stationary-items', StationaryItemController::class);
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -17,35 +18,43 @@ class ManageUserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $req)
+    public function index(Request $request)
     {
-        $search = $req->query('search');
+        $search = $request->query('search');
+        $status = $request->query('status');
 
         $users = $this->user->query()
-            ->when(
-                $search,
-                fn ($query) => $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('job_title', 'like', "%{$search}%")
-                    ->orWhere('department', 'like', "%{$search}%")
-            )
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('job_title', 'like', "%{$search}%")
+                        ->orWhere('department', 'like', "%{$search}%")
+                        ->orWhere('office_location', 'like', "%{$search}%");
+                });
+            })
+            ->when($status !== null && $status !== '', function ($query) use ($status) {
+                $query->where('status', $status);
+            })
             ->orderBy('created_at', 'desc')
             ->paginate(10)
             ->withQueryString();
 
+        // Statistics - Since we don't have status field yet, we'll use basic counts
+        $statistics = [
+            'total' => $this->user->count(),
+            'active' => $this->user->count(), // Default all users as active for now
+            'this_month' => $this->user->whereYear('created_at', now()->year)
+                ->whereMonth('created_at', now()->month)
+                ->count(),
+            'with_job_title' => $this->user->whereNotNull('job_title')->count(),
+        ];
+
         return Inertia::render('Admin/Users/Index', [
             'users' => $users,
-            'filters' => $req->only(['search']) + ['page' => $users->currentPage()],
+            'filters' => $request->only(['search', 'status']),
+            'statistics' => $statistics,
         ]);
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     * This method can be removed since we're using modals
-     */
-    public function create()
-    {
-        return Inertia::render('Admin/Users/Create');
     }
 
     /**
@@ -70,60 +79,52 @@ class ManageUserController extends Controller
             'password.confirmed' => 'Password confirmation does not match.',
         ]);
 
-        $user = $this->user->create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'job_title' => $validated['job_title'],
-            'department' => $validated['department'],
-            'office_location' => $validated['office_location'],
-            'password' => Hash::make($validated['password']),
-        ]);
+        try {
+            DB::beginTransaction();
 
-        // Return JSON response for AJAX requests (modals)
-        if ($request->wantsJson() || $request->expectsJson()) {
+            $user = $this->user->create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'job_title' => $validated['job_title'],
+                'department' => $validated['department'],
+                'office_location' => $validated['office_location'],
+                'password' => Hash::make($validated['password']),
+                'email_verified_at' => now(),
+            ]);
+
+            DB::commit();
+
             return response()->json([
                 'success' => true,
                 'message' => 'User created successfully',
                 'user' => $user,
             ]);
-        }
 
-        // Fallback for non-AJAX requests
-        return to_route('admin.users.index')->with('success', 'User created successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create user: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(User $user)
     {
-        $user = $this->user->findOrFail($id);
-
         return Inertia::render('Admin/Users/Show', [
-            'user' => $user,
-        ]);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     * This method can be removed since we're using modals
-     */
-    public function edit(string $id)
-    {
-        $user = $this->user->findOrFail($id);
-
-        return Inertia::render('Admin/Users/Edit', [
-            'user' => $user,
+            'user' => $user->load('assets'),
         ]);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, User $user)
     {
-        $user = $this->user->findOrFail($id);
-
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => [
@@ -144,94 +145,82 @@ class ManageUserController extends Controller
             'password.confirmed' => 'Password confirmation does not match.',
         ]);
 
-        // Prepare update data
-        $updateData = [
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'job_title' => $validated['job_title'],
-            'department' => $validated['department'],
-            'office_location' => $validated['office_location'],
-        ];
+        try {
+            DB::beginTransaction();
 
-        // Only update password if provided
-        if (! empty($validated['password'])) {
-            $updateData['password'] = Hash::make($validated['password']);
-        }
+            $updateData = [
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'job_title' => $validated['job_title'],
+                'department' => $validated['department'],
+                'office_location' => $validated['office_location'],
+            ];
 
-        $user->update($updateData);
+            // Only update password if provided
+            if (! empty($validated['password'])) {
+                $updateData['password'] = Hash::make($validated['password']);
+            }
 
-        // Return JSON response for AJAX requests (modals)
-        if ($request->wantsJson() || $request->expectsJson()) {
+            $user->update($updateData);
+
+            DB::commit();
+
             return response()->json([
                 'success' => true,
                 'message' => 'User updated successfully',
                 'user' => $user->fresh(),
             ]);
-        }
 
-        // Fallback for non-AJAX requests
-        return to_route('admin.users.index')->with('success', 'User updated successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update user: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(User $user)
     {
-        $user = $this->user->findOrFail($id);
-
         // Prevent deletion of current user
         if ($user->id === Auth::id()) {
-            if (request()->wantsJson() || request()->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You cannot delete your own account.',
-                ], 422);
-            }
-
-            return to_route('admin.users.index')
-                ->with('error', 'You cannot delete your own account.');
+            return response()->json([
+                'success' => false,
+                'message' => 'You cannot delete your own account.',
+            ], 422);
         }
 
-        // Check if user has related records (you can expand this based on your relationships)
-        // For example, if users have created records that shouldn't be orphaned
-        /*
-        $hasRelatedRecords = $user->createdModels()->exists(); // Example relationship
+        try {
+            DB::beginTransaction();
 
-        if ($hasRelatedRecords) {
-            if (request()->wantsJson() || request()->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot delete user. User has associated records.',
-                ], 422);
-            }
+            $user->delete();
 
-            return to_route('admin.users.index')
-                ->with('error', 'Cannot delete user. User has associated records.');
-        }
-        */
+            DB::commit();
 
-        $user->delete();
-
-        // Return JSON response for AJAX requests
-        if (request()->wantsJson() || request()->expectsJson()) {
             return response()->json([
                 'success' => true,
                 'message' => 'User deleted successfully',
             ]);
-        }
 
-        // Fallback for non-AJAX requests
-        return to_route('admin.users.index')->with('success', 'User deleted successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete user: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
      * Reset user password to default
      */
-    public function resetPassword(string $id)
+    public function resetPassword(User $user)
     {
-        $user = $this->user->findOrFail($id);
-
         // Prevent resetting own password via this method
         if ($user->id === Auth::id()) {
             return response()->json([
@@ -240,41 +229,76 @@ class ManageUserController extends Controller
             ], 422);
         }
 
-        $defaultPassword = 'st@ff!@Rt!';
-        $user->update([
-            'password' => Hash::make($defaultPassword),
-        ]);
+        try {
+            DB::beginTransaction();
 
-        return response()->json([
-            'success' => true,
-            'message' => "Password reset to default: {$defaultPassword}",
-        ]);
+            $defaultPassword = 'st@ff!@Rt!';
+            $user->update([
+                'password' => Hash::make($defaultPassword),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password reset to default successfully',
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reset password: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
-     * Toggle user status (if you have a status field)
+     * Bulk reset passwords
      */
-    public function toggleStatus(string $id)
+    public function bulkResetPassword(Request $request)
     {
-        $user = $this->user->findOrFail($id);
+        $validated = $request->validate([
+            'user_ids' => 'required|array|min:1',
+            'user_ids.*' => 'exists:users,id',
+        ]);
 
-        // Prevent deactivating own account
-        if ($user->id === Auth::id()) {
+        $userIds = $validated['user_ids'];
+
+        // Remove current user from reset list
+        $userIds = array_filter($userIds, fn ($id) => $id != Auth::id());
+
+        if (empty($userIds)) {
             return response()->json([
                 'success' => false,
-                'message' => 'You cannot deactivate your own account.',
+                'message' => 'No valid users selected for password reset.',
             ], 422);
         }
 
-        // Assuming you have a 'status' or 'is_active' field
-        // $user->update(['status' => !$user->status]);
-        // For now, we'll just return a message since the field might not exist
+        try {
+            DB::beginTransaction();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'User status updated successfully',
-            'user' => $user->fresh(),
-        ]);
+            $defaultPassword = 'st@ff!@Rt!';
+            $this->user->whereIn('id', $userIds)->update([
+                'password' => Hash::make($defaultPassword),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => count($userIds).' user password(s) reset successfully',
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reset passwords: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -299,39 +323,39 @@ class ManageUserController extends Controller
             ], 422);
         }
 
-        $deletedCount = $this->user->whereIn('id', $userIds)->delete();
+        try {
+            DB::beginTransaction();
 
-        return response()->json([
-            'success' => true,
-            'message' => "{$deletedCount} user(s) deleted successfully",
-        ]);
-    }
+            $deletedCount = $this->user->whereIn('id', $userIds)->delete();
 
-    /**
-     * Search users (for autocomplete or API usage)
-     */
-    public function search(Request $request)
-    {
-        $query = $request->get('q', '');
-        $limit = min($request->get('limit', 10), 50); // Max 50 results
+            DB::commit();
 
-        $users = $this->user->query()
-            ->when($query, fn ($q) => $q->where('name', 'like', "%{$query}%")
-                ->orWhere('email', 'like', "%{$query}%")
-            )
-            ->select('id', 'name', 'email', 'job_title')
-            ->limit($limit)
-            ->get();
+            return response()->json([
+                'success' => true,
+                'message' => $deletedCount.' user(s) deleted successfully',
+            ]);
 
-        return response()->json($users);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete users: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
      * Export users data
      */
-    public function export()
+    public function export(Request $request)
     {
+        $userIds = $request->input('user_ids', []);
+
         $users = $this->user->query()
+            ->when(! empty($userIds), function ($query) use ($userIds) {
+                $query->whereIn('id', $userIds);
+            })
             ->select('name', 'email', 'job_title', 'department', 'office_location', 'created_at')
             ->get()
             ->map(function ($user) {
@@ -341,14 +365,61 @@ class ManageUserController extends Controller
                     'Job Title' => $user->job_title ?? 'N/A',
                     'Department' => $user->department ?? 'N/A',
                     'Office Location' => $user->office_location ?? 'N/A',
-                    'Joined Date' => $user->created_at->format('Y-m-d'),
+                    'Joined Date' => $user->created_at->format('Y-m-d H:i:s'),
                 ];
             });
 
-        return response()->json([
-            'success' => true,
-            'data' => $users,
-            'filename' => 'users_'.now()->format('Y-m-d').'.csv',
-        ]);
+        $filename = 'users_'.now()->format('Y-m-d').'.csv';
+
+        // For CSV export
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'data' => $users,
+                'filename' => $filename,
+            ]);
+        }
+
+        // For direct download
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ];
+
+        $callback = function () use ($users) {
+            $file = fopen('php://output', 'w');
+
+            // Add headers
+            fputcsv($file, array_keys($users->first() ?? []));
+
+            // Add data
+            foreach ($users as $user) {
+                fputcsv($file, $user);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Search users (for autocomplete or API usage)
+     */
+    public function search(Request $request)
+    {
+        $query = $request->get('q', '');
+        $limit = min($request->get('limit', 10), 50);
+
+        $users = $this->user->query()
+            ->when($query, function ($q) use ($query) {
+                $q->where('name', 'like', "%{$query}%")
+                    ->orWhere('email', 'like', "%{$query}%");
+            })
+            ->select('id', 'name', 'email', 'job_title')
+            ->limit($limit)
+            ->get();
+
+        return response()->json($users);
     }
 }
