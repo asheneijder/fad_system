@@ -47,7 +47,7 @@ const home = { icon: 'pi pi-home', url: route('dashboard') };
 const items = [{ label: 'Request Items' }];
 
 const search = ref(props.filters?.search || "");
-const stationaryItems = ref(props.stationaryItems || []); // FIXED: Direct array, no .data
+const stationaryItems = ref(props.stationaryItems || []);
 const cartItems = ref(props.cartItems || []);
 const requests = ref(props.requests);
 const showAddToCartDialog = ref(false);
@@ -104,7 +104,7 @@ const statistics = computed(() => {
     };
 });
 
-// Watchers - FIXED: Remove .data from stationaryItems
+// Watchers
 watch(() => props.requests, (newRequests) => {
     requests.value = newRequests;
 }, { immediate: true });
@@ -114,7 +114,7 @@ watch(() => props.cartItems, (newCartItems) => {
 }, { immediate: true });
 
 watch(() => props.stationaryItems, (newItems) => {
-    stationaryItems.value = newItems || []; // FIXED: Direct assignment
+    stationaryItems.value = newItems || [];
 }, { immediate: true });
 
 watch(search, (newSearch, oldSearch) => {
@@ -177,7 +177,6 @@ const addToCart = () => {
                 life: 3000
             });
             showAddToCartDialog.value = false;
-            // Refresh the page to get updated cart items
             router.reload();
         },
         onError: (errors) => {
@@ -208,7 +207,6 @@ const removeFromCart = (cartItemId) => {
                         detail: "Item removed from cart",
                         life: 3000,
                     });
-                    // Refresh the page to get updated cart items
                     router.reload();
                 },
                 onError: (errors) => {
@@ -236,7 +234,6 @@ const updateCartQuantity = (cartItemId, newQuantity) => {
 
     form.put(route('user.cart-list.update', cartItemId), {
         onSuccess: () => {
-            // Refresh the page to get updated cart items
             router.reload();
         },
         onError: (errors) => {
@@ -251,7 +248,6 @@ const updateCartQuantity = (cartItemId, newQuantity) => {
 };
 
 const openRequestDialog = () => {
-    // FIXED: Proper null checking for cartItems
     const hasCartItems = Array.isArray(cartItems.value) && cartItems.value.length > 0;
     
     if (!hasCartItems) {
@@ -292,7 +288,6 @@ const submitRequest = () => {
                 life: 3000
             });
             showRequestDialog.value = false;
-            // Refresh the page to get updated data
             router.reload();
         },
         onError: (errors) => {
@@ -384,7 +379,6 @@ const getStockStatus = (item) => {
     return { text: 'In Stock', severity: 'success' };
 };
 
-// Function to scroll to available items section
 const scrollToAvailableItems = () => {
     const element = document.getElementById('available-items-section');
     if (element) {
@@ -400,41 +394,43 @@ const scrollToAvailableItems = () => {
         <Toast />
         <ConfirmDialog />
 
-        <div class="p-6 space-y-6">
+        <div class="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
             <!-- Breadcrumb -->
             <Breadcrumb :home="home" :model="items" class="mb-4">
                 <template #item="{ item }">
-                    <span class="font-semibold text-gray-700">{{ item.label }}</span>
+                    <span class="font-semibold text-gray-700 text-sm sm:text-base">{{ item.label }}</span>
                 </template>
             </Breadcrumb>
 
             <!-- Page Header -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">Request Stationary Items</h1>
-                    <p class="mt-1 text-gray-500">Request office supplies and track your requests</p>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Request Stationary Items</h1>
+                    <p class="mt-1 text-sm sm:text-base text-gray-500">Request office supplies and track your requests</p>
                 </div>
-                <div class="flex gap-3">
+                <div class="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
                     <Button label="View Cart" icon="pi pi-shopping-cart" severity="info" 
                         @click="showCartDialog = true"
-                        :badge="statistics.cartItems.toString()" badgeClass="p-badge-danger" />
+                        :badge="statistics.cartItems.toString()" badgeClass="p-badge-danger"
+                        class="flex-1 sm:flex-initial" size="small" />
                     <Button label="Submit Request" icon="pi pi-send" severity="success"
                         @click="openRequestDialog" 
-                        :disabled="statistics.cartItems === 0" />
+                        :disabled="statistics.cartItems === 0"
+                        class="flex-1 sm:flex-initial" size="small" />
                 </div>
             </div>
 
             <!-- Statistics Cards -->
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                 <Card class="border-l-4 border-blue-500 shadow-md">
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">Total Requests</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.totalRequests }}</p>
+                                <p class="text-xs sm:text-sm font-medium text-gray-500">Total Requests</p>
+                                <p class="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{{ statistics.totalRequests }}</p>
                             </div>
-                            <div class="p-3 bg-blue-100 rounded-full">
-                                <i class="text-xl text-blue-600 pi pi-inbox"></i>
+                            <div class="p-2 sm:p-3 bg-blue-100 rounded-full">
+                                <i class="text-lg sm:text-xl text-blue-600 pi pi-inbox"></i>
                             </div>
                         </div>
                     </template>
@@ -444,11 +440,11 @@ const scrollToAvailableItems = () => {
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">Pending</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.pending }}</p>
+                                <p class="text-xs sm:text-sm font-medium text-gray-500">Pending</p>
+                                <p class="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{{ statistics.pending }}</p>
                             </div>
-                            <div class="p-3 bg-yellow-100 rounded-full">
-                                <i class="text-xl text-yellow-600 pi pi-clock"></i>
+                            <div class="p-2 sm:p-3 bg-yellow-100 rounded-full">
+                                <i class="text-lg sm:text-xl text-yellow-600 pi pi-clock"></i>
                             </div>
                         </div>
                     </template>
@@ -458,11 +454,11 @@ const scrollToAvailableItems = () => {
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">Approved</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.approved }}</p>
+                                <p class="text-xs sm:text-sm font-medium text-gray-500">Approved</p>
+                                <p class="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{{ statistics.approved }}</p>
                             </div>
-                            <div class="p-3 bg-green-100 rounded-full">
-                                <i class="text-xl text-green-600 pi pi-check-circle"></i>
+                            <div class="p-2 sm:p-3 bg-green-100 rounded-full">
+                                <i class="text-lg sm:text-xl text-green-600 pi pi-check-circle"></i>
                             </div>
                         </div>
                     </template>
@@ -472,11 +468,11 @@ const scrollToAvailableItems = () => {
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">Cart Items</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.cartItems }}</p>
+                                <p class="text-xs sm:text-sm font-medium text-gray-500">Cart Items</p>
+                                <p class="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{{ statistics.cartItems }}</p>
                             </div>
-                            <div class="p-3 bg-red-100 rounded-full">
-                                <i class="text-xl text-red-600 pi pi-shopping-cart"></i>
+                            <div class="p-2 sm:p-3 bg-red-100 rounded-full">
+                                <i class="text-lg sm:text-xl text-red-600 pi pi-shopping-cart"></i>
                             </div>
                         </div>
                     </template>
@@ -486,30 +482,30 @@ const scrollToAvailableItems = () => {
             <!-- Available Items Section -->
             <Card id="available-items-section" class="shadow-lg">
                 <template #content>
-                    <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-xl font-bold text-gray-800">Available Stationary Items</h2>
-                        <div class="w-full lg:w-auto">
-                            <span class="p-input-icon-left">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
+                        <h2 class="text-lg sm:text-xl font-bold text-gray-800">Available Stationary Items</h2>
+                        <div class="w-full sm:w-auto">
+                            <span class="p-input-icon-left block w-full">
                                 <i class="pi pi-search" />
                                 <InputText v-model="search" placeholder="Search items..." 
-                                    class="w-full lg:w-80" />
+                                    class="w-full sm:w-80 pl-10" />
                             </span>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                         <div v-for="item in stationaryItems" :key="item.id" 
-                            class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                            class="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow">
                             <div class="flex items-start justify-between mb-2">
-                                <h3 class="font-semibold text-gray-900">{{ item.name }}</h3>
+                                <h3 class="font-semibold text-sm sm:text-base text-gray-900">{{ item.name }}</h3>
                                 <Badge :value="getStockStatus(item).text"
                                     :severity="getStockStatus(item).severity"
                                     class="text-xs" />
                             </div>
                             
-                            <p class="text-sm text-gray-600 mb-2">{{ item.description }}</p>
+                            <p class="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2">{{ item.description }}</p>
                             
-                            <div class="space-y-1 text-sm text-gray-600">
+                            <div class="space-y-1 text-xs sm:text-sm text-gray-600">
                                 <div class="flex justify-between">
                                     <span>Category:</span>
                                     <span class="font-medium">{{ item.category }}</span>
@@ -524,22 +520,22 @@ const scrollToAvailableItems = () => {
                                 </div>
                             </div>
 
-                            <div class="mt-4 flex gap-2">
+                            <div class="mt-3 sm:mt-4">
                                 <Button label="Add to Cart" icon="pi pi-cart-plus" severity="success" size="small"
                                     @click="openAddToCartDialog(item)"
                                     :disabled="item.current_stock === 0"
-                                    class="flex-1" />
+                                    class="w-full" />
                             </div>
                         </div>
 
                         <!-- Empty State -->
                         <div v-if="stationaryItems.length === 0" class="col-span-full">
-                            <div class="flex flex-col items-center justify-center py-12">
-                                <div class="p-6 mb-4 bg-gray-100 rounded-full">
-                                    <i class="text-6xl text-gray-400 pi pi-box"></i>
+                            <div class="flex flex-col items-center justify-center py-8 sm:py-12 px-4">
+                                <div class="p-4 sm:p-6 mb-3 sm:mb-4 bg-gray-100 rounded-full">
+                                    <i class="text-4xl sm:text-6xl text-gray-400 pi pi-box"></i>
                                 </div>
-                                <h3 class="mb-2 text-xl font-semibold text-gray-700">No Items Available</h3>
-                                <p class="text-gray-500">No stationary items are currently available for request.</p>
+                                <h3 class="mb-2 text-lg sm:text-xl font-semibold text-gray-700">No Items Available</h3>
+                                <p class="text-sm sm:text-base text-gray-500 text-center">No stationary items are currently available for request.</p>
                             </div>
                         </div>
                     </div>
@@ -549,105 +545,108 @@ const scrollToAvailableItems = () => {
             <!-- My Requests Section -->
             <Card class="shadow-lg">
                 <template #content>
-                    <h2 class="text-xl font-bold text-gray-800 mb-6">My Requests</h2>
+                    <h2 class="text-lg sm:text-xl font-bold text-gray-800 mb-4 sm:mb-6">My Requests</h2>
 
-                    <DataTable :value="requests.data" showGridlines stripedRows
-                        :rowHover="true" paginator :rows="requests.per_page" :totalRecords="requests.total"
-                        :first="(requests.current_page - 1) * requests.per_page" @page="onPageChange"
-                        responsiveLayout="scroll" tableStyle="min-width: 50rem" class="p-datatable-custom">
+                    <div class="overflow-x-auto">
+                        <DataTable :value="requests.data" showGridlines stripedRows
+                            :rowHover="true" paginator :rows="requests.per_page" :totalRecords="requests.total"
+                            :first="(requests.current_page - 1) * requests.per_page" @page="onPageChange"
+                            responsiveLayout="scroll" class="p-datatable-custom">
 
-                        <!-- Empty State -->
-                        <template #empty>
-                            <div class="flex flex-col items-center justify-center py-12">
-                                <div class="p-6 mb-4 bg-gray-100 rounded-full">
-                                    <i class="text-6xl text-gray-400 pi pi-inbox"></i>
-                                </div>
-                                <h3 class="mb-2 text-xl font-semibold text-gray-700">No Requests Found</h3>
-                                <p class="mb-4 text-gray-500">You haven't made any requests yet.</p>
-                                <Button label="Browse Items" icon="pi pi-shopping-cart" severity="success"
-                                    @click="scrollToAvailableItems" />
-                            </div>
-                        </template>
-
-                        <!-- Columns -->
-                        <Column header="#" style="width: 60px;">
-                            <template #body="slotProps">
-                                <Badge :value="(requests.current_page - 1) * requests.per_page + slotProps.index + 1"
-                                    severity="secondary" />
-                            </template>
-                        </Column>
-
-                        <Column field="purpose" header="Purpose" sortable>
-                            <template #body="slotProps">
-                                <div class="font-semibold text-gray-900">{{ slotProps.data.purpose }}</div>
-                                <div class="text-sm text-gray-500">
-                                    {{ slotProps.data.items?.length || 0 }} item(s)
+                            <!-- Empty State -->
+                            <template #empty>
+                                <div class="flex flex-col items-center justify-center py-8 sm:py-12 px-4">
+                                    <div class="p-4 sm:p-6 mb-3 sm:mb-4 bg-gray-100 rounded-full">
+                                        <i class="text-4xl sm:text-6xl text-gray-400 pi pi-inbox"></i>
+                                    </div>
+                                    <h3 class="mb-2 text-lg sm:text-xl font-semibold text-gray-700">No Requests Found</h3>
+                                    <p class="mb-3 sm:mb-4 text-sm sm:text-base text-gray-500 text-center">You haven't made any requests yet.</p>
+                                    <Button label="Browse Items" icon="pi pi-shopping-cart" severity="success"
+                                        @click="scrollToAvailableItems" size="small" />
                                 </div>
                             </template>
-                        </Column>
 
-                        <Column header="Priority" sortable style="width: 120px;">
-                            <template #body="slotProps">
-                                <Badge :value="slotProps.data.priority"
-                                    :severity="getPrioritySeverity(slotProps.data.priority)"
-                                    class="capitalize" />
-                            </template>
-                        </Column>
+                            <!-- Columns -->
+                            <Column header="#" style="width: 60px;">
+                                <template #body="slotProps">
+                                    <Badge :value="(requests.current_page - 1) * requests.per_page + slotProps.index + 1"
+                                        severity="secondary" />
+                                </template>
+                            </Column>
 
-                        <Column header="Status" sortable style="width: 120px;">
-                            <template #body="slotProps">
-                                <Badge :value="getStatusText(slotProps.data.status)"
-                                    :severity="getStatusSeverity(slotProps.data.status)"
-                                    class="capitalize" />
-                            </template>
-                        </Column>
+                            <Column field="purpose" header="Purpose" sortable style="min-width: 200px;">
+                                <template #body="slotProps">
+                                    <div class="font-semibold text-sm sm:text-base text-gray-900">{{ slotProps.data.purpose }}</div>
+                                    <div class="text-xs sm:text-sm text-gray-500">
+                                        {{ slotProps.data.items?.length || 0 }} item(s)
+                                    </div>
+                                </template>
+                            </Column>
 
-                        <Column header="Needed By" sortable style="width: 120px;">
-                            <template #body="slotProps">
-                                <div class="text-sm text-gray-600">
-                                    {{ formatDate(slotProps.data.needed_by) }}
-                                </div>
-                            </template>
-                        </Column>
+                            <Column header="Priority" sortable style="min-width: 100px;">
+                                <template #body="slotProps">
+                                    <Badge :value="slotProps.data.priority"
+                                        :severity="getPrioritySeverity(slotProps.data.priority)"
+                                        class="capitalize" />
+                                </template>
+                            </Column>
 
-                        <Column header="Requested" sortable style="width: 120px;">
-                            <template #body="slotProps">
-                                <div class="text-sm text-gray-600">
-                                    {{ formatDate(slotProps.data.created_at) }}
-                                </div>
-                            </template>
-                        </Column>
+                            <Column header="Status" sortable style="min-width: 100px;">
+                                <template #body="slotProps">
+                                    <Badge :value="getStatusText(slotProps.data.status)"
+                                        :severity="getStatusSeverity(slotProps.data.status)"
+                                        class="capitalize" />
+                                </template>
+                            </Column>
 
-                        <!-- Actions -->
-                        <Column header="Actions" style="min-width: 120px">
-                            <template #body="slotProps">
-                                <div class="flex gap-2">
-                                    <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
-                                        v-tooltip.top="'View Details'" 
-                                        @click="router.get(route('user.request-items.show', slotProps.data.id))" />
+                            <Column header="Needed By" sortable style="min-width: 120px;">
+                                <template #body="slotProps">
+                                    <div class="text-xs sm:text-sm text-gray-600">
+                                        {{ formatDate(slotProps.data.needed_by) }}
+                                    </div>
+                                </template>
+                            </Column>
 
-                                    <Button v-if="slotProps.data.status === 'pending'" 
-                                        icon="pi pi-times" outlined rounded severity="danger" size="small"
-                                        v-tooltip.top="'Cancel Request'" 
-                                        @click="cancelRequest(slotProps.data.id)" />
-                                </div>
-                            </template>
-                        </Column>
-                    </DataTable>
+                            <Column header="Requested" sortable style="min-width: 120px;">
+                                <template #body="slotProps">
+                                    <div class="text-xs sm:text-sm text-gray-600">
+                                        {{ formatDate(slotProps.data.created_at) }}
+                                    </div>
+                                </template>
+                            </Column>
+
+                            <!-- Actions -->
+                            <Column header="Actions" style="min-width: 120px">
+                                <template #body="slotProps">
+                                    <div class="flex flex-wrap gap-2">
+                                        <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
+                                            v-tooltip.top="'View Details'" 
+                                            @click="router.get(route('user.request-items.show', slotProps.data.id))" />
+
+                                        <Button v-if="slotProps.data.status === 'pending'" 
+                                            icon="pi pi-times" outlined rounded severity="danger" size="small"
+                                            v-tooltip.top="'Cancel Request'" 
+                                            @click="cancelRequest(slotProps.data.id)" />
+                                    </div>
+                                </template>
+                            </Column>
+                        </DataTable>
+                    </div>
                 </template>
             </Card>
 
             <!-- Add to Cart Dialog -->
-            <Dialog v-model:visible="showAddToCartDialog" modal header="Add to Cart" :style="{ width: '500px' }"
+            <Dialog v-model:visible="showAddToCartDialog" modal header="Add to Cart" 
+                :style="{ width: '95vw', maxWidth: '500px' }"
                 :breakpoints="{ '1199px': '50vw', '575px': '90vw' }">
-                <div class="space-y-6" v-if="selectedItem">
-                    <div class="space-y-4">
+                <div class="space-y-4 sm:space-y-6" v-if="selectedItem">
+                    <div class="space-y-3 sm:space-y-4">
                         <div>
-                            <h3 class="font-semibold text-gray-900">{{ selectedItem.name }}</h3>
-                            <p class="text-sm text-gray-600">{{ selectedItem.description }}</p>
+                            <h3 class="font-semibold text-sm sm:text-base text-gray-900">{{ selectedItem.name }}</h3>
+                            <p class="text-xs sm:text-sm text-gray-600">{{ selectedItem.description }}</p>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                             <div>
                                 <span class="text-gray-500">Current Stock:</span>
                                 <p class="font-medium">{{ selectedItem.current_stock }} {{ selectedItem.unit }}</p>
@@ -659,7 +658,7 @@ const scrollToAvailableItems = () => {
                         </div>
 
                         <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Quantity</label>
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Quantity</label>
                             <InputNumber v-model="cartForm.quantity" 
                                 :min="1" 
                                 :max="selectedItem.current_stock"
@@ -674,53 +673,56 @@ const scrollToAvailableItems = () => {
                         </div>
 
                         <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Notes (Optional)</label>
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Notes (Optional)</label>
                             <Textarea v-model="cartForm.notes" rows="3" placeholder="Add any special notes..."
                                 class="w-full" />
                         </div>
                     </div>
 
-                    <div class="flex justify-end gap-3 pt-4 border-t">
+                    <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
                         <Button label="Cancel" severity="secondary" outlined 
                             @click="showAddToCartDialog = false"
-                            :disabled="cartForm.processing" />
+                            :disabled="cartForm.processing"
+                            class="w-full sm:w-auto" />
                         <Button label="Add to Cart" icon="pi pi-cart-plus" severity="success" 
-                            @click="addToCart" :loading="cartForm.processing" />
+                            @click="addToCart" :loading="cartForm.processing"
+                            class="w-full sm:w-auto" />
                     </div>
                 </div>
             </Dialog>
 
             <!-- Cart Dialog -->
-            <Dialog v-model:visible="showCartDialog" modal header="My Cart" :style="{ width: '700px' }"
+            <Dialog v-model:visible="showCartDialog" modal header="My Cart" 
+                :style="{ width: '95vw', maxWidth: '700px' }"
                 :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
-                <div class="space-y-6">
+                <div class="space-y-4 sm:space-y-6">
                     <div v-if="Array.isArray(cartItems) && cartItems.length > 0">
-                        <div class="space-y-4">
+                        <div class="space-y-3 sm:space-y-4">
                             <div v-for="cartItem in cartItems" :key="cartItem.id"
-                                class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                <div class="flex-1">
-                                    <h4 class="font-semibold text-gray-900">{{ cartItem.stationary_item?.name }}</h4>
-                                    <p class="text-sm text-gray-600">{{ cartItem.stationary_item?.description }}</p>
-                                    <p class="text-sm text-gray-500">
+                                class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border border-gray-200 rounded-lg">
+                                <div class="flex-1 w-full">
+                                    <h4 class="font-semibold text-sm sm:text-base text-gray-900">{{ cartItem.stationary_item?.name }}</h4>
+                                    <p class="text-xs sm:text-sm text-gray-600">{{ cartItem.stationary_item?.description }}</p>
+                                    <p class="text-xs sm:text-sm text-gray-500">
                                         {{ formatCurrency(cartItem.stationary_item?.cost_price || 0) }} per {{ cartItem.stationary_item?.unit }}
                                     </p>
-                                    <p v-if="cartItem.notes" class="text-sm text-gray-500 mt-1">
+                                    <p v-if="cartItem.notes" class="text-xs sm:text-sm text-gray-500 mt-1">
                                         Notes: {{ cartItem.notes }}
                                     </p>
                                 </div>
                                 
-                                <div class="flex items-center gap-4">
+                                <div class="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
                                     <div class="flex items-center gap-2">
                                         <Button icon="pi pi-minus" outlined rounded severity="secondary" size="small"
                                             @click="updateCartQuantity(cartItem.id, cartItem.quantity - 1)" />
-                                        <span class="font-semibold w-8 text-center">{{ cartItem.quantity }}</span>
+                                        <span class="font-semibold w-8 text-center text-sm sm:text-base">{{ cartItem.quantity }}</span>
                                         <Button icon="pi pi-plus" outlined rounded severity="secondary" size="small"
                                             @click="updateCartQuantity(cartItem.id, cartItem.quantity + 1)"
                                             :disabled="cartItem.quantity >= (cartItem.stationary_item?.current_stock || 0)" />
                                     </div>
                                     
                                     <div class="text-right min-w-20">
-                                        <p class="font-semibold text-gray-900">
+                                        <p class="font-semibold text-sm sm:text-base text-gray-900">
                                             {{ formatCurrency(cartItem.quantity * (cartItem.stationary_item?.cost_price || 0)) }}
                                         </p>
                                     </div>
@@ -731,44 +733,47 @@ const scrollToAvailableItems = () => {
                             </div>
                         </div>
 
-                        <div class="border-t pt-4 mt-4">
-                            <div class="flex justify-between items-center mb-4">
-                                <span class="font-semibold text-gray-900">Total Items:</span>
-                                <span class="font-semibold text-gray-900">{{ statistics.cartItems }}</span>
+                        <div class="border-t pt-3 sm:pt-4 mt-3 sm:mt-4">
+                            <div class="flex justify-between items-center mb-3 sm:mb-4">
+                                <span class="font-semibold text-sm sm:text-base text-gray-900">Total Items:</span>
+                                <span class="font-semibold text-sm sm:text-base text-gray-900">{{ statistics.cartItems }}</span>
                             </div>
                             <div class="flex justify-between items-center">
-                                <span class="font-semibold text-gray-900">Estimated Total:</span>
-                                <span class="font-semibold text-lg text-blue-600">{{ formatCurrency(statistics.cartTotal) }}</span>
+                                <span class="font-semibold text-sm sm:text-base text-gray-900">Estimated Total:</span>
+                                <span class="font-semibold text-base sm:text-lg text-blue-600">{{ formatCurrency(statistics.cartTotal) }}</span>
                             </div>
                         </div>
                     </div>
 
-                    <div v-else class="text-center py-8">
-                        <div class="p-6 mb-4 bg-gray-100 rounded-full inline-block">
-                            <i class="text-4xl text-gray-400 pi pi-shopping-cart"></i>
+                    <div v-else class="text-center py-6 sm:py-8">
+                        <div class="p-4 sm:p-6 mb-3 sm:mb-4 bg-gray-100 rounded-full inline-block">
+                            <i class="text-3xl sm:text-4xl text-gray-400 pi pi-shopping-cart"></i>
                         </div>
-                        <h3 class="mb-2 text-xl font-semibold text-gray-700">Your Cart is Empty</h3>
-                        <p class="text-gray-500 mb-4">Add some items to your cart to make a request.</p>
+                        <h3 class="mb-2 text-lg sm:text-xl font-semibold text-gray-700">Your Cart is Empty</h3>
+                        <p class="text-sm sm:text-base text-gray-500 mb-3 sm:mb-4">Add some items to your cart to make a request.</p>
                         <Button label="Browse Items" severity="primary" 
-                            @click="scrollToAvailableItems" />
+                            @click="scrollToAvailableItems" size="small" />
                     </div>
 
-                    <div class="flex justify-end gap-3 pt-4 border-t" v-if="Array.isArray(cartItems) && cartItems.length > 0">
+                    <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t" v-if="Array.isArray(cartItems) && cartItems.length > 0">
                         <Button label="Continue Shopping" severity="secondary" outlined 
-                            @click="scrollToAvailableItems" />
+                            @click="scrollToAvailableItems"
+                            class="w-full sm:w-auto" />
                         <Button label="Submit Request" icon="pi pi-send" severity="success" 
-                            @click="showCartDialog = false; openRequestDialog()" />
+                            @click="showCartDialog = false; openRequestDialog()"
+                            class="w-full sm:w-auto" />
                     </div>
                 </div>
             </Dialog>
 
             <!-- Submit Request Dialog -->
-            <Dialog v-model:visible="showRequestDialog" modal header="Submit Request" :style="{ width: '600px' }"
+            <Dialog v-model:visible="showRequestDialog" modal header="Submit Request" 
+                :style="{ width: '95vw', maxWidth: '600px' }"
                 :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
-                <div class="space-y-6">
-                    <div class="space-y-4">
+                <div class="space-y-4 sm:space-y-6">
+                    <div class="space-y-3 sm:space-y-4">
                         <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Purpose <span class="text-red-500">*</span>
                             </label>
                             <InputText v-model="requestForm.purpose" 
@@ -780,9 +785,9 @@ const scrollToAvailableItems = () => {
                             </small>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div class="space-y-2">
-                                <label class="block text-sm font-semibold text-gray-700">Priority</label>
+                                <label class="block text-xs sm:text-sm font-semibold text-gray-700">Priority</label>
                                 <Select v-model="requestForm.priority" 
                                     :options="priorities" 
                                     optionLabel="label" 
@@ -791,7 +796,7 @@ const scrollToAvailableItems = () => {
                             </div>
 
                             <div class="space-y-2">
-                                <label class="block text-sm font-semibold text-gray-700">Needed By</label>
+                                <label class="block text-xs sm:text-sm font-semibold text-gray-700">Needed By</label>
                                 <InputText v-model="requestForm.needed_by" 
                                     type="date"
                                     class="w-full" />
@@ -799,46 +804,178 @@ const scrollToAvailableItems = () => {
                         </div>
 
                         <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Additional Notes</label>
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Additional Notes</label>
                             <Textarea v-model="requestForm.notes" rows="3" 
                                 placeholder="Add any additional information..."
                                 class="w-full" />
                         </div>
 
-                        <div class="border rounded-lg p-4">
-                            <h4 class="font-semibold text-gray-900 mb-3">Items in Request</h4>
+                        <div class="border rounded-lg p-3 sm:p-4">
+                            <h4 class="font-semibold text-sm sm:text-base text-gray-900 mb-2 sm:mb-3">Items in Request</h4>
                             <div class="space-y-2">
                                 <div v-for="cartItem in (Array.isArray(cartItems) ? cartItems : [])" :key="cartItem.id"
-                                    class="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                                    <div>
-                                        <p class="font-medium text-gray-900">{{ cartItem.stationary_item?.name }}</p>
-                                        <p class="text-sm text-gray-600">
+                                    class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 py-2 border-b border-gray-100 last:border-b-0">
+                                    <div class="w-full sm:w-auto">
+                                        <p class="font-medium text-sm sm:text-base text-gray-900">{{ cartItem.stationary_item?.name }}</p>
+                                        <p class="text-xs sm:text-sm text-gray-600">
                                             {{ cartItem.quantity }} {{ cartItem.stationary_item?.unit }}
                                         </p>
                                     </div>
-                                    <p class="font-medium text-gray-900">
+                                    <p class="font-medium text-sm sm:text-base text-gray-900 sm:text-right">
                                         {{ formatCurrency(cartItem.quantity * (cartItem.stationary_item?.cost_price || 0)) }}
                                     </p>
                                 </div>
                             </div>
-                            <div class="flex justify-between items-center mt-3 pt-3 border-t">
-                                <span class="font-semibold text-gray-900">Total:</span>
-                                <span class="font-semibold text-lg text-blue-600">
+                            <div class="flex justify-between items-center mt-2 sm:mt-3 pt-2 sm:pt-3 border-t">
+                                <span class="font-semibold text-sm sm:text-base text-gray-900">Total:</span>
+                                <span class="font-semibold text-base sm:text-lg text-blue-600">
                                     {{ formatCurrency(statistics.cartTotal) }}
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex justify-end gap-3 pt-4 border-t">
+                    <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
                         <Button label="Cancel" severity="secondary" outlined 
                             @click="showRequestDialog = false"
-                            :disabled="requestForm.processing" />
+                            :disabled="requestForm.processing"
+                            class="w-full sm:w-auto" />
                         <Button label="Submit Request" icon="pi pi-send" severity="success" 
-                            @click="submitRequest" :loading="requestForm.processing" />
+                            @click="submitRequest" :loading="requestForm.processing"
+                            class="w-full sm:w-auto" />
                     </div>
                 </div>
             </Dialog>
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+:deep(.p-card-body) {
+    padding: 1rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-card-body) {
+        padding: 1.5rem;
+    }
+}
+
+:deep(.p-card-content) {
+    padding: 0;
+}
+
+:deep(.p-datatable .p-datatable-thead > tr > th) {
+    background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+    font-weight: 600;
+    color: #495057;
+    border-color: #dee2e6;
+    font-size: 0.875rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-datatable .p-datatable-thead > tr > th) {
+        font-size: 1rem;
+    }
+}
+
+:deep(.p-datatable .p-datatable-tbody > tr:hover) {
+    background-color: #f8f9fa;
+}
+
+:deep(.p-datatable .p-paginator) {
+    padding: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-datatable .p-paginator) {
+        padding: 1rem;
+    }
+}
+
+/* Fix search icon alignment */
+:deep(.p-input-icon-left > i:first-of-type) {
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    position: absolute;
+}
+
+:deep(.p-input-icon-left > .p-inputtext) {
+    padding-left: 2.5rem;
+}
+
+:deep(.p-input-icon-left) {
+    position: relative;
+    display: block;
+}
+
+:deep(.p-badge) {
+    font-size: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-badge) {
+        font-size: 0.875rem;
+    }
+}
+
+:deep(.p-inputtext) {
+    font-size: 0.875rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-inputtext) {
+        font-size: 1rem;
+    }
+}
+
+:deep(.p-button) {
+    font-size: 0.875rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-button) {
+        font-size: 1rem;
+    }
+}
+
+:deep(.p-dialog .p-dialog-header) {
+    padding: 1rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-dialog .p-dialog-header) {
+        padding: 1.5rem;
+    }
+}
+
+:deep(.p-dialog .p-dialog-content) {
+    padding: 1rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-dialog .p-dialog-content) {
+        padding: 1.5rem;
+    }
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Mobile table improvements */
+@media (max-width: 768px) {
+    :deep(.p-datatable .p-datatable-tbody > tr > td) {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    :deep(.p-datatable .p-datatable-thead > tr > th) {
+        padding: 0.75rem 0.5rem;
+    }
+}
+</style>

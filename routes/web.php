@@ -3,29 +3,27 @@
 use App\Http\Controllers\Admin\AssetController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LicensesController;
 use App\Http\Controllers\Admin\ManageRequestItemController;
 use App\Http\Controllers\Admin\ManageUserController;
 use App\Http\Controllers\Admin\ModelController;
+use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\StationaryItemController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\User\CartController;
 use App\Http\Controllers\User\RequestItemController;
-use App\Models\Asset;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard', [
-        'users' => (int) User::count(),
-        'assets' => (int) Asset::count(),
-    ]);
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/chart-data', [DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -39,11 +37,17 @@ Route::group([
     'middleware' => ['auth', 'verified'],
 ], function () {
 
+    // Asset Routes
     Route::resource('assets', AssetController::class);
 
+    // Additional Asset Routes
     Route::put('assets/{asset}/status', [AssetController::class, 'updateStatus'])->name('assets.updateStatus');
-
-    Route::post('asset/assign', [AssetController::class, 'assignToUser'])->name('asset.assign');
+    Route::post('assets/assign', [AssetController::class, 'assignToUser'])->name('assets.assign');
+    Route::post('assets/bulk-assign', [AssetController::class, 'bulkAssign'])->name('assets.bulk-assign');
+    Route::post('assets/bulk-update-status', [AssetController::class, 'bulkUpdateStatus'])->name('assets.bulk-update-status');
+    Route::post('assets/{asset}/return', [AssetController::class, 'returnAsset'])->name('assets.return');
+    Route::get('assets/{asset}/assignment-history', [AssetController::class, 'assignmentHistory'])->name('assets.assignment-history');
+    Route::post('assets/export', [AssetController::class, 'export'])->name('assets.export');
 
     Route::resource('models', ModelController::class);
 
@@ -102,6 +106,9 @@ Route::group([
 
     Route::get('stationary-items/{stationaryItem}/movements', [StationaryItemController::class, 'movements'])
         ->name('stationary-items.movements');
+    // Movement-specific routes
+    Route::delete('stationary-movements/{movement}', [StationaryItemController::class, 'destroyMovement'])
+        ->name('stationary-movements.destroy');
 
     Route::resource('manage-request-items', ManageRequestItemController::class);
 
@@ -117,6 +124,14 @@ Route::group([
 
     Route::post('manage-request-items/{manageRequestItem}/update-quantities', [ManageRequestItemController::class, 'updateQuantities'])
         ->name('manage-request-items.update-quantities');
+
+    Route::resource('permissions', PermissionController::class);
+
+    Route::post('permissions/bulk-destroy', [PermissionController::class, 'bulkDestroy'])
+        ->name('permissions.bulk-destroy');
+
+    Route::post('permissions/{permission}/remove-role/{role}', [PermissionController::class, 'removeRole'])
+        ->name('admin.permissions.remove-role');
 
     Route::resource('audit-logs', AuditLogController::class)->only(['index', 'show']);
 });

@@ -30,6 +30,7 @@ const model = ref([
         label: 'Administration',
         items: [
             { label: 'Users', icon: 'pi pi-users', to: '/admin/users' },
+            { label: 'Permissions', icon: 'pi pi-key', to: '/admin/permissions' },
             { label: 'Audit Logs', icon: 'pi pi-clock', to: '/admin/audit-logs' },
             { label: 'Reports', icon: 'pi pi-chart-line', to: '/admin/reports' }
         ]

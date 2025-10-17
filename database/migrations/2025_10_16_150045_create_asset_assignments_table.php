@@ -15,11 +15,20 @@ return new class extends Migration
             $table->id();
             $table->foreignId('asset_id')->constrained()->onDelete('cascade');
             $table->foreignId('assigned_to')->constrained('users')->onDelete('cascade');
-            $table->date('assigned_at');
-            $table->date('returned_at')->nullable();
-            $table->text('remarks')->nullable();
-            $table->foreignId('assigned_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('assigned_by')->constrained('users')->onDelete('cascade');
+            $table->timestamp('assigned_at');
+            $table->timestamp('returned_at')->nullable();
+            $table->text('notes')->nullable();
+            $table->text('condition_assigned');
+            $table->text('condition_returned')->nullable();
             $table->timestamps();
+
+            // Indexes
+            $table->index('asset_id');
+            $table->index('assigned_to');
+            $table->index('assigned_by');
+            $table->index('assigned_at');
+            $table->index('returned_at');
         });
     }
 

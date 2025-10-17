@@ -290,60 +290,62 @@ const updateQuantities = () => {
         <Toast />
         <ConfirmDialog />
 
-        <div class="p-6 space-y-6">
+        <div class="p-4 sm:p-6 space-y-4 sm:space-y-6">
             <!-- Breadcrumb -->
-            <Breadcrumb :home="home" :model="items" class="mb-4">
+            <Breadcrumb :home="home" :model="items" class="mb-3 sm:mb-4 text-sm">
                 <template #item="{ item }">
-                    <span v-if="item.url" class="text-blue-600 cursor-pointer hover:underline" @click="router.get(item.url)">
+                    <span v-if="item.url" class="text-blue-600 cursor-pointer hover:underline text-xs sm:text-sm" @click="router.get(item.url)">
                         {{ item.label }}
                     </span>
-                    <span v-else class="font-semibold text-gray-700">{{ item.label }}</span>
+                    <span v-else class="font-semibold text-gray-700 text-xs sm:text-sm">{{ item.label }}</span>
                 </template>
             </Breadcrumb>
 
             <!-- Header with Actions -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-3 sm:gap-4">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">Request #{{ requestItem.id }}</h1>
-                    <div class="flex items-center gap-4 mt-2">
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Request #{{ requestItem.id }}</h1>
+                    <div class="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 sm:mt-3">
                         <Badge :value="getStatusText(requestItem.status)" 
                                :severity="getStatusSeverity(requestItem.status)"
-                               class="text-sm" />
+                               class="text-xs sm:text-sm" />
                         <Badge :value="requestItem.priority" 
                                :severity="getPrioritySeverity(requestItem.priority)"
-                               class="text-sm capitalize">
+                               class="text-xs sm:text-sm capitalize">
                             <i :class="getPriorityIcon(requestItem.priority)" class="mr-1 text-xs"></i>
                             {{ requestItem.priority }}
                         </Badge>
-                        <span class="text-sm text-gray-500">
+                        <span class="text-xs sm:text-sm text-gray-500 w-full sm:w-auto">
                             Requested by {{ requestItem.user?.name }} on {{ formatDate(requestItem.created_at) }}
                         </span>
                     </div>
                 </div>
                 
-                <div class="flex gap-3" v-if="requestItem.status === 'pending'">
-                    <Button label="Approve Request" icon="pi pi-check" severity="success"
-                        @click="showApproveDialog = true" />
-                    <Button label="Reject Request" icon="pi pi-times" severity="danger" outlined
-                        @click="showRejectDialog = true" />
-                </div>
-                
-                <div class="flex gap-3" v-else-if="requestItem.status === 'approved'">
-                    <Button label="Mark as Completed" icon="pi pi-check-square" severity="help"
-                        @click="completeRequest" />
-                </div>
+                <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
+                    <div v-if="requestItem.status === 'pending'" class="flex flex-col sm:flex-row gap-2 w-full">
+                        <Button label="Approve Request" icon="pi pi-check" severity="success"
+                            @click="showApproveDialog = true" class="flex-1 sm:flex-none text-sm" />
+                        <Button label="Reject Request" icon="pi pi-times" severity="danger" outlined
+                            @click="showRejectDialog = true" class="flex-1 sm:flex-none text-sm" />
+                    </div>
+                    
+                    <div v-else-if="requestItem.status === 'approved'" class="flex flex-col sm:flex-row gap-2 w-full">
+                        <Button label="Mark as Completed" icon="pi pi-check-square" severity="help"
+                            @click="completeRequest" class="flex-1 sm:flex-none text-sm" />
+                    </div>
 
-                <Button label="Back to List" icon="pi pi-arrow-left" severity="secondary" outlined
-                    @click="router.get(route('admin.manage-request-items.index'))" />
+                    <Button label="Back to List" icon="pi pi-arrow-left" severity="secondary" outlined
+                        @click="router.get(route('admin.manage-request-items.index'))" class="flex-1 sm:flex-none text-sm" />
+                </div>
             </div>
 
             <!-- Request Overview Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
                 <Card class="bg-blue-50 border-blue-200">
                     <template #content>
                         <div class="text-center">
-                            <div class="text-2xl font-bold text-blue-600">{{ requestItem.items?.length || 0 }}</div>
-                            <div class="text-sm text-blue-700">Items Requested</div>
+                            <div class="text-lg sm:text-2xl font-bold text-blue-600">{{ requestItem.items?.length || 0 }}</div>
+                            <div class="text-xs sm:text-sm text-blue-700">Items Requested</div>
                         </div>
                     </template>
                 </Card>
@@ -351,8 +353,8 @@ const updateQuantities = () => {
                 <Card class="bg-green-50 border-green-200">
                     <template #content>
                         <div class="text-center">
-                            <div class="text-2xl font-bold text-green-600">{{ totalRequested }}</div>
-                            <div class="text-sm text-green-700">Total Quantity</div>
+                            <div class="text-lg sm:text-2xl font-bold text-green-600">{{ totalRequested }}</div>
+                            <div class="text-xs sm:text-sm text-green-700">Total Quantity</div>
                         </div>
                     </template>
                 </Card>
@@ -360,8 +362,8 @@ const updateQuantities = () => {
                 <Card class="bg-purple-50 border-purple-200">
                     <template #content>
                         <div class="text-center">
-                            <div class="text-2xl font-bold text-purple-600">{{ formatCurrency(totalCost) }}</div>
-                            <div class="text-sm text-purple-700">Total Value</div>
+                            <div class="text-lg sm:text-2xl font-bold text-purple-600">{{ formatCurrency(totalCost) }}</div>
+                            <div class="text-xs sm:text-sm text-purple-700">Total Value</div>
                         </div>
                     </template>
                 </Card>
@@ -369,47 +371,47 @@ const updateQuantities = () => {
                 <Card class="bg-orange-50 border-orange-200">
                     <template #content>
                         <div class="text-center">
-                            <div class="text-2xl font-bold text-orange-600" v-if="getUrgencyStatus().severity !== 'secondary'">
+                            <div class="text-lg sm:text-2xl font-bold text-orange-600" v-if="getUrgencyStatus().severity !== 'secondary'">
                                 {{ getUrgencyStatus().label }}
                             </div>
-                            <div class="text-2xl font-bold text-gray-600" v-else>—</div>
-                            <div class="text-sm text-orange-700">Time Remaining</div>
+                            <div class="text-lg sm:text-2xl font-bold text-gray-600" v-else>—</div>
+                            <div class="text-xs sm:text-sm text-orange-700">Time Remaining</div>
                         </div>
                     </template>
                 </Card>
             </div>
 
             <!-- Request Details -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
                 <!-- Main Information -->
-                <div class="lg:col-span-2 space-y-6">
+                <div class="lg:col-span-2 space-y-4 sm:space-y-6">
                     <!-- Purpose and Notes -->
                     <Card class="shadow-lg">
                         <template #content>
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Request Information</h3>
-                            <div class="space-y-4">
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">Request Information</h3>
+                            <div class="space-y-3 sm:space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-500">Purpose</label>
-                                    <p class="mt-1 text-gray-900 text-lg">{{ requestItem.purpose }}</p>
+                                    <label class="block text-xs sm:text-sm font-medium text-gray-500">Purpose</label>
+                                    <p class="mt-1 text-gray-900 text-sm sm:text-base">{{ requestItem.purpose }}</p>
                                 </div>
                                 <div v-if="requestItem.notes">
-                                    <label class="block text-sm font-medium text-gray-500">Additional Notes</label>
-                                    <p class="mt-1 text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded">{{ requestItem.notes }}</p>
+                                    <label class="block text-xs sm:text-sm font-medium text-gray-500">Additional Notes</label>
+                                    <p class="mt-1 text-gray-900 text-xs sm:text-sm whitespace-pre-wrap bg-gray-50 p-2 sm:p-3 rounded">{{ requestItem.notes }}</p>
                                 </div>
-                                <div class="grid grid-cols-2 gap-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-500">Priority</label>
+                                        <label class="block text-xs sm:text-sm font-medium text-gray-500">Priority</label>
                                         <Badge :value="requestItem.priority" 
                                                :severity="getPrioritySeverity(requestItem.priority)"
-                                               class="mt-1 capitalize">
+                                               class="mt-1 capitalize text-xs sm:text-sm">
                                             <i :class="getPriorityIcon(requestItem.priority)" class="mr-1 text-xs"></i>
                                             {{ requestItem.priority }}
                                         </Badge>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-500">Needed By</label>
-                                        <div class="mt-1 flex items-center gap-2">
-                                            <p class="text-gray-900">{{ formatDate(requestItem.needed_by) }}</p>
+                                        <label class="block text-xs sm:text-sm font-medium text-gray-500">Needed By</label>
+                                        <div class="mt-1 flex items-center gap-1 sm:gap-2 flex-wrap">
+                                            <p class="text-gray-900 text-xs sm:text-sm">{{ formatDate(requestItem.needed_by) }}</p>
                                             <Badge v-if="getUrgencyStatus().severity !== 'secondary'"
                                                 :value="getUrgencyStatus().label"
                                                 :severity="getUrgencyStatus().severity"
@@ -419,9 +421,9 @@ const updateQuantities = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <div v-if="requestItem.rejection_reason" class="p-4 bg-red-50 border border-red-200 rounded-lg">
-                                    <label class="block text-sm font-medium text-red-700">Rejection Reason</label>
-                                    <p class="mt-1 text-red-600">{{ requestItem.rejection_reason }}</p>
+                                <div v-if="requestItem.rejection_reason" class="p-2 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
+                                    <label class="block text-xs sm:text-sm font-medium text-red-700">Rejection Reason</label>
+                                    <p class="mt-1 text-xs sm:text-sm text-red-600">{{ requestItem.rejection_reason }}</p>
                                 </div>
                             </div>
                         </template>
@@ -430,51 +432,51 @@ const updateQuantities = () => {
                     <!-- Requested Items -->
                     <Card class="shadow-lg">
                         <template #content>
-                            <div class="flex items-center justify-between mb-6">
-                                <h3 class="text-lg font-semibold text-gray-800">Requested Items</h3>
-                                <div class="flex gap-2">
+                            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3 sm:mb-6">
+                                <h3 class="text-base sm:text-lg font-semibold text-gray-800">Requested Items</h3>
+                                <div class="flex gap-2 w-full sm:w-auto">
                                     <Button v-if="requestItem.status === 'pending'" 
                                         label="Update Quantities" icon="pi pi-refresh" severity="secondary" size="small"
-                                        @click="updateQuantities" />
+                                        @click="updateQuantities" class="text-xs sm:text-sm w-full sm:w-auto" />
                                 </div>
                             </div>
                             
                             <!-- Loading State -->
-                            <div v-if="!requestItem.items" class="text-center py-8">
-                                <div class="p-6 mb-4 bg-gray-100 rounded-full inline-block">
-                                    <i class="text-4xl text-gray-400 pi pi-spin pi-spinner"></i>
+                            <div v-if="!requestItem.items" class="text-center py-6 sm:py-8">
+                                <div class="p-4 sm:p-6 mb-3 sm:mb-4 bg-gray-100 rounded-full inline-block">
+                                    <i class="text-3xl sm:text-4xl text-gray-400 pi pi-spin pi-spinner"></i>
                                 </div>
-                                <p class="text-gray-500">Loading items...</p>
+                                <p class="text-gray-500 text-xs sm:text-sm">Loading items...</p>
                             </div>
                             
                             <!-- Items List -->
-                            <div v-else class="space-y-4">
+                            <div v-else class="space-y-3 sm:space-y-4">
                                 <div v-for="item in requestItem.items" :key="item.id" 
-                                    class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                    <div class="flex items-start justify-between mb-3">
-                                        <div class="flex-1">
-                                            <h4 class="font-semibold text-gray-900 text-lg">{{ item.stationary_item?.name }}</h4>
-                                            <p class="text-sm text-gray-600 mt-1">{{ item.stationary_item?.description }}</p>
-                                            <p class="text-sm text-gray-500 mt-2">
+                                    class="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow">
+                                    <div class="flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-3 mb-2 sm:mb-3">
+                                        <div class="flex-1 w-full">
+                                            <h4 class="font-semibold text-gray-900 text-sm sm:text-base">{{ item.stationary_item?.name }}</h4>
+                                            <p class="text-xs sm:text-sm text-gray-600 mt-1">{{ item.stationary_item?.description }}</p>
+                                            <p class="text-xs sm:text-sm text-gray-500 mt-2">
                                                 <i class="pi pi-box text-blue-500 mr-1"></i>
                                                 Stock: {{ item.stationary_item?.current_stock }} {{ item.stationary_item?.unit }} • 
-                                                <i class="pi pi-dollar text-green-500 mr-1 ml-2"></i>
+                                                <i class="pi pi-dollar text-green-500 mr-1 ml-1 sm:ml-2"></i>
                                                 Price: {{ formatCurrency(item.unit_price) }}
                                             </p>
                                         </div>
                                         <Badge v-if="item.stationary_item?.current_stock < item.quantity" 
-                                            value="Low Stock" severity="warning" />
+                                            value="Low Stock" severity="warning" class="text-xs whitespace-nowrap" />
                                     </div>
                                     
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                                        <div class="text-center p-3 bg-gray-50 rounded">
-                                            <label class="block text-sm font-medium text-gray-500 mb-1">Requested</label>
-                                            <p class="font-semibold text-gray-900 text-lg">{{ item.quantity }}</p>
+                                    <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 text-xs sm:text-sm">
+                                        <div class="text-center p-2 sm:p-3 bg-gray-50 rounded">
+                                            <label class="block text-xs font-medium text-gray-500 mb-1">Requested</label>
+                                            <p class="font-semibold text-gray-900 text-sm sm:text-base">{{ item.quantity }}</p>
                                             <p class="text-xs text-gray-500">{{ item.stationary_item?.unit }}</p>
                                         </div>
-                                        <div class="text-center p-3 bg-gray-50 rounded">
-                                            <label class="block text-sm font-medium text-gray-500 mb-1">Available</label>
-                                            <p class="font-semibold text-lg" :class="{
+                                        <div class="text-center p-2 sm:p-3 bg-gray-50 rounded">
+                                            <label class="block text-xs font-medium text-gray-500 mb-1">Available</label>
+                                            <p class="font-semibold text-sm sm:text-base" :class="{
                                                 'text-green-600': item.stationary_item?.current_stock >= item.quantity,
                                                 'text-red-600': item.stationary_item?.current_stock < item.quantity
                                             }">
@@ -482,18 +484,18 @@ const updateQuantities = () => {
                                             </p>
                                             <p class="text-xs text-gray-500">{{ item.stationary_item?.unit }}</p>
                                         </div>
-                                        <div class="text-center p-3 bg-blue-50 rounded">
-                                            <label class="block text-sm font-medium text-gray-500 mb-1">
+                                        <div class="text-center p-2 sm:p-3 bg-blue-50 rounded col-span-2 lg:col-span-1">
+                                            <label class="block text-xs font-medium text-gray-500 mb-1">
                                                 Approved {{ requestItem.status === 'pending' ? '*' : '' }}
                                             </label>
-                                            <div class="flex items-center justify-center gap-2">
+                                            <div class="flex items-center justify-center gap-1">
                                                 <InputNumber v-if="requestItem.status === 'pending'"
                                                     v-model="approveForm.approved_quantities[item.id]"
                                                     :min="0" 
                                                     :max="Math.min(item.quantity, item.stationary_item?.current_stock || 0)"
-                                                    class="w-20"
+                                                    class="w-14 sm:w-20 text-xs"
                                                     size="small" />
-                                                <span v-else class="font-semibold text-gray-900 text-lg">
+                                                <span v-else class="font-semibold text-gray-900 text-sm sm:text-base">
                                                     {{ item.approved_quantity || item.quantity }}
                                                 </span>
                                             </div>
@@ -501,31 +503,31 @@ const updateQuantities = () => {
                                         </div>
                                     </div>
                                     
-                                    <div v-if="item.notes" class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                                        <label class="block text-sm font-medium text-yellow-700">Item Notes</label>
-                                        <p class="text-sm text-yellow-600 mt-1">{{ item.notes }}</p>
+                                    <div v-if="item.notes" class="mt-2 sm:mt-3 p-2 sm:p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                        <label class="block text-xs sm:text-sm font-medium text-yellow-700">Item Notes</label>
+                                        <p class="text-xs sm:text-sm text-yellow-600 mt-1">{{ item.notes }}</p>
                                     </div>
                                 </div>
                             </div>
                             
                             <!-- Summary -->
-                            <div v-if="requestItem.items" class="border-t mt-6 pt-6">
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                            <div v-if="requestItem.items" class="border-t mt-4 sm:mt-6 pt-4 sm:pt-6">
+                                <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 text-center mb-3 sm:mb-4">
                                     <div>
-                                        <span class="block text-sm font-semibold text-gray-500">Total Requested</span>
-                                        <span class="block text-2xl font-bold text-gray-900 mt-1">{{ totalRequested }}</span>
+                                        <span class="block text-xs sm:text-sm font-semibold text-gray-500">Total Requested</span>
+                                        <span class="block text-lg sm:text-2xl font-bold text-gray-900 mt-1">{{ totalRequested }}</span>
                                     </div>
                                     <div>
-                                        <span class="block text-sm font-semibold text-gray-500">Total Approved</span>
-                                        <span class="block text-2xl font-bold text-blue-600 mt-1">{{ totalApproved }}</span>
+                                        <span class="block text-xs sm:text-sm font-semibold text-gray-500">Total Approved</span>
+                                        <span class="block text-lg sm:text-2xl font-bold text-blue-600 mt-1">{{ totalApproved }}</span>
                                     </div>
-                                    <div>
-                                        <span class="block text-sm font-semibold text-gray-500">Total Cost</span>
-                                        <span class="block text-2xl font-bold text-green-600 mt-1">{{ formatCurrency(totalCost) }}</span>
+                                    <div class="col-span-2 lg:col-span-1">
+                                        <span class="block text-xs sm:text-sm font-semibold text-gray-500">Total Cost</span>
+                                        <span class="block text-lg sm:text-2xl font-bold text-green-600 mt-1">{{ formatCurrency(totalCost) }}</span>
                                     </div>
                                 </div>
                                 <div class="mt-4">
-                                    <div class="flex justify-between items-center text-sm mb-2">
+                                    <div class="flex justify-between items-center text-xs sm:text-sm mb-2">
                                         <span class="font-medium">Approval Rate</span>
                                         <span class="font-bold">{{ approvalRate }}%</span>
                                     </div>
@@ -543,47 +545,47 @@ const updateQuantities = () => {
                 </div>
 
                 <!-- Sidebar -->
-                <div class="space-y-6">
+                <div class="space-y-4 sm:space-y-6">
                     <!-- Request Summary -->
                     <Card class="shadow-lg">
                         <template #content>
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Request Summary</h3>
-                            <div class="space-y-4">
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">Request Summary</h3>
+                            <div class="space-y-3 sm:space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-500">Status</label>
+                                    <label class="block text-xs sm:text-sm font-medium text-gray-500">Status</label>
                                     <Badge :value="getStatusText(requestItem.status)" 
                                            :severity="getStatusSeverity(requestItem.status)"
-                                           class="mt-1 text-base" />
+                                           class="mt-1 text-xs sm:text-base" />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-500">Requested By</label>
-                                    <div class="mt-1 flex items-center gap-3">
-                                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                            <i class="pi pi-user text-blue-600"></i>
+                                    <label class="block text-xs sm:text-sm font-medium text-gray-500">Requested By</label>
+                                    <div class="mt-1 flex items-center gap-2 sm:gap-3">
+                                        <div class="w-6 h-6 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <i class="pi pi-user text-blue-600 text-xs sm:text-sm"></i>
                                         </div>
-                                        <div>
-                                            <p class="font-medium text-gray-900">{{ requestItem.user?.name }}</p>
-                                            <p class="text-sm text-gray-500">{{ requestItem.user?.email }}</p>
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-gray-900 text-xs sm:text-sm truncate">{{ requestItem.user?.name }}</p>
+                                            <p class="text-xs text-gray-500 truncate">{{ requestItem.user?.email }}</p>
                                         </div>
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-500">Department</label>
-                                    <p class="mt-1 font-medium text-gray-900">{{ requestItem.user?.department || '—' }}</p>
+                                    <label class="block text-xs sm:text-sm font-medium text-gray-500">Department</label>
+                                    <p class="mt-1 font-medium text-gray-900 text-xs sm:text-sm">{{ requestItem.user?.department || '—' }}</p>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-500">Request Date</label>
-                                    <p class="mt-1 font-medium text-gray-900">{{ formatDate(requestItem.created_at) }}</p>
+                                    <label class="block text-xs sm:text-sm font-medium text-gray-500">Request Date</label>
+                                    <p class="mt-1 font-medium text-gray-900 text-xs sm:text-sm">{{ formatDate(requestItem.created_at) }}</p>
                                 </div>
                                 <div v-if="requestItem.approved_by">
-                                    <label class="block text-sm font-medium text-gray-500">Approved By</label>
-                                    <div class="mt-1 flex items-center gap-3">
-                                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                            <i class="pi pi-user-check text-green-600"></i>
+                                    <label class="block text-xs sm:text-sm font-medium text-gray-500">Approved By</label>
+                                    <div class="mt-1 flex items-center gap-2 sm:gap-3">
+                                        <div class="w-6 h-6 sm:w-8 sm:h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <i class="pi pi-user-check text-green-600 text-xs sm:text-sm"></i>
                                         </div>
-                                        <div>
-                                            <p class="font-medium text-gray-900">{{ requestItem.approved_by?.name }}</p>
-                                            <p class="text-sm text-gray-500">{{ formatDate(requestItem.approved_at) }}</p>
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-gray-900 text-xs sm:text-sm truncate">{{ requestItem.approved_by?.name }}</p>
+                                            <p class="text-xs text-gray-500">{{ formatDate(requestItem.approved_at) }}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -594,17 +596,17 @@ const updateQuantities = () => {
                     <!-- Quick Actions -->
                     <Card class="shadow-lg" v-if="requestItem.status === 'pending' && requestItem.items">
                         <template #content>
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-                            <div class="space-y-3">
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">Quick Actions</h3>
+                            <div class="space-y-2 sm:space-y-3">
                                 <Button label="Approve All Items" icon="pi pi-check" severity="success" 
                                     @click="approveAllItems"
-                                    class="w-full" outlined />
+                                    class="w-full text-xs sm:text-sm" outlined />
                                 <Button label="Approve Available Only" icon="pi pi-filter" severity="warning" 
                                     @click="approveAvailableOnly"
-                                    class="w-full" outlined />
+                                    class="w-full text-xs sm:text-sm" outlined />
                                 <Button label="Reset to Requested" icon="pi pi-refresh" severity="secondary" 
                                     @click="resetToRequested"
-                                    class="w-full" outlined />
+                                    class="w-full text-xs sm:text-sm" outlined />
                             </div>
                         </template>
                     </Card>
@@ -612,21 +614,21 @@ const updateQuantities = () => {
                     <!-- Approval Statistics -->
                     <Card class="shadow-lg">
                         <template #content>
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Approval Summary</h3>
-                            <div class="space-y-3">
-                                <div class="flex justify-between items-center">
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">Approval Summary</h3>
+                            <div class="space-y-2 sm:space-y-3">
+                                <div class="flex justify-between items-center text-xs sm:text-sm">
                                     <span class="text-gray-600">Items:</span>
                                     <span class="font-medium">{{ requestItem.items?.length || 0 }}</span>
                                 </div>
-                                <div class="flex justify-between items-center">
+                                <div class="flex justify-between items-center text-xs sm:text-sm">
                                     <span class="text-gray-600">Requested Qty:</span>
                                     <span class="font-medium">{{ totalRequested }}</span>
                                 </div>
-                                <div class="flex justify-between items-center">
+                                <div class="flex justify-between items-center text-xs sm:text-sm">
                                     <span class="text-gray-600">Approved Qty:</span>
                                     <span class="font-medium text-blue-600">{{ totalApproved }}</span>
                                 </div>
-                                <div class="flex justify-between items-center">
+                                <div class="flex justify-between items-center text-xs sm:text-sm">
                                     <span class="text-gray-600">Reduction:</span>
                                     <span class="font-medium" :class="{
                                         'text-green-600': totalApproved === totalRequested,
@@ -638,8 +640,8 @@ const updateQuantities = () => {
                                 </div>
                                 <div class="pt-2 border-t">
                                     <div class="flex justify-between items-center">
-                                        <span class="text-gray-600 font-semibold">Approval Rate:</span>
-                                        <span class="font-bold text-lg" :class="{
+                                        <span class="text-gray-600 font-semibold text-xs sm:text-sm">Approval Rate:</span>
+                                        <span class="font-bold text-sm sm:text-lg" :class="{
                                             'text-green-600': approvalRate >= 80,
                                             'text-yellow-600': approvalRate >= 50 && approvalRate < 80,
                                             'text-red-600': approvalRate < 50
@@ -655,21 +657,21 @@ const updateQuantities = () => {
             </div>
 
             <!-- Approve Dialog -->
-            <Dialog v-model:visible="showApproveDialog" modal header="Approve Request" :style="{ width: '600px' }"
-                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
-                <div class="space-y-4">
-                    <p class="text-gray-700">You are about to approve this request. Please review the approved quantities and add any final notes.</p>
+            <Dialog v-model:visible="showApproveDialog" modal header="Approve Request" :style="{ width: '90%', maxWidth: '600px' }"
+                :breakpoints="{ '960px': '90vw', '640px': '95vw' }">
+                <div class="space-y-3 sm:space-y-4 text-xs sm:text-base">
+                    <p class="text-gray-700 text-xs sm:text-sm">You are about to approve this request. Please review the approved quantities and add any final notes.</p>
                     
                     <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Admin Notes (Optional)</label>
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Admin Notes (Optional)</label>
                         <Textarea v-model="approveForm.notes" rows="3" 
                             placeholder="Add any notes for the requester..."
-                            class="w-full" />
+                            class="w-full text-xs sm:text-sm p-2" />
                     </div>
 
-                    <div class="border rounded-lg p-4 bg-gray-50">
-                        <h4 class="font-semibold text-gray-900 mb-2">Approval Summary</h4>
-                        <div class="space-y-2 text-sm">
+                    <div class="border rounded-lg p-3 sm:p-4 bg-gray-50">
+                        <h4 class="font-semibold text-gray-900 mb-2 text-xs sm:text-sm">Approval Summary</h4>
+                        <div class="space-y-2 text-xs sm:text-sm">
                             <div class="flex justify-between">
                                 <span>Total Items:</span>
                                 <span class="font-medium">{{ requestItem.items?.length || 0 }}</span>
@@ -686,7 +688,7 @@ const updateQuantities = () => {
                                 <span>Approval Rate:</span>
                                 <span class="font-medium">{{ approvalRate }}%</span>
                             </div>
-                            <div class="flex justify-between text-lg font-semibold border-t pt-2 mt-2">
+                            <div class="flex justify-between text-sm sm:text-base font-semibold border-t pt-2 mt-2">
                                 <span>Total Cost:</span>
                                 <span class="text-blue-600">{{ formatCurrency(totalCost) }}</span>
                             </div>
@@ -695,29 +697,31 @@ const updateQuantities = () => {
                 </div>
 
                 <template #footer>
-                    <div class="flex justify-end gap-3">
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
                         <Button label="Cancel" severity="secondary" outlined 
                             @click="showApproveDialog = false"
-                            :disabled="approveForm.processing" />
+                            :disabled="approveForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                         <Button label="Approve Request" icon="pi pi-check" severity="success" 
-                            @click="submitApprove" :loading="approveForm.processing" />
+                            @click="submitApprove" :loading="approveForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </template>
             </Dialog>
 
             <!-- Reject Dialog -->
-            <Dialog v-model:visible="showRejectDialog" modal header="Reject Request" :style="{ width: '500px' }"
-                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
-                <div class="space-y-4">
-                    <p class="text-gray-700">You are about to reject this request. Please provide a reason for rejection.</p>
+            <Dialog v-model:visible="showRejectDialog" modal header="Reject Request" :style="{ width: '90%', maxWidth: '500px' }"
+                :breakpoints="{ '960px': '90vw', '640px': '95vw' }">
+                <div class="space-y-3 sm:space-y-4 text-xs sm:text-base">
+                    <p class="text-gray-700 text-xs sm:text-sm">You are about to reject this request. Please provide a reason for rejection.</p>
                     
                     <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                             Rejection Reason <span class="text-red-500">*</span>
                         </label>
                         <Textarea v-model="rejectForm.rejection_reason" rows="3" 
                             placeholder="Explain why this request is being rejected..."
-                            class="w-full"
+                            class="w-full text-xs sm:text-sm p-2"
                             :class="{ 'p-invalid': rejectForm.errors.rejection_reason }" />
                         <small class="text-red-500 text-xs" v-if="rejectForm.errors.rejection_reason">
                             {{ rejectForm.errors.rejection_reason }}
@@ -726,12 +730,14 @@ const updateQuantities = () => {
                 </div>
 
                 <template #footer>
-                    <div class="flex justify-end gap-3">
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
                         <Button label="Cancel" severity="secondary" outlined 
                             @click="showRejectDialog = false"
-                            :disabled="rejectForm.processing" />
+                            :disabled="rejectForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                         <Button label="Reject Request" icon="pi pi-times" severity="danger" 
-                            @click="submitReject" :loading="rejectForm.processing" />
+                            @click="submitReject" :loading="rejectForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </template>
             </Dialog>

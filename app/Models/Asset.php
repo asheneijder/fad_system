@@ -1,73 +1,67 @@
 <?php
 
+// app/Models/Asset.php
+
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
-class Asset extends Model implements HasMedia
+class Asset extends Model
 {
-    use HasFactory, InteractsWithMedia;
+    use HasFactory;
 
     protected $fillable = [
-        'asset_name',
-        'asset_tag_no',
-        'serial_no',
-        'model_type_id',
-        'qty',
+        'name',
+        'asset_tag',
+        'serial_number',
+        'model_id',
         'status',
-        'description',
         'purchase_date',
-        'purchase_price',
-        'warranty_expiry',
-        'updated_by',
+        'purchase_cost',
+        'warranty_months',
+        'notes',
+        'image',
+        'location',
+        'assigned_to',
+        'assigned_at',
     ];
 
     protected $casts = [
         'purchase_date' => 'date',
-        'warranty_expiry' => 'date',
-        'purchase_price' => 'decimal:2',
+        'assigned_at' => 'datetime',
+        'purchase_cost' => 'decimal:2',
+        'warranty_months' => 'integer',
     ];
 
     // Relationships
-    public function modelType()
+    public function model(): BelongsTo
     {
-        return $this->belongsTo(ModelType::class);
+        return $this->belongsTo(ModelType::class, 'model_id');
     }
 
-    public function assignments()
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function assignments(): HasMany
     {
         return $this->hasMany(AssetAssignment::class);
     }
 
-    public function currentAssignment()
+    public function currentAssignment(): HasOne
     {
-        return $this->hasOne(AssetAssignment::class)->whereNull('returned_at')->latest();
+        return $this->hasOne(AssetAssignment::class)->latestOfMany();
     }
 
-    // Get users through assignments (corrected relationship)
-    public function assignedUsers()
+    public function maintenanceRecords(): HasMany
     {
-        return $this->hasManyThrough(
-            User::class,
-            AssetAssignment::class,
-            'asset_id', // Foreign key on AssetAssignment table
-            'id', // Foreign key on User table
-            'id', // Local key on Asset table
-            'assigned_to' // Local key on AssetAssignment table
-        );
-    }
-
-    public function createdBy()
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    public function updatedBy()
-    {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->hasMany(MaintenanceRecord::class);
     }
 
     // Scopes
@@ -81,31 +75,106 @@ class Asset extends Model implements HasMedia
         return $query->where('status', 'assigned');
     }
 
-    public function scopeActive($query)
+    public function scopeMaintenance($query)
     {
-        return $query->where('status', 'active');
+        return $query->where('status', 'maintenance');
+    }
+
+    public function scopeRetired($query)
+    {
+        return $query->where('status', 'retired');
+    }
+
+    public function scopeWithWarranty($query)
+    {
+        return $query->where('warranty_months', '>', 0);
+    }
+
+    // Accessors
+    public function getWarrantyExpiryAttribute()
+    {
+        if (! $this->purchase_date || ! $this->warranty_months) {
+            return null;
+        }
+
+        return $this->purchase_date->addMonths($this->warranty_months);
+    }
+
+    public function getIsWarrantyExpiredAttribute()
+    {
+        return $this->warranty_expiry && $this->warranty_expiry->isPast();
+    }
+
+    public function getIsWarrantyExpiringSoonAttribute()
+    {
+        return $this->warranty_expiry &&
+               $this->warranty_expiry->isFuture() &&
+               $this->warranty_expiry->diffInDays(now()) <= 30;
+    }
+
+    public function getDaysUntilWarrantyExpiryAttribute()
+    {
+        if (! $this->warranty_expiry) {
+            return null;
+        }
+
+        $today = Carbon::today();
+        $expiry = Carbon::parse($this->warranty_expiry);
+
+        return $today->diffInDays($expiry, false); // Negative if expired
     }
 
     // Methods
-    public function isAvailable()
+    public function canBeAssigned(): bool
     {
         return $this->status === 'available';
     }
 
-    public function isAssigned()
+    public function canBeReturned(): bool
     {
         return $this->status === 'assigned';
     }
 
-    public function getAssignedUser()
+    public function assignToUser($userId, $assignedById, $condition, $notes = null): AssetAssignment
     {
-        return $this->currentAssignment?->user;
+        $assignment = AssetAssignment::create([
+            'asset_id' => $this->id,
+            'assigned_to' => $userId,
+            'assigned_by' => $assignedById,
+            'assigned_at' => now(),
+            'condition_assigned' => $condition,
+            'notes' => $notes,
+        ]);
+
+        $this->update([
+            'status' => 'assigned',
+            'assigned_to' => $userId,
+            'assigned_at' => now(),
+        ]);
+
+        return $assignment;
     }
 
-    public function registerMediaCollections(): void
+    public function returnFromAssignment($condition, $notes = null): bool
     {
-        $this->addMediaCollection('images')
-            ->singleFile()
-            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/jpg', 'image/gif']);
+        $assignment = $this->assignments()->active()->first();
+
+        if (! $assignment) {
+            return false;
+        }
+
+        $assignment->update([
+            'returned_at' => now(),
+            'condition_returned' => $condition,
+            'notes' => $assignment->notes.($notes ? "\nReturn: ".$notes : ''),
+        ]);
+
+        $this->update([
+            'status' => 'available',
+            'assigned_to' => null,
+            'assigned_at' => null,
+        ]);
+
+        return true;
     }
 }

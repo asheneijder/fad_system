@@ -1,9 +1,12 @@
 <?php
 
+// app/Models/AssetAssignment.php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AssetAssignment extends Model
 {
@@ -15,8 +18,9 @@ class AssetAssignment extends Model
         'assigned_by',
         'assigned_at',
         'returned_at',
-        'remarks',
-        'updated_by',
+        'notes',
+        'condition_assigned',
+        'condition_returned',
     ];
 
     protected $casts = [
@@ -25,24 +29,19 @@ class AssetAssignment extends Model
     ];
 
     // Relationships
-    public function asset()
+    public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
     }
 
-    public function assignedBy()
+    public function assignedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_by');
-    }
-
-    public function updatedBy()
-    {
-        return $this->belongsTo(User::class, 'updated_by');
     }
 
     // Scopes
@@ -51,8 +50,51 @@ class AssetAssignment extends Model
         return $query->whereNull('returned_at');
     }
 
-    public function scopeCompleted($query)
+    public function scopeHistory($query)
     {
         return $query->whereNotNull('returned_at');
+    }
+
+    public function scopeForUser($query, $userId)
+    {
+        return $query->where('assigned_to', $userId);
+    }
+
+    public function scopeRecent($query, $days = 30)
+    {
+        return $query->where('assigned_at', '>=', now()->subDays($days));
+    }
+
+    // Accessors
+    public function getIsActiveAttribute(): bool
+    {
+        return is_null($this->returned_at);
+    }
+
+    public function getAssignmentDurationAttribute(): ?string
+    {
+        if (! $this->assigned_at) {
+            return null;
+        }
+
+        $endDate = $this->returned_at ?? now();
+
+        return $this->assigned_at->diffForHumans($endDate, true);
+    }
+
+    // Methods
+    public function markReturned($condition, $notes = null): bool
+    {
+        if ($this->returned_at) {
+            return false; // Already returned
+        }
+
+        $this->update([
+            'returned_at' => now(),
+            'condition_returned' => $condition,
+            'notes' => $this->notes.($notes ? "\nReturn: ".$notes : ''),
+        ]);
+
+        return true;
     }
 }

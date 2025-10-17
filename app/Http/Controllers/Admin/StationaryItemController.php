@@ -286,18 +286,69 @@ class StationaryItemController extends Controller
     }
 
     /**
-     * Get item movements
+     * Delete a movement record and revert stock
      */
-    public function movements(StationaryItem $stationaryItem)
+    public function destroyMovement(StationaryItemMovement $movement)
     {
+        DB::transaction(function () use ($movement) {
+            $item = $movement->stationaryItem;
+            $currentStock = $item->current_stock;
+
+            // Revert the stock change based on movement type
+            switch ($movement->type) {
+                case 'in':
+                case 'return':
+                    $newStock = max(0, $currentStock - $movement->quantity);
+                    break;
+                case 'out':
+                    $newStock = $currentStock + $movement->quantity;
+                    break;
+                case 'adjustment':
+                    $newStock = $movement->previous_stock;
+                    break;
+                default:
+                    $newStock = $currentStock;
+            }
+
+            // Update item stock
+            $item->update(['current_stock' => $newStock]);
+
+            // Delete the movement record
+            $movement->delete();
+        });
+
+        return redirect()->back()
+            ->with('success', 'Movement record deleted and stock reverted successfully.');
+    }
+
+    /**
+     * Get item movements with filters
+     */
+    public function movements(Request $request, StationaryItem $stationaryItem)
+    {
+        $search = $request->query('search');
+        $type = $request->query('type');
+        $page = $request->query('page', 1);
+
         $movements = $stationaryItem->movements()
+            ->when($search, function ($query) use ($search) {
+                return $query->where(function ($q) use ($search) {
+                    $q->where('reference', 'like', "%{$search}%")
+                        ->orWhere('notes', 'like', "%{$search}%");
+                });
+            })
+            ->when($type, function ($query) use ($type) {
+                return $query->where('type', $type);
+            })
             ->orderBy('movement_date', 'desc')
             ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('Admin/StationaryItem/Movements', [
             'stationaryItem' => $stationaryItem,
             'movements' => $movements,
+            'filters' => $request->only(['search', 'type']) + ['page' => $page],
         ]);
     }
 }

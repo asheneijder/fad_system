@@ -525,9 +525,9 @@ const getCategoryBadge = (category) => {
 };
 
 const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD'
+    return 'RM ' + new Intl.NumberFormat('ms-MY', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
     }).format(amount);
 };
 
@@ -830,6 +830,10 @@ const toggleActionMenu = (event) => {
 
                                         <Button icon="pi pi-trash" outlined rounded severity="danger" size="small"
                                             v-tooltip.top="'Delete Item'" @click="deleteItem(slotProps.data.id)" />
+
+                                            <Button icon="pi pi-history" outlined rounded severity="info" size="small"
+    v-tooltip.top="'View Movement History'" 
+    @click="router.visit(route('admin.stationary-items.movements', slotProps.data.id))" />
                                     </div>
                                 </template>
                             </Column>
