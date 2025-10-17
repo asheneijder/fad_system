@@ -140,9 +140,9 @@ const formatDate = (date) => {
 };
 
 const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-MY', {
         style: 'currency',
-        currency: 'USD'
+        currency: 'MYR'
     }).format(amount);
 };
 
@@ -423,7 +423,7 @@ const quickReject = (requestId) => {
                                                 {{ getTotalItems(slotProps.data) }} items
                                             </span>
                                             <span class="flex items-center gap-1">
-                                                <i class="pi pi-dollar"></i>
+                                                <i class="pi pi-money-bill"></i>
                                                 {{ formatCurrency(getTotalCost(slotProps.data)) }}
                                             </span>
                                         </div>
@@ -492,18 +492,6 @@ const quickReject = (requestId) => {
                                         <Button label="View Details" icon="pi pi-eye" severity="info" size="small"
                                             @click="router.get(route('admin.manage-request-items.show', slotProps.data.id))"
                                             class="w-full" />
-
-                                        <!-- Quick Actions for Pending Requests -->
-                                        <div v-if="slotProps.data.status === 'pending'" class="flex gap-1">
-                                            <Button icon="pi pi-check" severity="success" size="small"
-                                                v-tooltip.top="'Quick Approve'" 
-                                                @click="quickApprove(slotProps.data.id)"
-                                                class="flex-1" />
-                                            <Button icon="pi pi-times" severity="danger" size="small"
-                                                v-tooltip.top="'Quick Reject'" 
-                                                @click="quickReject(slotProps.data.id)"
-                                                class="flex-1" />
-                                        </div>
 
                                         <!-- Complete Action for Approved Requests -->
                                         <Button v-if="slotProps.data.status === 'approved'" 

@@ -22,6 +22,8 @@ class ManageUserController extends Controller
     {
         $search = $request->query('search');
         $status = $request->query('status');
+        $page = $request->query('page', 1);
+        $perPage = $request->query('per_page', 10);
 
         $users = $this->user->query()
             ->when($search, function ($query, $search) {
@@ -37,7 +39,7 @@ class ManageUserController extends Controller
                 $query->where('status', $status);
             })
             ->orderBy('created_at', 'desc')
-            ->paginate(10)
+            ->paginate($perPage, ['*'], 'page', $page)
             ->withQueryString();
 
         // Statistics - Since we don't have status field yet, we'll use basic counts
@@ -48,6 +50,7 @@ class ManageUserController extends Controller
                 ->whereMonth('created_at', now()->month)
                 ->count(),
             'with_job_title' => $this->user->whereNotNull('job_title')->count(),
+            'filters' => $request->only(['search', 'per_page']) + ['page' => $page],
         ];
 
         return Inertia::render('Admin/Users/Index', [

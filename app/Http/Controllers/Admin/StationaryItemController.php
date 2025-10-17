@@ -18,6 +18,7 @@ class StationaryItemController extends Controller
     {
         $search = $request->query('search');
         $page = $request->query('page', 1);
+        $perPage = $request->query('per_page', 10);
 
         $stationaryItems = StationaryItem::when($search, function ($query) use ($search) {
             return $query->where(function ($q) use ($search) {
@@ -29,12 +30,12 @@ class StationaryItemController extends Controller
             });
         })
             ->orderBy('name', 'asc')
-            ->paginate(10)
+            ->paginate($perPage, ['*'], 'page', $page)
             ->withQueryString();
 
         return Inertia::render('Admin/StationaryItem/Index', [
             'stationaryItems' => $stationaryItems,
-            'filters' => $request->only(['search']) + ['page' => $page],
+            'filters' => $request->only(['search']) + ['page' => $page, 'per_page' => $perPage],
         ]);
     }
 

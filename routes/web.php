@@ -67,7 +67,7 @@ Route::group([
     Route::post('categories/export', [CategoryController::class, 'export'])
         ->name('categories.export');
 
-    Route::resource('licenses', LicensesController::class);
+    Route::resource('licenses', LicensesController::class)->except(['show']);
 
     Route::post('licenses/bulk-update-status', [LicensesController::class, 'bulkUpdateStatus'])
         ->name('licenses.bulk-update-status');

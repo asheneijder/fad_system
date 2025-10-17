@@ -20,6 +20,8 @@ import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { router, Head, useForm } from "@inertiajs/vue3";
 import { ref, watch, computed } from "vue";
+import IconField from 'primevue/iconfield';
+import InputIcon from 'primevue/inputicon';
 
 const confirm = useConfirm();
 const toast = useToast();
@@ -49,6 +51,7 @@ const selectedItemId = ref(null);
 const viewItemData = ref(null);
 const selectedItems = ref([]);
 const actionMenu = ref();
+const currentPerPage = ref(props.stationaryItems?.per_page || 10);
 
 // Forms
 const itemForm = useForm({
@@ -158,14 +161,17 @@ const statistics = computed(() => {
 // Watchers
 watch(() => props.stationaryItems, (newItems) => {
     stationaryItems.value = newItems;
+    currentPerPage.value = newItems?.per_page || 10;
 }, { immediate: true });
 
 watch(search, (newSearch, oldSearch) => {
     if (newSearch !== oldSearch) {
         router.get(route("admin.stationary-items.index"), {
-            search: newSearch
+            search: newSearch,
+            page: 1,
+            per_page: currentPerPage.value
         }, {
-            preserveState: true,
+            preserveState: false,
             replace: true,
             preserveScroll: true
         });
@@ -188,11 +194,15 @@ watch(showStockDialog, (val) => {
 // Methods
 const onPageChange = (event) => {
     const page = event.page + 1;
+    const perPage = event.rows;
+    currentPerPage.value = perPage;
+    
     router.get(route("admin.stationary-items.index"), {
         search: search.value,
         page: page,
+        per_page: perPage
     }, {
-        preserveState: true,
+        preserveState: false,
         replace: true,
         preserveScroll: true
     });
@@ -472,7 +482,7 @@ const deleteItem = (id) => {
         acceptClass: "p-button-danger",
         accept: () => {
             router.delete(route("admin.stationary-items.destroy", id), {
-                preserveState: true,
+                preserveState: false,
                 preserveScroll: true,
                 onSuccess: () => {
                     toast.add({
@@ -552,39 +562,39 @@ const toggleActionMenu = (event) => {
         <ConfirmDialog />
         <Menu ref="actionMenu" :model="actionItems" :popup="true" />
 
-        <div class="p-6 space-y-6">
+        <div class="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
             <!-- Breadcrumb -->
-            <Breadcrumb :home="home" :model="items" class="mb-4">
+            <Breadcrumb :home="home" :model="items" class="mb-2 sm:mb-4">
                 <template #item="{ item }">
-                    <span class="font-semibold text-gray-700">{{ item.label }}</span>
+                    <span class="font-semibold text-gray-700 text-xs sm:text-sm">{{ item.label }}</span>
                 </template>
             </Breadcrumb>
 
             <!-- Page Header -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">Stationary Item Management</h1>
-                    <p class="mt-1 text-gray-500">Manage office stationary items and inventory</p>
+                    <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">Stationary Item Management</h1>
+                    <p class="mt-1 text-xs sm:text-sm text-gray-500">Manage office stationary items and inventory</p>
                 </div>
-                <div class="flex gap-3">
+                <div class="flex flex-wrap gap-2">
                     <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
-                        @click="toggleActionMenu" />
+                        @click="toggleActionMenu" class="flex-1 sm:flex-none text-xs sm:text-sm" />
                     <Button label="Create Item" icon="pi pi-plus" severity="success"
-                        @click="openCreateDialog" class="font-semibold" />
+                        @click="openCreateDialog" class="flex-1 sm:flex-none text-xs sm:text-sm font-semibold" />
                 </div>
             </div>
 
             <!-- Statistics Cards -->
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+            <div class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
                 <Card class="border-l-4 border-blue-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Total Items</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.total }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Total Items</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.total }}</p>
                             </div>
-                            <div class="p-3 bg-blue-100 rounded-full">
-                                <i class="text-xl text-blue-600 pi pi-box"></i>
+                            <div class="p-2 sm:p-3 bg-blue-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-blue-600 pi pi-box"></i>
                             </div>
                         </div>
                     </template>
@@ -592,13 +602,13 @@ const toggleActionMenu = (event) => {
 
                 <Card class="border-l-4 border-green-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">In Stock</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.inStock }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">In Stock</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.inStock }}</p>
                             </div>
-                            <div class="p-3 bg-green-100 rounded-full">
-                                <i class="text-xl text-green-600 pi pi-check-circle"></i>
+                            <div class="p-2 sm:p-3 bg-green-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-green-600 pi pi-check-circle"></i>
                             </div>
                         </div>
                     </template>
@@ -606,13 +616,13 @@ const toggleActionMenu = (event) => {
 
                 <Card class="border-l-4 border-yellow-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Low Stock</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.lowStock }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Low Stock</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.lowStock }}</p>
                             </div>
-                            <div class="p-3 bg-yellow-100 rounded-full">
-                                <i class="text-xl text-yellow-600 pi pi-exclamation-circle"></i>
+                            <div class="p-2 sm:p-3 bg-yellow-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-yellow-600 pi pi-exclamation-circle"></i>
                             </div>
                         </div>
                     </template>
@@ -620,13 +630,13 @@ const toggleActionMenu = (event) => {
 
                 <Card class="border-l-4 border-red-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Out of Stock</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.outOfStock }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Out of Stock</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.outOfStock }}</p>
                             </div>
-                            <div class="p-3 bg-red-100 rounded-full">
-                                <i class="text-xl text-red-600 pi pi-times-circle"></i>
+                            <div class="p-2 sm:p-3 bg-red-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-red-600 pi pi-times-circle"></i>
                             </div>
                         </div>
                     </template>
@@ -634,55 +644,13 @@ const toggleActionMenu = (event) => {
 
                 <Card class="border-l-4 border-purple-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Total Value</p>
-                                <p class="mt-1 text-xl font-bold text-gray-900">{{ formatCurrency(statistics.totalValue) }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Total Value</p>
+                                <p class="mt-1 text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">{{ formatCurrency(statistics.totalValue) }}</p>
                             </div>
-                            <div class="p-3 bg-purple-100 rounded-full">
-                                <i class="text-xl text-purple-600 pi pi-dollar"></i>
-                            </div>
-                        </div>
-                    </template>
-                </Card>
-
-                <Card class="border-l-4 border-indigo-500 shadow-md">
-                    <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Writing</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.writing }}</p>
-                            </div>
-                            <div class="p-3 bg-indigo-100 rounded-full">
-                                <i class="text-xl text-indigo-600 pi pi-pencil"></i>
-                            </div>
-                        </div>
-                    </template>
-                </Card>
-
-                <Card class="border-l-4 border-orange-500 shadow-md">
-                    <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Paper</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.paper }}</p>
-                            </div>
-                            <div class="p-3 bg-orange-100 rounded-full">
-                                <i class="text-xl text-orange-600 pi pi-file"></i>
-                            </div>
-                        </div>
-                    </template>
-                </Card>
-
-                <Card class="border-l-4 border-teal-500 shadow-md">
-                    <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Desk</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.desk }}</p>
-                            </div>
-                            <div class="p-3 bg-teal-100 rounded-full">
-                                <i class="text-xl text-teal-600 pi pi-desktop"></i>
+                            <div class="p-2 sm:p-3 bg-purple-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-purple-600 pi pi-dollar"></i>
                             </div>
                         </div>
                     </template>
@@ -693,86 +661,98 @@ const toggleActionMenu = (event) => {
             <Card class="shadow-lg">
                 <template #content>
                     <!-- Toolbar -->
-                    <div class="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
-                        <div class="flex gap-3">
-                            <Button label="Create Item" icon="pi pi-plus" severity="success"
-                                @click="openCreateDialog" class="font-semibold" />
-                            <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
-                                @click="toggleActionMenu" />
+                    <div class="flex flex-col gap-3 sm:gap-4">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3">
+                            <div class="flex flex-wrap gap-1 sm:gap-2 w-full sm:w-auto">
+                                <Button label="Create" icon="pi pi-plus" severity="success"
+                                    @click="openCreateDialog" class="flex-1 sm:flex-none text-xs sm:text-sm" />
+                                <Button label="Actions" icon="pi pi-cog" severity="secondary" outlined
+                                    @click="toggleActionMenu" class="flex-1 sm:flex-none text-xs sm:text-sm" />
+                            </div>
+
+                            <div class="w-full sm:w-auto">
+                                <IconField iconPosition="left">
+                                    <InputIcon class="pi pi-search" />
+                                    <InputText v-model="search" placeholder="Search items..." 
+                                        class="w-full sm:w-64 md:w-80 text-xs sm:text-sm" />
+                                </IconField>
+                            </div>
                         </div>
 
-                        <div class="w-full lg:w-auto">
-                            <span class="p-input-icon-left">
-                                <i class="pi pi-search" />
-                                <InputText v-model="search" placeholder="Search items..." 
-                                    class="w-full lg:w-80" />
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Selected Items Info -->
-                    <div v-if="selectedItems.length > 0" class="p-3 mt-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm font-medium text-blue-800">
-                                {{ selectedItems.length }} item(s) selected
-                            </span>
-                            <Button label="Clear" icon="pi pi-times" severity="secondary" text
-                                @click="selectedItems = []" />
+                        <!-- Selected Items Info -->
+                        <div v-if="selectedItems.length > 0" class="p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-xs sm:text-sm font-medium text-blue-800">
+                                    {{ selectedItems.length }} item(s) selected
+                                </span>
+                                <Button label="Clear" icon="pi pi-times" severity="secondary" text size="small"
+                                    @click="selectedItems = []" class="text-xs" />
+                            </div>
                         </div>
                     </div>
 
                     <!-- Data Table -->
-                    <div class="mt-6">
+                    <div class="mt-4 sm:mt-6 overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
                         <DataTable :value="stationaryItems.data" showGridlines stripedRows
-                            :rowHover="true" paginator :rows="stationaryItems.per_page" :totalRecords="stationaryItems.total"
-                            :first="(stationaryItems.current_page - 1) * stationaryItems.per_page" @page="onPageChange"
-                            v-model:selection="selectedItems" dataKey="id"
-                            responsiveLayout="scroll" tableStyle="min-width: 50rem" class="p-datatable-custom">
+                            :rowHover="true" 
+                            paginator 
+                            :rows="stationaryItems.per_page" 
+                            :totalRecords="stationaryItems.total"
+                            :first="(stationaryItems.current_page - 1) * stationaryItems.per_page" 
+                            @page="onPageChange"
+                            v-model:selection="selectedItems" 
+                            dataKey="id"
+                            :rowsPerPageOptions="[5, 10, 20, 50]"
+                            paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+                            responsiveLayout="scroll" 
+                            class="p-datatable-custom"
+                            :globalFilterFields="['name', 'sku', 'supplier']">
 
                             <!-- Empty State -->
                             <template #empty>
-                                <div class="flex flex-col items-center justify-center py-12">
-                                    <div class="p-6 mb-4 bg-gray-100 rounded-full">
-                                        <i class="text-6xl text-gray-400 pi pi-box"></i>
+                                <div class="flex flex-col items-center justify-center py-8 sm:py-12">
+                                    <div class="p-3 sm:p-6 mb-4 bg-gray-100 rounded-full">
+                                        <i class="text-4xl sm:text-6xl text-gray-400 pi pi-box"></i>
                                     </div>
-                                    <h3 class="mb-2 text-xl font-semibold text-gray-700">No Stationary Items Found</h3>
-                                    <p class="mb-4 text-gray-500">Try adjusting your search or create a new item.</p>
+                                    <h3 class="mb-2 text-base sm:text-lg md:text-xl font-semibold text-gray-700">No Stationary Items Found</h3>
+                                    <p class="mb-4 text-xs sm:text-sm text-gray-500 text-center px-2">Try adjusting your search or create a new item.</p>
                                     <Button label="Create First Item" icon="pi pi-plus" severity="success"
-                                        @click="openCreateDialog" />
+                                        @click="openCreateDialog" size="small" class="text-xs sm:text-sm" />
                                 </div>
                             </template>
 
                             <!-- Selection Column -->
-                            <Column selectionMode="multiple" headerStyle="width: 3rem" />
+                            <Column selectionMode="multiple" headerStyle="width: 2.5rem" />
 
                             <!-- Columns -->
-                            <Column header="#" style="width: 60px;">
+                            <Column header="#" style="min-width: 50px;">
                                 <template #body="slotProps">
                                     <Badge :value="(stationaryItems.current_page - 1) * stationaryItems.per_page + slotProps.index + 1"
-                                        severity="secondary" />
+                                        severity="secondary" class="text-xs" />
                                 </template>
                             </Column>
 
-                            <Column field="name" header="Item Name" sortable>
+                            <Column field="name" header="Item Name" sortable style="min-width: 140px;">
                                 <template #body="slotProps">
-                                    <div class="font-semibold text-gray-900">{{ slotProps.data.name }}</div>
-                                    <div class="text-sm text-gray-500">
+                                    <div class="font-semibold text-gray-900 text-xs sm:text-sm break-words">{{ slotProps.data.name }}</div>
+                                    <div class="text-xs text-gray-500 truncate">
                                         SKU: {{ slotProps.data.sku || 'No SKU' }}
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column field="category" header="Category" sortable style="width: 120px;">
+                            <Column field="category" header="Category" sortable style="min-width: 100px;">
                                 <template #body="slotProps">
                                     <Badge :value="getCategoryBadge(slotProps.data.category).label"
                                         :severity="getCategoryBadge(slotProps.data.category).severity"
-                                        class="capitalize" />
+                                        class="capitalize text-xs" />
                                 </template>
                             </Column>
 
-                            <Column header="Stock" sortable style="width: 140px;">
+                            <Column header="Stock" sortable style="min-width: 110px;">
                                 <template #body="slotProps">
-                                    <div class="text-sm">
+                                    <div class="text-xs sm:text-sm">
                                         <div class="font-medium text-gray-900">
                                             {{ slotProps.data.current_stock }} {{ slotProps.data.unit }}
                                         </div>
@@ -783,9 +763,9 @@ const toggleActionMenu = (event) => {
                                 </template>
                             </Column>
 
-                            <Column header="Price" sortable style="width: 120px;">
+                            <Column header="Price" sortable style="min-width: 100px;">
                                 <template #body="slotProps">
-                                    <div class="text-sm">
+                                    <div class="text-xs sm:text-sm">
                                         <div class="font-medium text-gray-900">
                                             {{ formatCurrency(slotProps.data.cost_price) }}
                                         </div>
@@ -796,48 +776,58 @@ const toggleActionMenu = (event) => {
                                 </template>
                             </Column>
 
-                            <Column field="supplier" header="Supplier" sortable style="width: 120px;">
+                            <Column field="supplier" header="Supplier" sortable style="min-width: 90px;">
                                 <template #body="slotProps">
-                                    <div class="text-sm text-gray-600">
+                                    <div class="text-xs sm:text-sm text-gray-600 truncate">
                                         {{ slotProps.data.supplier || '—' }}
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column header="Status" sortable style="width: 120px;">
+                            <Column header="Status" sortable style="min-width: 90px;">
                                 <template #body="slotProps">
                                     <Badge :value="getStatusText(slotProps.data)"
                                         :severity="getStatusSeverity(slotProps.data)"
-                                        class="capitalize" />
+                                        class="capitalize text-xs" />
                                 </template>
                             </Column>
 
                             <!-- Actions -->
-                            <Column header="Actions" style="min-width: 200px">
+                            <Column header="Actions" style="min-width: 160px">
                                 <template #body="slotProps">
-                                    <div class="flex gap-2">
+                                    <div class="flex gap-1 flex-wrap">
                                         <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
-                                            v-tooltip.top="'View Details'" @click="viewItem(slotProps.data)" />
+                                            v-tooltip.top="'View'" @click="viewItem(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button icon="pi pi-box" outlined rounded severity="help" size="small"
-                                            v-tooltip.top="'Manage Stock'" @click="openStockDialog(slotProps.data)" />
+                                            v-tooltip.top="'Stock'" @click="openStockDialog(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button icon="pi pi-history" outlined rounded severity="secondary" size="small"
-                                            v-tooltip.top="'Record Movement'" @click="openMovementDialog(slotProps.data)" />
+                                            v-tooltip.top="'Movement'" @click="openMovementDialog(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button icon="pi pi-pencil" outlined rounded severity="warning" size="small"
-                                            v-tooltip.top="'Edit Item'" @click="openEditDialog(slotProps.data)" />
+                                            v-tooltip.top="'Edit'" @click="openEditDialog(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button icon="pi pi-trash" outlined rounded severity="danger" size="small"
-                                            v-tooltip.top="'Delete Item'" @click="deleteItem(slotProps.data.id)" />
+                                            v-tooltip.top="'Delete'" @click="deleteItem(slotProps.data.id)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
-                                            <Button icon="pi pi-history" outlined rounded severity="info" size="small"
-    v-tooltip.top="'View Movement History'" 
-    @click="router.visit(route('admin.stationary-items.movements', slotProps.data.id))" />
+                                        <Button icon="pi pi-history" outlined rounded severity="info" size="small"
+                                            v-tooltip.top="'View Movement History'" 
+                                            @click="router.visit(route('admin.stationary-items.movements', slotProps.data.id))" />
                                     </div>
                                 </template>
                             </Column>
                         </DataTable>
+                    </div>
+
+                    <!-- Mobile Pagination Info -->
+                    <div class="mt-4 text-xs text-gray-600 text-center sm:hidden">
+                        Page {{ stationaryItems.current_page }} of {{ Math.ceil(stationaryItems.total / stationaryItems.per_page) }}
                     </div>
                 </template>
             </Card>
@@ -845,19 +835,19 @@ const toggleActionMenu = (event) => {
             <!-- Create/Edit Item Dialog -->
             <Dialog v-model:visible="showCreateEditDialog" modal 
                 :header="isEditMode ? 'Edit Stationary Item' : 'Create New Stationary Item'" 
-                :style="{ width: '750px' }"
-                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
+                :style="{ width: '95vw', maxWidth: '750px' }"
+                :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
                 
-                <div class="space-y-6">
-                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div class="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
                         <!-- Item Name -->
-                        <div class="space-y-2 md:col-span-2">
-                            <label class="block text-sm font-semibold text-gray-700">
+                        <div class="space-y-1 sm:space-y-2 md:col-span-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Item Name <span class="text-red-500">*</span>
                             </label>
                             <InputText v-model="itemForm.name" 
                                 placeholder="Enter item name" 
-                                class="w-full"
+                                class="w-full text-xs sm:text-sm"
                                 :class="{ 'p-invalid': itemForm.errors.name }" />
                             <small class="text-red-500 text-xs" v-if="itemForm.errors.name">
                                 {{ itemForm.errors.name }}
@@ -865,16 +855,16 @@ const toggleActionMenu = (event) => {
                         </div>
 
                         <!-- SKU -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">SKU</label>
-                            <div class="flex gap-2">
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">SKU</label>
+                            <div class="flex gap-1 sm:gap-2">
                                 <InputText v-model="itemForm.sku" 
                                     placeholder="Enter SKU" 
-                                    class="flex-1"
+                                    class="flex-1 text-xs sm:text-sm"
                                     :class="{ 'p-invalid': itemForm.errors.sku }" />
-                                <Button icon="pi pi-refresh" severity="secondary" 
+                                <Button icon="pi pi-refresh" severity="secondary" size="small"
                                     @click="generateSKU"
-                                    v-tooltip="'Generate SKU'" />
+                                    v-tooltip="'Generate'" class="px-2 sm:px-3" />
                             </div>
                             <small class="text-red-500 text-xs" v-if="itemForm.errors.sku">
                                 {{ itemForm.errors.sku }}
@@ -882,8 +872,8 @@ const toggleActionMenu = (event) => {
                         </div>
 
                         <!-- Category -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Category <span class="text-red-500">*</span>
                             </label>
                             <Select v-model="itemForm.category" 
@@ -891,7 +881,7 @@ const toggleActionMenu = (event) => {
                                 optionLabel="label" 
                                 optionValue="value"
                                 placeholder="Select category"
-                                class="w-full"
+                                class="w-full text-xs sm:text-sm"
                                 :class="{ 'p-invalid': itemForm.errors.category }" />
                             <small class="text-red-500 text-xs" v-if="itemForm.errors.category">
                                 {{ itemForm.errors.category }}
@@ -899,8 +889,8 @@ const toggleActionMenu = (event) => {
                         </div>
 
                         <!-- Unit -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Unit <span class="text-red-500">*</span>
                             </label>
                             <Select v-model="itemForm.unit" 
@@ -908,7 +898,7 @@ const toggleActionMenu = (event) => {
                                 optionLabel="label" 
                                 optionValue="value"
                                 placeholder="Select unit"
-                                class="w-full"
+                                class="w-full text-xs sm:text-sm"
                                 :class="{ 'p-invalid': itemForm.errors.unit }" />
                             <small class="text-red-500 text-xs" v-if="itemForm.errors.unit">
                                 {{ itemForm.errors.unit }}
@@ -916,281 +906,293 @@ const toggleActionMenu = (event) => {
                         </div>
 
                         <!-- Cost Price -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Cost Price</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Cost Price</label>
                             <InputNumber v-model="itemForm.cost_price" 
                                 :min="0" 
                                 mode="currency" 
-                                currency="USD" 
-                                locale="en-US"
-                                class="w-full" />
+                                currency="MYR" 
+                                locale="ms-MY"
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Selling Price -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Selling Price</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Selling Price</label>
                             <InputNumber v-model="itemForm.selling_price" 
                                 :min="0" 
                                 mode="currency" 
-                                currency="USD" 
-                                locale="en-US"
-                                class="w-full" />
+                                currency="MYR" 
+                                locale="ms-MY"
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Current Stock -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Current Stock</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Current Stock</label>
                             <InputNumber v-model="itemForm.current_stock" 
                                 :min="0" 
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Minimum Stock -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Minimum Stock</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Minimum Stock</label>
                             <InputNumber v-model="itemForm.min_stock" 
                                 :min="0" 
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Supplier -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Supplier</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Supplier</label>
                             <InputText v-model="itemForm.supplier" 
                                 placeholder="Enter supplier name" 
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Location -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Location</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Location</label>
                             <InputText v-model="itemForm.location" 
                                 placeholder="Enter storage location" 
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Status -->
                         <div class="flex items-center space-x-2 md:col-span-2">
                             <Checkbox v-model="itemForm.status" :binary="true" inputId="status" />
-                            <label for="status" class="text-sm font-semibold text-gray-700">Active Item</label>
+                            <label for="status" class="text-xs sm:text-sm font-semibold text-gray-700">Active Item</label>
                         </div>
 
                         <!-- Description -->
-                        <div class="space-y-2 md:col-span-2">
-                            <label class="block text-sm font-semibold text-gray-700">Description</label>
+                        <div class="space-y-1 sm:space-y-2 md:col-span-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Description</label>
                             <Textarea v-model="itemForm.description" 
                                 rows="3" 
                                 placeholder="Enter item description..."
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
                     </div>
 
                     <!-- Footer Actions -->
-                    <div class="flex justify-end gap-3 pt-4 border-t">
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
                         <Button label="Cancel" 
                             severity="secondary" 
                             outlined 
                             @click="showCreateEditDialog = false"
-                            :disabled="itemForm.processing" />
+                            :disabled="itemForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                         <Button :label="isEditMode ? 'Update Item' : 'Create Item'" 
                             icon="pi pi-check" 
                             severity="success" 
                             @click="saveItem"
-                            :loading="itemForm.processing" />
+                            :loading="itemForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
             </Dialog>
 
             <!-- View Item Dialog -->
-            <Dialog v-model:visible="showViewDialog" modal header="Item Details" :style="{ width: '600px' }"
-                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
-                <div v-if="viewItemData" class="space-y-6">
-                    <div class="grid grid-cols-2 gap-6">
+            <Dialog v-model:visible="showViewDialog" modal header="Item Details" 
+                :style="{ width: '95vw', maxWidth: '600px' }"
+                :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
+                <div v-if="viewItemData" class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Item Name</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">{{ viewItemData.name }}</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Item Name</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900 break-words">{{ viewItemData.name }}</p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">SKU</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">{{ viewItemData.sku || '—' }}</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">SKU</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">{{ viewItemData.sku || '—' }}</p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Category</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Category</p>
                             <Badge :value="getCategoryBadge(viewItemData.category).label"
                                 :severity="getCategoryBadge(viewItemData.category).severity"
-                                class="mt-1 capitalize" />
+                                class="mt-1 capitalize text-xs" />
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Unit</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">{{ viewItemData.unit }}</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Unit</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">{{ viewItemData.unit }}</p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Current Stock</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Current Stock</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">
                                 {{ viewItemData.current_stock }} {{ viewItemData.unit }}
                             </p>
                             <Badge :value="getStockStatus(viewItemData).text"
                                 :severity="getStockStatus(viewItemData).severity"
-                                class="mt-1" />
+                                class="mt-1 text-xs" />
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Minimum Stock</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">{{ viewItemData.min_stock }}</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Minimum Stock</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">{{ viewItemData.min_stock }}</p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Cost Price</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Cost Price</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">
                                 {{ formatCurrency(viewItemData.cost_price) }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Selling Price</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Selling Price</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">
                                 {{ formatCurrency(viewItemData.selling_price) }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Supplier</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Supplier</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">
                                 {{ viewItemData.supplier || '—' }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Location</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Location</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">
                                 {{ viewItemData.location || '—' }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Status</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Status</p>
                             <Badge :value="getStatusText(viewItemData)"
                                 :severity="getStatusSeverity(viewItemData)"
-                                class="mt-1 capitalize" />
+                                class="mt-1 capitalize text-xs" />
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Created Date</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Created Date</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">
                                 {{ formatDate(viewItemData.created_at) }}
                             </p>
                         </div>
-                        <div class="md:col-span-2" v-if="viewItemData.description">
-                            <p class="text-sm font-medium text-gray-500">Description</p>
-                            <p class="mt-1 text-base text-gray-900">{{ viewItemData.description }}</p>
+                        <div class="sm:col-span-2" v-if="viewItemData.description">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Description</p>
+                            <p class="mt-1 text-xs sm:text-sm text-gray-900">{{ viewItemData.description }}</p>
                         </div>
                     </div>
 
-                    <div class="flex justify-end gap-3 pt-4 border-t">
-                        <Button label="Close" severity="secondary" outlined @click="showViewDialog = false" />
-                        <Button label="Edit Item" icon="pi pi-pencil" severity="warning" 
-                            @click="showViewDialog = false; openEditDialog(viewItemData)" />
-                        <Button label="Manage Stock" icon="pi pi-box" severity="help" 
-                            @click="showViewDialog = false; openStockDialog(viewItemData)" />
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
+                        <Button label="Close" severity="secondary" outlined @click="showViewDialog = false" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button label="Edit" icon="pi pi-pencil" severity="warning" 
+                            @click="showViewDialog = false; openEditDialog(viewItemData)" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button label="Stock" icon="pi pi-box" severity="help" 
+                            @click="showViewDialog = false; openStockDialog(viewItemData)" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
             </Dialog>
 
             <!-- Stock Management Dialog -->
-            <Dialog v-model:visible="showStockDialog" modal header="Manage Stock" :style="{ width: '500px' }"
-                :breakpoints="{ '1199px': '50vw', '575px': '90vw' }">
-                <div class="space-y-6">
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Operation</label>
+            <Dialog v-model:visible="showStockDialog" modal header="Manage Stock" 
+                :style="{ width: '95vw', maxWidth: '500px' }"
+                :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
+                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Operation</label>
                         <Select v-model="stockForm.operation" :options="[
                             { label: 'Add to stock', value: 'add' },
                             { label: 'Set stock to', value: 'set' },
                             { label: 'Subtract from stock', value: 'subtract' }
-                        ]" optionLabel="label" optionValue="value" class="w-full" />
+                        ]" optionLabel="label" optionValue="value" class="w-full text-xs sm:text-sm" />
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Movement Type</label>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Movement Type</label>
                         <Select v-model="stockForm.type" :options="movementTypes" 
-                            optionLabel="label" optionValue="value" class="w-full" />
+                            optionLabel="label" optionValue="value" class="w-full text-xs sm:text-sm" />
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Quantity</label>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Quantity</label>
                         <InputNumber v-model="stockForm.quantity" 
                             :min="0" 
-                            class="w-full"
+                            class="w-full text-xs sm:text-sm"
                             :class="{ 'p-invalid': stockForm.errors.quantity }" />
                         <small class="text-red-500 text-xs" v-if="stockForm.errors.quantity">
                             {{ stockForm.errors.quantity }}
                         </small>
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Movement Date</label>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Movement Date</label>
                         <Calendar v-model="stockForm.movement_date" 
                             dateFormat="yy-mm-dd" 
                             showIcon
-                            class="w-full" />
+                            class="w-full text-xs sm:text-sm" />
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Notes</label>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Notes</label>
                         <Textarea v-model="stockForm.notes" rows="3" placeholder="Add notes about this stock movement..."
-                            class="w-full" />
+                            class="w-full text-xs sm:text-sm" />
                     </div>
 
-                    <div class="flex justify-end gap-3 pt-4 border-t">
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
                         <Button label="Cancel" severity="secondary" outlined 
                             @click="showStockDialog = false"
-                            :disabled="stockForm.processing" />
+                            :disabled="stockForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                         <Button label="Update Stock" icon="pi pi-check" severity="success" 
-                            @click="updateStock" :loading="stockForm.processing" />
+                            @click="updateStock" :loading="stockForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
             </Dialog>
 
             <!-- Record Movement Dialog -->
-            <Dialog v-model:visible="showMovementDialog" modal header="Record Movement" :style="{ width: '500px' }"
-                :breakpoints="{ '1199px': '50vw', '575px': '90vw' }">
-                <div class="space-y-6">
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Movement Type</label>
+            <Dialog v-model:visible="showMovementDialog" modal header="Record Movement" 
+                :style="{ width: '95vw', maxWidth: '500px' }"
+                :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
+                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Movement Type</label>
                         <Select v-model="movementForm.type" :options="movementTypes" 
-                            optionLabel="label" optionValue="value" class="w-full" />
+                            optionLabel="label" optionValue="value" class="w-full text-xs sm:text-sm" />
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Quantity</label>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Quantity</label>
                         <InputNumber v-model="movementForm.quantity" 
                             :min="0" 
-                            class="w-full"
+                            class="w-full text-xs sm:text-sm"
                             :class="{ 'p-invalid': movementForm.errors.quantity }" />
                         <small class="text-red-500 text-xs" v-if="movementForm.errors.quantity">
                             {{ movementForm.errors.quantity }}
                         </small>
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Reference</label>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Reference</label>
                         <InputText v-model="movementForm.reference" 
                             placeholder="Enter reference (PO, invoice, etc.)" 
-                            class="w-full" />
+                            class="w-full text-xs sm:text-sm" />
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Movement Date</label>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Movement Date</label>
                         <Calendar v-model="movementForm.movement_date" 
                             dateFormat="yy-mm-dd" 
                             showIcon
-                            class="w-full" />
+                            class="w-full text-xs sm:text-sm" />
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Notes</label>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Notes</label>
                         <Textarea v-model="movementForm.notes" rows="3" placeholder="Add notes about this movement..."
-                            class="w-full" />
+                            class="w-full text-xs sm:text-sm" />
                     </div>
 
-                    <div class="flex justify-end gap-3 pt-4 border-t">
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
                         <Button label="Cancel" severity="secondary" outlined 
                             @click="showMovementDialog = false"
-                            :disabled="movementForm.processing" />
+                            :disabled="movementForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                         <Button label="Record Movement" icon="pi pi-check" severity="success" 
-                            @click="recordMovement" :loading="movementForm.processing" />
+                            @click="recordMovement" :loading="movementForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
             </Dialog>
@@ -1244,6 +1246,18 @@ const toggleActionMenu = (event) => {
 
 :deep(.p-calendar) {
     border-radius: 0.375rem;
+}
+
+/* Responsive button sizing */
+:deep(.p-button.p-button-sm) {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-button.p-button-sm) {
+        font-size: 0.875rem;
+    }
 }
 
 :deep(.p-dialog .p-dialog-header) {

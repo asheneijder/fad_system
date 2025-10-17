@@ -19,8 +19,11 @@ class RequestItemController extends Controller
     public function index(Request $request)
     {
         $search = $request->query('search');
+        $category = $request->query('category');
         $page = $request->query('page', 1);
+        $stationaryPage = $request->query('stationary_page', 1);
 
+        // User requests with pagination
         $requests = RequestItem::with(['items.stationaryItem', 'user'])
             ->where('user_id', auth()->id())
             ->when($search, function ($query) use ($search) {
@@ -28,14 +31,35 @@ class RequestItemController extends Controller
                     ->orWhere('notes', 'like', "%{$search}%");
             })
             ->orderBy('created_at', 'desc')
-            ->paginate(10)
+            ->paginate(10, ['*'], 'page', $page)
             ->withQueryString();
 
+        // Stationary items with pagination and filters
         $stationaryItems = StationaryItem::active()
             ->where('current_stock', '>', 0)
+            ->when($search, function ($query) use ($search) {
+                return $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('unit', 'like', "%{$search}%");
+            })
+            ->when($category, function ($query) use ($category) {
+                return $query->where('category', $category);
+            })
             ->orderBy('name')
-            ->get()
-            ->toArray();
+            ->paginate(12, ['*'], 'stationary_page', $stationaryPage)
+            ->withQueryString();
+
+        // Get available categories for filter
+        $categories = StationaryItem::active()
+            ->where('current_stock', '>', 0)
+            ->distinct()
+            ->pluck('category')
+            ->map(function ($category) {
+                return [
+                    'label' => ucfirst($category),
+                    'value' => $category,
+                ];
+            });
 
         $cartItems = Cart::with('stationaryItem')
             ->where('user_id', auth()->id())
@@ -46,7 +70,11 @@ class RequestItemController extends Controller
             'requests' => $requests,
             'stationaryItems' => $stationaryItems,
             'cartItems' => $cartItems,
-            'filters' => $request->only(['search']) + ['page' => $page],
+            'categories' => $categories,
+            'filters' => $request->only(['search', 'category']) + [
+                'page' => $page,
+                'stationary_page' => $stationaryPage,
+            ],
         ]);
     }
 

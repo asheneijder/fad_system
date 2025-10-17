@@ -154,9 +154,9 @@ const formatDate = (date) => {
 };
 
 const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-MY', {
         style: 'currency',
-        currency: 'USD'
+        currency: 'MYR'
     }).format(amount);
 };
 
@@ -460,7 +460,7 @@ const updateQuantities = () => {
                                             <p class="text-xs sm:text-sm text-gray-500 mt-2">
                                                 <i class="pi pi-box text-blue-500 mr-1"></i>
                                                 Stock: {{ item.stationary_item?.current_stock }} {{ item.stationary_item?.unit }} • 
-                                                <i class="pi pi-dollar text-green-500 mr-1 ml-1 sm:ml-2"></i>
+                                                <i class="pi pi-money-bill text-green-500 mr-1 ml-1 sm:ml-2"></i>
                                                 Price: {{ formatCurrency(item.unit_price) }}
                                             </p>
                                         </div>
@@ -598,12 +598,6 @@ const updateQuantities = () => {
                         <template #content>
                             <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">Quick Actions</h3>
                             <div class="space-y-2 sm:space-y-3">
-                                <Button label="Approve All Items" icon="pi pi-check" severity="success" 
-                                    @click="approveAllItems"
-                                    class="w-full text-xs sm:text-sm" outlined />
-                                <Button label="Approve Available Only" icon="pi pi-filter" severity="warning" 
-                                    @click="approveAvailableOnly"
-                                    class="w-full text-xs sm:text-sm" outlined />
                                 <Button label="Reset to Requested" icon="pi pi-refresh" severity="secondary" 
                                     @click="resetToRequested"
                                     class="w-full text-xs sm:text-sm" outlined />

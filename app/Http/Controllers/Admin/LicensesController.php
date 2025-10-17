@@ -17,6 +17,7 @@ class LicensesController extends Controller
     {
         $search = $request->query('search');
         $page = $request->query('page', 1);
+        $perPage = $request->query('per_page', 10);
 
         $licenses = License::when($search, function ($query) use ($search) {
             return $query->where(function ($q) use ($search) {
@@ -28,12 +29,12 @@ class LicensesController extends Controller
             });
         })
             ->orderBy('created_at', 'desc')
-            ->paginate(10)
+            ->paginate($perPage, ['*'], 'page', $page)
             ->withQueryString();
 
         return Inertia::render('Admin/Licenses/Index', [
             'licenses' => $licenses,
-            'filters' => $request->only(['search']) + ['page' => $page],
+            'filters' => $request->only(['search', 'per_page']) + ['page' => $page],
         ]);
     }
 
@@ -101,14 +102,23 @@ class LicensesController extends Controller
      */
     public function generateProductKey()
     {
-        do {
-            $productKey = strtoupper(Str::random(5).'-'.Str::random(5).'-'.Str::random(5).'-'.Str::random(5));
-        } while (License::where('product_key', $productKey)->exists());
+        try {
+            // Generate a simple unique key without database check first
+            $productKey = 'PK-'.time().'-'.Str::random(6);
 
-        return response()->json([
-            'success' => true,
-            'product_key' => $productKey,
-        ]);
+            return response()->json([
+                'success' => true,
+                'product_key' => strtoupper($productKey),
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to generate product key: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate product key',
+            ], 500);
+        }
     }
 
     /**

@@ -20,6 +20,8 @@ import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { router, Head, useForm } from "@inertiajs/vue3";
 import { ref, watch, computed } from "vue";
+import IconField from 'primevue/iconfield';
+import InputIcon from 'primevue/inputicon';
 
 const confirm = useConfirm();
 const toast = useToast();
@@ -48,6 +50,7 @@ const selectedLicenseId = ref(null);
 const viewLicenseData = ref(null);
 const selectedLicenses = ref([]);
 const actionMenu = ref();
+const currentPerPage = ref(props.licenses?.per_page || 10);
 
 // Forms
 const licenseForm = useForm({
@@ -98,7 +101,7 @@ const actionItems = ref([
     }
 ]);
 
-// Statistics - Fixed with proper data access
+// Statistics
 const statistics = computed(() => {
     const data = licenses.value?.data || [];
     const today = new Date();
@@ -130,14 +133,17 @@ const statistics = computed(() => {
 // Watchers
 watch(() => props.licenses, (newLicenses) => {
     licenses.value = newLicenses;
+    currentPerPage.value = newLicenses?.per_page || 10;
 }, { immediate: true });
 
 watch(search, (newSearch, oldSearch) => {
     if (newSearch !== oldSearch) {
         router.get(route("admin.licenses.index"), {
-            search: newSearch
+            search: newSearch,
+            page: 1,
+            per_page: currentPerPage.value
         }, {
-            preserveState: true,
+            preserveState: false,
             replace: true,
             preserveScroll: true
         });
@@ -159,12 +165,29 @@ watch(showQuantityDialog, (val) => {
 
 // Methods
 const onPageChange = (event) => {
-    const page = event.page + 1; // PrimeVue uses 0-based indexing
+    const page = event.page + 1;
+    const perPage = event.rows;
+    currentPerPage.value = perPage;
+    
     router.get(route("admin.licenses.index"), {
         search: search.value,
         page: page,
+        per_page: perPage
     }, {
-        preserveState: true,
+        preserveState: false,
+        replace: true,
+        preserveScroll: true
+    });
+};
+
+const onRowsPerPageChange = (newPerPage) => {
+    currentPerPage.value = newPerPage;
+    router.get(route("admin.licenses.index"), {
+        search: search.value,
+        page: 1,
+        per_page: newPerPage
+    }, {
+        preserveState: false,
         replace: true,
         preserveScroll: true
     });
@@ -220,6 +243,16 @@ const openQuantityDialog = (license) => {
 const generateProductKey = async () => {
     try {
         const response = await fetch(route('admin.licenses.generate-product-key'));
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Server returned non-JSON response');
+        }
+        
         const data = await response.json();
         
         if (data.success) {
@@ -230,13 +263,15 @@ const generateProductKey = async () => {
                 detail: 'New product key generated',
                 life: 3000
             });
+        } else {
+            throw new Error(data.message || 'Failed to generate product key');
         }
     } catch (error) {
         console.error('Failed to generate product key:', error);
         toast.add({
             severity: 'error',
             summary: 'Error',
-            detail: 'Failed to generate product key',
+            detail: 'Failed to generate product key. Please try again.',
             life: 3000
         });
     }
@@ -382,7 +417,6 @@ const exportSelected = () => {
 
     const licenseIds = selectedLicenses.value.map(license => license.id);
     
-    // Create a temporary form to submit the export request
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = route('admin.licenses.export');
@@ -417,7 +451,7 @@ const deleteLicense = (id) => {
         acceptClass: "p-button-danger",
         accept: () => {
             router.delete(route("admin.licenses.destroy", id), {
-                preserveState: true,
+                preserveState: false,
                 preserveScroll: true,
                 onSuccess: () => {
                     toast.add({
@@ -525,39 +559,39 @@ const toggleActionMenu = (event) => {
         <ConfirmDialog />
         <Menu ref="actionMenu" :model="actionItems" :popup="true" />
 
-        <div class="p-6 space-y-6">
+        <div class="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
             <!-- Breadcrumb -->
-            <Breadcrumb :home="home" :model="items" class="mb-4">
+            <Breadcrumb :home="home" :model="items" class="mb-2 sm:mb-4">
                 <template #item="{ item }">
-                    <span class="font-semibold text-gray-700">{{ item.label }}</span>
+                    <span class="font-semibold text-gray-700 text-xs sm:text-sm">{{ item.label }}</span>
                 </template>
             </Breadcrumb>
 
             <!-- Page Header -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">License Management</h1>
-                    <p class="mt-1 text-gray-500">Manage software licenses and subscriptions</p>
+                    <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">License Management</h1>
+                    <p class="mt-1 text-xs sm:text-sm text-gray-500">Manage software licenses and subscriptions</p>
                 </div>
-                <div class="flex gap-3">
+                <div class="flex flex-wrap gap-2">
                     <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
-                        @click="toggleActionMenu" />
+                        @click="toggleActionMenu" class="flex-1 min-w-fit text-xs sm:text-sm" />
                     <Button label="Create License" icon="pi pi-plus" severity="success"
-                        @click="openCreateDialog" class="font-semibold" />
+                        @click="openCreateDialog" class="flex-1 min-w-fit text-xs sm:text-sm font-semibold" />
                 </div>
             </div>
 
             <!-- Statistics Cards -->
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-6">
+            <div class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
                 <Card class="border-l-4 border-blue-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Total Licenses</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.total }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Total Licenses</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.total }}</p>
                             </div>
-                            <div class="p-3 bg-blue-100 rounded-full">
-                                <i class="text-xl text-blue-600 pi pi-key"></i>
+                            <div class="p-2 sm:p-3 bg-blue-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-blue-600 pi pi-key"></i>
                             </div>
                         </div>
                     </template>
@@ -565,13 +599,13 @@ const toggleActionMenu = (event) => {
 
                 <Card class="border-l-4 border-green-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Active</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.active }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Active</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.active }}</p>
                             </div>
-                            <div class="p-3 bg-green-100 rounded-full">
-                                <i class="text-xl text-green-600 pi pi-check-circle"></i>
+                            <div class="p-2 sm:p-3 bg-green-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-green-600 pi pi-check-circle"></i>
                             </div>
                         </div>
                     </template>
@@ -579,13 +613,13 @@ const toggleActionMenu = (event) => {
 
                 <Card class="border-l-4 border-red-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Expired</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.expired }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Expired</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.expired }}</p>
                             </div>
-                            <div class="p-3 bg-red-100 rounded-full">
-                                <i class="text-xl text-red-600 pi pi-exclamation-triangle"></i>
+                            <div class="p-2 sm:p-3 bg-red-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-red-600 pi pi-exclamation-triangle"></i>
                             </div>
                         </div>
                     </template>
@@ -593,13 +627,13 @@ const toggleActionMenu = (event) => {
 
                 <Card class="border-l-4 border-yellow-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Expiring Soon</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.expiringSoon }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Expiring Soon</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.expiringSoon }}</p>
                             </div>
-                            <div class="p-3 bg-yellow-100 rounded-full">
-                                <i class="text-xl text-yellow-600 pi pi-clock"></i>
+                            <div class="p-2 sm:p-3 bg-yellow-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-yellow-600 pi pi-clock"></i>
                             </div>
                         </div>
                     </template>
@@ -607,13 +641,13 @@ const toggleActionMenu = (event) => {
 
                 <Card class="border-l-4 border-orange-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Low Stock</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.lowStock }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Low Stock</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.lowStock }}</p>
                             </div>
-                            <div class="p-3 bg-orange-100 rounded-full">
-                                <i class="text-xl text-orange-600 pi pi-exclamation-circle"></i>
+                            <div class="p-2 sm:p-3 bg-orange-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-orange-600 pi pi-exclamation-circle"></i>
                             </div>
                         </div>
                     </template>
@@ -621,13 +655,13 @@ const toggleActionMenu = (event) => {
 
                 <Card class="border-l-4 border-purple-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Out of Stock</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.outOfStock }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Out of Stock</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.outOfStock }}</p>
                             </div>
-                            <div class="p-3 bg-purple-100 rounded-full">
-                                <i class="text-xl text-purple-600 pi pi-times-circle"></i>
+                            <div class="p-2 sm:p-3 bg-purple-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-purple-600 pi pi-times-circle"></i>
                             </div>
                         </div>
                     </template>
@@ -638,86 +672,98 @@ const toggleActionMenu = (event) => {
             <Card class="shadow-lg">
                 <template #content>
                     <!-- Toolbar -->
-                    <div class="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
-                        <div class="flex gap-3">
-                            <Button label="Create License" icon="pi pi-plus" severity="success"
-                                @click="openCreateDialog" class="font-semibold" />
-                            <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
-                                @click="toggleActionMenu" />
+                    <div class="flex flex-col gap-3 sm:gap-4">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3">
+                            <div class="flex flex-wrap gap-1 sm:gap-2 w-full sm:w-auto">
+                                <Button label="Create" icon="pi pi-plus" severity="success"
+                                    @click="openCreateDialog" class="flex-1 sm:flex-none text-xs sm:text-sm" />
+                                <Button label="Actions" icon="pi pi-cog" severity="secondary" outlined
+                                    @click="toggleActionMenu" class="flex-1 sm:flex-none text-xs sm:text-sm" />
+                            </div>
+
+                            <div class="w-full sm:w-auto">
+                                <IconField iconPosition="left">
+                                    <InputIcon class="pi pi-search" />
+                                    <InputText v-model="search" placeholder="Search..." 
+                                        class="w-full sm:w-64 md:w-80 text-xs sm:text-sm" />
+                                </IconField>
+                            </div>
                         </div>
 
-                        <div class="w-full lg:w-auto">
-                            <span class="p-input-icon-left">
-                                <i class="pi pi-search" />
-                                <InputText v-model="search" placeholder="Search licenses..." 
-                                    class="w-full lg:w-80" />
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Selected Licenses Info -->
-                    <div v-if="selectedLicenses.length > 0" class="p-3 mt-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm font-medium text-blue-800">
-                                {{ selectedLicenses.length }} license(s) selected
-                            </span>
-                            <Button label="Clear" icon="pi pi-times" severity="secondary" text
-                                @click="selectedLicenses = []" />
+                        <!-- Selected Licenses Info -->
+                        <div v-if="selectedLicenses.length > 0" class="p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-xs sm:text-sm font-medium text-blue-800">
+                                    {{ selectedLicenses.length }} license(s) selected
+                                </span>
+                                <Button label="Clear" icon="pi pi-times" severity="secondary" text size="small"
+                                    @click="selectedLicenses = []" class="text-xs" />
+                            </div>
                         </div>
                     </div>
 
                     <!-- Data Table -->
-                    <div class="mt-6">
+                    <div class="mt-4 sm:mt-6 overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
                         <DataTable :value="licenses.data" showGridlines stripedRows
-                            :rowHover="true" paginator :rows="licenses.per_page" :totalRecords="licenses.total"
-                            :first="(licenses.current_page - 1) * licenses.per_page" @page="onPageChange"
-                            v-model:selection="selectedLicenses" dataKey="id"
-                            responsiveLayout="scroll" tableStyle="min-width: 50rem" class="p-datatable-custom">
+                            :rowHover="true" 
+                            paginator 
+                            :rows="licenses.per_page" 
+                            :totalRecords="licenses.total"
+                            :first="(licenses.current_page - 1) * licenses.per_page" 
+                            @page="onPageChange"
+                            v-model:selection="selectedLicenses" 
+                            dataKey="id"
+                            :rowsPerPageOptions="[5, 10, 20, 50]"
+                            paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+                            responsiveLayout="scroll" 
+                            class="p-datatable-custom"
+                            :globalFilterFields="['license_name', 'product_key', 'manufacturer']">
 
                             <!-- Empty State -->
                             <template #empty>
-                                <div class="flex flex-col items-center justify-center py-12">
-                                    <div class="p-6 mb-4 bg-gray-100 rounded-full">
-                                        <i class="text-6xl text-gray-400 pi pi-key"></i>
+                                <div class="flex flex-col items-center justify-center py-8 sm:py-12">
+                                    <div class="p-3 sm:p-6 mb-4 bg-gray-100 rounded-full">
+                                        <i class="text-4xl sm:text-6xl text-gray-400 pi pi-key"></i>
                                     </div>
-                                    <h3 class="mb-2 text-xl font-semibold text-gray-700">No Licenses Found</h3>
-                                    <p class="mb-4 text-gray-500">Try adjusting your search or create a new license.</p>
+                                    <h3 class="mb-2 text-base sm:text-lg md:text-xl font-semibold text-gray-700">No Licenses Found</h3>
+                                    <p class="mb-4 text-xs sm:text-sm text-gray-500 text-center px-2">Try adjusting your search or create a new license.</p>
                                     <Button label="Create First License" icon="pi pi-plus" severity="success"
-                                        @click="openCreateDialog" />
+                                        @click="openCreateDialog" size="small" class="text-xs sm:text-sm" />
                                 </div>
                             </template>
 
                             <!-- Selection Column -->
-                            <Column selectionMode="multiple" headerStyle="width: 3rem" />
+                            <Column selectionMode="multiple" headerStyle="width: 2.5rem" />
 
                             <!-- Columns -->
-                            <Column header="#" style="width: 60px;">
+                            <Column header="#" style="min-width: 50px;">
                                 <template #body="slotProps">
                                     <Badge :value="(licenses.current_page - 1) * licenses.per_page + slotProps.index + 1"
-                                        severity="secondary" />
+                                        severity="secondary" class="text-xs" />
                                 </template>
                             </Column>
 
-                            <Column field="license_name" header="License Name" sortable>
+                            <Column field="license_name" header="License Name" sortable style="min-width: 150px;">
                                 <template #body="slotProps">
-                                    <div class="font-semibold text-gray-900">{{ slotProps.data.license_name }}</div>
-                                    <div class="text-sm text-gray-500">
+                                    <div class="font-semibold text-gray-900 text-xs sm:text-sm break-words">{{ slotProps.data.license_name }}</div>
+                                    <div class="text-xs text-gray-500 truncate">
                                         {{ slotProps.data.manufacturer || 'No manufacturer' }}
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column field="product_key" header="Product Key" sortable>
+                            <Column field="product_key" header="Product Key" sortable style="min-width: 140px;">
                                 <template #body="slotProps">
-                                    <code class="px-2 py-1 text-xs font-mono bg-gray-100 rounded">
-                                        {{ slotProps.data.product_key }}
+                                    <code class="px-1 sm:px-2 py-1 text-xs font-mono bg-gray-100 rounded break-all">
+                                        {{ slotProps.data.product_key.substring(0, 12) }}...
                                     </code>
                                 </template>
                             </Column>
 
-                            <Column header="Expiration" sortable style="width: 140px;">
+                            <Column header="Expiration" sortable style="min-width: 120px;">
                                 <template #body="slotProps">
-                                    <div class="text-sm">
+                                    <div class="text-xs sm:text-sm">
                                         <div class="font-medium text-gray-900">
                                             {{ formatDate(slotProps.data.expiration_date) }}
                                         </div>
@@ -728,17 +774,17 @@ const toggleActionMenu = (event) => {
                                                 'text-yellow-600': daysUntilExpiry(slotProps.data.expiration_date) >= 0 && daysUntilExpiry(slotProps.data.expiration_date) <= 30,
                                                 'text-green-600': daysUntilExpiry(slotProps.data.expiration_date) > 30
                                             }">
-                                            {{ daysUntilExpiry(slotProps.data.expiration_date) }} days
+                                            {{ daysUntilExpiry(slotProps.data.expiration_date) }}d
                                         </div>
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column header="Quantity" sortable style="width: 140px;">
+                            <Column header="Qty" sortable style="min-width: 100px;">
                                 <template #body="slotProps">
-                                    <div class="text-sm">
+                                    <div class="text-xs sm:text-sm">
                                         <div class="font-medium text-gray-900">
-                                            {{ slotProps.data.available_qty }} / {{ slotProps.data.total_qty }}
+                                            {{ slotProps.data.available_qty }}/{{ slotProps.data.total_qty }}
                                         </div>
                                         <Badge :value="getStockStatus(slotProps.data).text"
                                             :severity="getStockStatus(slotProps.data).severity"
@@ -747,33 +793,42 @@ const toggleActionMenu = (event) => {
                                 </template>
                             </Column>
 
-                            <Column header="Status" sortable style="width: 130px;">
+                            <Column header="Status" sortable style="min-width: 100px;">
                                 <template #body="slotProps">
                                     <Badge :value="getStatusText(slotProps.data)"
                                         :severity="getStatusSeverity(slotProps.data)"
-                                        class="capitalize" />
+                                        class="capitalize text-xs" />
                                 </template>
                             </Column>
 
                             <!-- Actions -->
-                            <Column header="Actions" style="min-width: 180px">
+                            <Column header="Actions" style="min-width: 140px">
                                 <template #body="slotProps">
-                                    <div class="flex gap-2">
+                                    <div class="flex gap-1 flex-wrap">
                                         <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
-                                            v-tooltip.top="'View Details'" @click="viewLicense(slotProps.data)" />
+                                            v-tooltip.top="'View'" @click="viewLicense(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button icon="pi pi-box" outlined rounded severity="help" size="small"
-                                            v-tooltip.top="'Manage Quantity'" @click="openQuantityDialog(slotProps.data)" />
+                                            v-tooltip.top="'Quantity'" @click="openQuantityDialog(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button icon="pi pi-pencil" outlined rounded severity="warning" size="small"
-                                            v-tooltip.top="'Edit License'" @click="openEditDialog(slotProps.data)" />
+                                            v-tooltip.top="'Edit'" @click="openEditDialog(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button icon="pi pi-trash" outlined rounded severity="danger" size="small"
-                                            v-tooltip.top="'Delete License'" @click="deleteLicense(slotProps.data.id)" />
+                                            v-tooltip.top="'Delete'" @click="deleteLicense(slotProps.data.id)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
                                     </div>
                                 </template>
                             </Column>
                         </DataTable>
+                    </div>
+
+                    <!-- Mobile Pagination Info -->
+                    <div class="mt-4 text-xs text-gray-600 text-center sm:hidden">
+                        Page {{ licenses.current_page }} of {{ Math.ceil(licenses.total / licenses.per_page) }}
                     </div>
                 </template>
             </Card>
@@ -781,19 +836,19 @@ const toggleActionMenu = (event) => {
             <!-- Create/Edit License Dialog -->
             <Dialog v-model:visible="showCreateEditDialog" modal 
                 :header="isEditMode ? 'Edit License' : 'Create New License'" 
-                :style="{ width: '750px' }"
-                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
+                :style="{ width: '95vw', maxWidth: '750px' }"
+                :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
                 
-                <div class="space-y-6">
-                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                         <!-- License Name -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 License Name <span class="text-red-500">*</span>
                             </label>
                             <InputText v-model="licenseForm.license_name" 
                                 placeholder="Enter license name" 
-                                class="w-full"
+                                class="w-full text-xs sm:text-sm"
                                 :class="{ 'p-invalid': licenseForm.errors.license_name }" />
                             <small class="text-red-500 text-xs" v-if="licenseForm.errors.license_name">
                                 {{ licenseForm.errors.license_name }}
@@ -801,18 +856,18 @@ const toggleActionMenu = (event) => {
                         </div>
 
                         <!-- Product Key -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Product Key <span class="text-red-500">*</span>
                             </label>
-                            <div class="flex gap-2">
+                            <div class="flex gap-1 sm:gap-2">
                                 <InputText v-model="licenseForm.product_key" 
                                     placeholder="Enter product key" 
-                                    class="flex-1"
+                                    class="flex-1 text-xs sm:text-sm"
                                     :class="{ 'p-invalid': licenseForm.errors.product_key }" />
-                                <Button icon="pi pi-refresh" severity="secondary" 
+                                <Button icon="pi pi-refresh" severity="secondary" size="small"
                                     @click="generateProductKey"
-                                    v-tooltip="'Generate Random Key'" />
+                                    v-tooltip="'Generate'" class="px-2 sm:px-3" />
                             </div>
                             <small class="text-red-500 text-xs" v-if="licenseForm.errors.product_key">
                                 {{ licenseForm.errors.product_key }}
@@ -820,14 +875,14 @@ const toggleActionMenu = (event) => {
                         </div>
 
                         <!-- Expiration Date -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Expiration Date <span class="text-red-500">*</span>
                             </label>
                             <DatePicker v-model="licenseForm.expiration_date" 
                                 dateFormat="yy-mm-dd" 
-                                placeholder="Select expiration date"
-                                class="w-full"
+                                placeholder="Select date"
+                                class="w-full text-xs sm:text-sm"
                                 :minDate="new Date()"
                                 showIcon
                                 :class="{ 'p-invalid': licenseForm.errors.expiration_date }" />
@@ -837,104 +892,107 @@ const toggleActionMenu = (event) => {
                         </div>
 
                         <!-- Manufacturer -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Manufacturer</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Manufacturer</label>
                             <InputText v-model="licenseForm.manufacturer" 
                                 placeholder="Enter manufacturer" 
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Licensed Email -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Licensed Email</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Licensed Email</label>
                             <InputText v-model="licenseForm.licensed_email" 
                                 placeholder="Enter licensed email" 
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Licensed Name -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Licensed To</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Licensed To</label>
                             <InputText v-model="licenseForm.licensed_name" 
                                 placeholder="Enter licensed name" 
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Minimum Quantity -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Minimum Quantity</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Minimum Quantity</label>
                             <InputNumber v-model="licenseForm.min_qty" 
                                 :min="0" 
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Total Quantity -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Total Quantity</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Total Quantity</label>
                             <InputNumber v-model="licenseForm.total_qty" 
                                 :min="1" 
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Available Quantity -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Available Quantity</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Available Quantity</label>
                             <InputNumber v-model="licenseForm.available_qty" 
                                 :min="0" 
                                 :max="licenseForm.total_qty"
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Status -->
                         <div class="flex items-center space-x-2 md:col-span-2">
                             <Checkbox v-model="licenseForm.status" :binary="true" inputId="status" />
-                            <label for="status" class="text-sm font-semibold text-gray-700">Active License</label>
+                            <label for="status" class="text-xs sm:text-sm font-semibold text-gray-700">Active License</label>
                         </div>
                     </div>
 
                     <!-- Footer Actions -->
-                    <div class="flex justify-end gap-3 pt-4 border-t">
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
                         <Button label="Cancel" 
                             severity="secondary" 
                             outlined 
                             @click="showCreateEditDialog = false"
-                            :disabled="licenseForm.processing" />
-                        <Button :label="isEditMode ? 'Update License' : 'Create License'" 
+                            :disabled="licenseForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button :label="isEditMode ? 'Update' : 'Create'" 
                             icon="pi pi-check" 
                             severity="success" 
                             @click="saveLicense"
-                            :loading="licenseForm.processing" />
+                            :loading="licenseForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
             </Dialog>
 
             <!-- View License Dialog -->
-            <Dialog v-model:visible="showViewDialog" modal header="License Details" :style="{ width: '600px' }"
-                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
-                <div v-if="viewLicenseData" class="space-y-6">
-                    <div class="grid grid-cols-2 gap-6">
+            <Dialog v-model:visible="showViewDialog" modal header="License Details" 
+                :style="{ width: '95vw', maxWidth: '600px' }"
+                :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
+                <div v-if="viewLicenseData" class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
-                            <p class="text-sm font-medium text-gray-500">License Name</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">{{ viewLicenseData.license_name }}</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">License Name</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900 break-words">{{ viewLicenseData.license_name }}</p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Product Key</p>
-                            <code class="mt-1 text-sm font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded block">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Product Key</p>
+                            <code class="mt-1 text-xs font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded block break-all">
                                 {{ viewLicenseData.product_key }}
                             </code>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Manufacturer</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Manufacturer</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">
                                 {{ viewLicenseData.manufacturer || '—' }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Expiration Date</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Expiration Date</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">
                                 {{ formatDate(viewLicenseData.expiration_date) }}
                             </p>
-                            <p class="text-sm font-medium" :class="{
+                            <p class="text-xs font-medium" :class="{
                                 'text-red-600': daysUntilExpiry(viewLicenseData.expiration_date) < 0,
                                 'text-yellow-600': daysUntilExpiry(viewLicenseData.expiration_date) >= 0 && daysUntilExpiry(viewLicenseData.expiration_date) <= 30,
                                 'text-green-600': daysUntilExpiry(viewLicenseData.expiration_date) > 30
@@ -943,90 +1001,96 @@ const toggleActionMenu = (event) => {
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Licensed Email</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Licensed Email</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900 break-all">
                                 {{ viewLicenseData.licensed_email || '—' }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Licensed To</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Licensed To</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">
                                 {{ viewLicenseData.licensed_name || '—' }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Quantity</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Quantity</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">
                                 {{ viewLicenseData.available_qty }} / {{ viewLicenseData.total_qty }} available
                             </p>
                             <Badge :value="getStockStatus(viewLicenseData).text"
                                 :severity="getStockStatus(viewLicenseData).severity"
-                                class="mt-1" />
+                                class="mt-1 text-xs" />
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Status</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Status</p>
                             <Badge :value="getStatusText(viewLicenseData)"
                                 :severity="getStatusSeverity(viewLicenseData)"
-                                class="mt-1 capitalize" />
+                                class="mt-1 capitalize text-xs" />
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Minimum Quantity</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">{{ viewLicenseData.min_qty }}</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Minimum Quantity</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">{{ viewLicenseData.min_qty }}</p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Created Date</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Created Date</p>
+                            <p class="mt-1 text-xs sm:text-sm font-semibold text-gray-900">
                                 {{ formatDate(viewLicenseData.created_at) }}
                             </p>
                         </div>
                     </div>
 
-                    <div class="flex justify-end gap-3 pt-4 border-t">
-                        <Button label="Close" severity="secondary" outlined @click="showViewDialog = false" />
-                        <Button label="Edit License" icon="pi pi-pencil" severity="warning" 
-                            @click="showViewDialog = false; openEditDialog(viewLicenseData)" />
-                        <Button label="Manage Quantity" icon="pi pi-box" severity="help" 
-                            @click="showViewDialog = false; openQuantityDialog(viewLicenseData)" />
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
+                        <Button label="Close" severity="secondary" outlined @click="showViewDialog = false" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button label="Edit" icon="pi pi-pencil" severity="warning" 
+                            @click="showViewDialog = false; openEditDialog(viewLicenseData)" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button label="Quantity" icon="pi pi-box" severity="help" 
+                            @click="showViewDialog = false; openQuantityDialog(viewLicenseData)" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
             </Dialog>
 
             <!-- Quantity Management Dialog -->
-            <Dialog v-model:visible="showQuantityDialog" modal header="Manage License Quantity" :style="{ width: '500px' }"
-                :breakpoints="{ '1199px': '50vw', '575px': '90vw' }">
-                <div class="space-y-6">
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Operation</label>
+            <Dialog v-model:visible="showQuantityDialog" modal header="Manage License Quantity" 
+                :style="{ width: '95vw', maxWidth: '500px' }"
+                :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
+                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Operation</label>
                         <Select v-model="quantityForm.operation" :options="[
                             { label: 'Set to specific quantity', value: 'set' },
                             { label: 'Add to current quantity', value: 'add' },
                             { label: 'Subtract from current quantity', value: 'subtract' }
-                        ]" optionLabel="label" optionValue="value" class="w-full" />
+                        ]" optionLabel="label" optionValue="value" class="w-full text-xs sm:text-sm" />
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Quantity</label>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Quantity</label>
                         <InputNumber v-model="quantityForm.available_qty" 
                             :min="0" 
-                            class="w-full"
+                            class="w-full text-xs sm:text-sm"
                             :class="{ 'p-invalid': quantityForm.errors.available_qty }" />
                         <small class="text-red-500 text-xs" v-if="quantityForm.errors.available_qty">
                             {{ quantityForm.errors.available_qty }}
                         </small>
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">Notes (Optional)</label>
-                        <Textarea v-model="quantityForm.notes" rows="3" placeholder="Add notes about this quantity change..."
-                            class="w-full" />
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">Notes (Optional)</label>
+                        <Textarea v-model="quantityForm.notes" rows="3" placeholder="Add notes..."
+                            class="w-full text-xs sm:text-sm" />
                     </div>
 
-                    <div class="flex justify-end gap-3 pt-4 border-t">
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
                         <Button label="Cancel" severity="secondary" outlined 
                             @click="showQuantityDialog = false"
-                            :disabled="quantityForm.processing" />
-                        <Button label="Update Quantity" icon="pi pi-check" severity="success" 
-                            @click="updateQuantity" :loading="quantityForm.processing" />
+                            :disabled="quantityForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button label="Update" icon="pi pi-check" severity="success" 
+                            @click="updateQuantity" :loading="quantityForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
             </Dialog>
@@ -1036,7 +1100,19 @@ const toggleActionMenu = (event) => {
 
 <style scoped>
 :deep(.p-card-body) {
-    padding: 1.5rem;
+    padding: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-card-body) {
+        padding: 1rem;
+    }
+}
+
+@media (min-width: 768px) {
+    :deep(.p-card-body) {
+        padding: 1.5rem;
+    }
 }
 
 :deep(.p-card-content) {
@@ -1048,6 +1124,13 @@ const toggleActionMenu = (event) => {
     font-weight: 600;
     color: #495057;
     border-color: #dee2e6;
+    font-size: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-datatable .p-datatable-thead > tr > th) {
+        font-size: 0.875rem;
+    }
 }
 
 :deep(.p-datatable .p-datatable-tbody > tr:hover) {
@@ -1062,22 +1145,10 @@ const toggleActionMenu = (event) => {
     background-color: #f8f9fa;
 }
 
-:deep(.p-inputtext) {
-    border-radius: 0.375rem;
-}
-
-:deep(.p-button) {
-    border-radius: 0.375rem;
-}
-
-:deep(.p-dropdown) {
-    border-radius: 0.375rem;
-}
-
-:deep(.p-calendar) {
-    border-radius: 0.375rem;
-}
-
+:deep(.p-inputtext),
+:deep(.p-button),
+:deep(.p-dropdown),
+:deep(.p-calendar),
 :deep(.p-inputnumber-input) {
     border-radius: 0.375rem;
 }
@@ -1092,17 +1163,79 @@ const toggleActionMenu = (event) => {
 :deep(.p-dialog .p-dialog-header .p-dialog-title) {
     color: white;
     font-weight: 600;
+    font-size: 0.875rem;
 }
 
-:deep(.p-dialog .p-dialog-header .p-dialog-header-icon) {
-    color: white;
+
+@media (min-width: 640px) {
+    :deep(.p-dialog .p-dialog-content) {
+        padding: 1rem;
+    }
 }
 
-:deep(.p-dialog .p-dialog-header .p-dialog-header-icon:hover) {
-    color: #e2e8f0;
+@media (min-width: 768px) {
+    :deep(.p-dialog .p-dialog-content) {
+        padding: 1.5rem;
+    }
 }
 
-:deep(.p-dialog .p-dialog-content) {
-    padding: 1.5rem;
+:deep(.p-paginator) {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 0 0 0.375rem 0.375rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-paginator) {
+        padding: 1rem;
+    }
+}
+
+:deep(.p-paginator .p-paginator-pages) {
+    flex-wrap: wrap;
+}
+
+:deep(.p-paginator-current) {
+    font-size: 0.75rem;
+    align-self: center;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-paginator-current) {
+        font-size: 0.875rem;
+    }
+}
+
+/* Responsive button sizing */
+:deep(.p-button.p-button-sm) {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-button.p-button-sm) {
+        font-size: 0.875rem;
+    }
+}
+
+/* Mobile table fixes */
+@media (max-width: 640px) {
+    :deep(.p-datatable .p-datatable-wrapper) {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    :deep(.p-button.p-button-icon-only) {
+        width: 1.75rem;
+        height: 1.75rem;
+    }
+    
+    :deep(.p-paginator .p-paginator-pages) {
+        width: 100%;
+    }
 }
 </style>

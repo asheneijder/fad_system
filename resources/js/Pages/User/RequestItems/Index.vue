@@ -23,8 +23,8 @@ const toast = useToast();
 
 const props = defineProps({
     stationaryItems: {
-        type: Array,
-        default: () => []
+        type: Object,
+        default: () => ({ data: [], total: 0, per_page: 12, current_page: 1 })
     },
     cartItems: {
         type: Array,
@@ -34,33 +34,37 @@ const props = defineProps({
         type: Object,
         default: () => ({ data: [], total: 0, per_page: 10, current_page: 1 })
     },
+    categories: {
+        type: Array,
+        default: () => []
+    },
     filters: {
         type: Object,
-        default: () => ({ search: '' })
+        default: () => ({ 
+            search: '', 
+            category: '',
+            page: 1,
+            stationary_page: 1 
+        })
     }
 });
 
-// FIXED: Use window.route if route is not available
 const route = window.route || (() => {});
 
 const home = { icon: 'pi pi-home', url: route('dashboard') };
 const items = [{ label: 'Request Items' }];
 
 const search = ref(props.filters?.search || "");
-const stationaryItems = ref(props.stationaryItems || []);
+const category = ref(props.filters?.category || "");
+const stationaryItems = ref(props.stationaryItems);
 const cartItems = ref(props.cartItems || []);
 const requests = ref(props.requests);
+const categories = ref(props.categories);
 const showAddToCartDialog = ref(false);
 const showCartDialog = ref(false);
 const showRequestDialog = ref(false);
 const selectedItem = ref(null);
-
-// Debug log to check data
-onMounted(() => {
-    console.log('Stationary Items:', stationaryItems.value);
-    console.log('Cart Items:', cartItems.value);
-    console.log('Requests:', requests.value);
-});
+const loadingMore = ref(false);
 
 // Forms
 const cartForm = useForm({
@@ -85,7 +89,7 @@ const priorities = ref([
     { label: 'Urgent', value: 'urgent', severity: 'danger' }
 ]);
 
-// Statistics - FIXED with proper null checks
+// Statistics
 const statistics = computed(() => {
     const requestData = requests.value?.data || [];
     const cartData = Array.isArray(cartItems.value) ? cartItems.value : [];
@@ -114,19 +118,24 @@ watch(() => props.cartItems, (newCartItems) => {
 }, { immediate: true });
 
 watch(() => props.stationaryItems, (newItems) => {
-    stationaryItems.value = newItems || [];
+    stationaryItems.value = newItems;
 }, { immediate: true });
 
-watch(search, (newSearch, oldSearch) => {
-    if (newSearch !== oldSearch) {
-        router.get(route("user.request-items.index"), {
-            search: newSearch
-        }, {
-            preserveState: true,
-            replace: true,
-            preserveScroll: true
-        });
-    }
+watch(() => props.categories, (newCategories) => {
+    categories.value = newCategories;
+}, { immediate: true });
+
+// Search and filter watchers with debounce
+let searchTimeout;
+watch(search, (newSearch) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        loadStationaryItems(1); // Reset to first page when searching
+    }, 500);
+});
+
+watch(category, (newCategory) => {
+    loadStationaryItems(1); // Reset to first page when filtering
 });
 
 watch(showAddToCartDialog, (val) => {
@@ -141,11 +150,54 @@ const onPageChange = (event) => {
     const page = event.page + 1;
     router.get(route("user.request-items.index"), {
         search: search.value,
+        category: category.value,
         page: page,
+        stationary_page: stationaryItems.value.current_page,
     }, {
         preserveState: true,
         replace: true,
         preserveScroll: true
+    });
+};
+
+const loadStationaryItems = (page = null) => {
+    const targetPage = page || stationaryItems.value.current_page;
+    
+    router.get(route("user.request-items.index"), {
+        search: search.value,
+        category: category.value,
+        page: requests.value.current_page,
+        stationary_page: targetPage,
+    }, {
+        preserveState: true,
+        replace: true,
+        preserveScroll: true
+    });
+};
+
+const loadMoreItems = () => {
+    if (loadingMore.value) return;
+    
+    const nextPage = stationaryItems.value.current_page + 1;
+    if (nextPage > stationaryItems.value.last_page) return;
+    
+    loadingMore.value = true;
+    
+    router.get(route("user.request-items.index"), {
+        search: search.value,
+        category: category.value,
+        page: requests.value.current_page,
+        stationary_page: nextPage,
+    }, {
+        preserveState: true,
+        replace: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            loadingMore.value = false;
+        },
+        onError: () => {
+            loadingMore.value = false;
+        }
     });
 };
 
@@ -358,15 +410,15 @@ const getPrioritySeverity = (priority) => {
 };
 
 const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-MY', {
         style: 'currency',
-        currency: 'USD'
+        currency: 'MYR'
     }).format(amount);
 };
 
 const formatDate = (date) => {
     if (!date) return '—';
-    return new Date(date).toLocaleDateString('en-US', {
+    return new Date(date).toLocaleDateString('en-MY', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
@@ -385,6 +437,11 @@ const scrollToAvailableItems = () => {
         element.scrollIntoView({ behavior: 'smooth' });
     }
     showCartDialog.value = false;
+};
+
+const clearFilters = () => {
+    search.value = '';
+    category.value = '';
 };
 </script>
 
@@ -484,17 +541,38 @@ const scrollToAvailableItems = () => {
                 <template #content>
                     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
                         <h2 class="text-lg sm:text-xl font-bold text-gray-800">Available Stationary Items</h2>
-                        <div class="w-full sm:w-auto">
+                        <div class="text-sm text-gray-500">
+                            Showing {{ stationaryItems.data?.length || 0 }} of {{ stationaryItems.total || 0 }} items
+                        </div>
+                    </div>
+
+                    <!-- Search and Filter Bar -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 sm:mb-6">
+                        <div class="sm:col-span-1">
                             <span class="p-input-icon-left block w-full">
                                 <i class="pi pi-search" />
                                 <InputText v-model="search" placeholder="Search items..." 
-                                    class="w-full sm:w-80 pl-10" />
+                                    class="w-full pl-10" />
                             </span>
+                        </div>
+                        <div class="sm:col-span-1">
+                            <Select v-model="category" 
+                                :options="categories" 
+                                optionLabel="label" 
+                                optionValue="value"
+                                placeholder="Filter by category"
+                                class="w-full" />
+                        </div>
+                        <div class="sm:col-span-1">
+                            <Button label="Clear Filters" icon="pi pi-filter-slash" severity="secondary" outlined
+                                @click="clearFilters" 
+                                :disabled="!search && !category"
+                                class="w-full" />
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                        <div v-for="item in stationaryItems" :key="item.id" 
+                        <div v-for="item in stationaryItems.data" :key="item.id" 
                             class="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow">
                             <div class="flex items-start justify-between mb-2">
                                 <h3 class="font-semibold text-sm sm:text-base text-gray-900">{{ item.name }}</h3>
@@ -508,7 +586,7 @@ const scrollToAvailableItems = () => {
                             <div class="space-y-1 text-xs sm:text-sm text-gray-600">
                                 <div class="flex justify-between">
                                     <span>Category:</span>
-                                    <span class="font-medium">{{ item.category }}</span>
+                                    <span class="font-medium capitalize">{{ item.category }}</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span>Stock:</span>
@@ -529,15 +607,34 @@ const scrollToAvailableItems = () => {
                         </div>
 
                         <!-- Empty State -->
-                        <div v-if="stationaryItems.length === 0" class="col-span-full">
+                        <div v-if="stationaryItems.data?.length === 0" class="col-span-full">
                             <div class="flex flex-col items-center justify-center py-8 sm:py-12 px-4">
                                 <div class="p-4 sm:p-6 mb-3 sm:mb-4 bg-gray-100 rounded-full">
                                     <i class="text-4xl sm:text-6xl text-gray-400 pi pi-box"></i>
                                 </div>
-                                <h3 class="mb-2 text-lg sm:text-xl font-semibold text-gray-700">No Items Available</h3>
-                                <p class="text-sm sm:text-base text-gray-500 text-center">No stationary items are currently available for request.</p>
+                                <h3 class="mb-2 text-lg sm:text-xl font-semibold text-gray-700">No Items Found</h3>
+                                <p class="text-sm sm:text-base text-gray-500 text-center">
+                                    {{ search || category ? 'Try adjusting your search or filters' : 'No stationary items are currently available for request.' }}
+                                </p>
+                                <Button v-if="search || category" label="Clear Filters" severity="primary"
+                                    @click="clearFilters" class="mt-3" size="small" />
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Load More Button -->
+                    <div v-if="stationaryItems.data?.length > 0 && stationaryItems.current_page < stationaryItems.last_page" 
+                         class="flex justify-center mt-6">
+                        <Button label="Load More Items" icon="pi pi-chevron-down" severity="secondary" outlined
+                            @click="loadMoreItems" 
+                            :loading="loadingMore"
+                            class="px-6" />
+                    </div>
+
+                    <!-- Showing information -->
+                    <div v-if="stationaryItems.data?.length > 0" class="text-center text-sm text-gray-500 mt-4">
+                        Showing page {{ stationaryItems.current_page }} of {{ stationaryItems.last_page }} • 
+                        {{ stationaryItems.total }} total items
                     </div>
                 </template>
             </Card>

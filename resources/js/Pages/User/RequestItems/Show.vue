@@ -100,9 +100,9 @@ const formatDate = (date) => {
 };
 
 const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-MY', {
         style: 'currency',
-        currency: 'USD'
+        currency: 'MYR'
     }).format(amount);
 };
 
@@ -327,7 +327,7 @@ const cancelRequest = () => {
                                             <h4 class="font-semibold text-gray-900 text-base sm:text-lg">{{ item.stationary_item?.name }}</h4>
                                             <p class="text-xs sm:text-sm text-gray-600 mt-1">{{ item.stationary_item?.description }}</p>
                                             <p class="text-xs sm:text-sm text-gray-500 mt-1 sm:mt-2">
-                                                <i class="pi pi-dollar text-green-500 mr-1"></i>
+                                                <i class="pi pi-money-bill text-green-500 mr-1"></i>
                                                 Price: {{ formatCurrency(item.unit_price) }} per {{ item.stationary_item?.unit }}
                                             </p>
                                         </div>
