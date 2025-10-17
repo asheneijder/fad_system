@@ -3,7 +3,6 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -60,13 +59,28 @@ class User extends Authenticatable
         ];
     }
 
-    // public function getCreatedAtAttribute($value)
-    // {
-    //     return Carbon::parse($value)->format('d-m-Y H:i:s');
-    // }
-
     public function assets(): HasMany
     {
         return $this->hasMany(Asset::class);
+    }
+
+    /**
+     * getUserPermissions
+     *
+     * @return void
+     */
+    public function getUserPermissions()
+    {
+        return $this->getAllPermissions()->mapWithKeys(fn ($permission) => [$permission['name'] => true]);
+    }
+
+    /**
+     * isSuperAdmin
+     *
+     * @return void
+     */
+    public function isSuperAdmin()
+    {
+        return $this->hasRole('super-admin');
     }
 }
