@@ -3,14 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Asset;
-use App\Models\Category;
-use App\Models\License;
-use App\Models\ModelType;
 use App\Models\RequestItem;
+use App\Models\RequestItemDetail;
 use App\Models\StationaryItem;
 use App\Models\User;
-use Illuminate\Http\JsonResponse;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
@@ -18,297 +16,214 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $basicStats = $this->getBasicStats();
-        $recentActivities = $this->getRecentActivities();
-        $stockAlerts = $this->getStockAlerts();
-        $requestStats = $this->getRequestStats();
-        $assetStats = $this->getAssetStats();
-        $movementTrends = $this->getMovementTrends();
+        // Check if user is admin
+        if (! auth()->user()->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+        $currentMonth = Carbon::now()->month;
+        $currentYear = Carbon::now()->year;
+
+        // Quick Stats
+        $stats = [
+            'total_requests' => RequestItem::count(),
+            'pending_requests' => RequestItem::where('status', 'pending')->count(),
+            'approved_requests' => RequestItem::where('status', 'approved')->count(),
+            'completed_requests' => RequestItem::where('status', 'completed')->count(),
+            'total_users' => User::count(),
+            'total_items' => StationaryItem::count(),
+            'low_stock_items' => StationaryItem::where('current_stock', '<=', DB::raw('min_stock'))->count(),
+            'this_month_requests' => RequestItem::whereYear('created_at', $currentYear)
+                ->whereMonth('created_at', $currentMonth)
+                ->count(),
+        ];
+
+        // Monthly Request Trends (Last 6 months)
+        $monthlyTrends = RequestItem::selectRaw('
+            YEAR(created_at) as year,
+            MONTH(created_at) as month,
+            COUNT(*) as total_requests,
+            SUM(CASE WHEN status = "approved" THEN 1 ELSE 0 END) as approved_requests,
+            SUM(CASE WHEN status = "pending" THEN 1 ELSE 0 END) as pending_requests
+        ')
+            ->where('created_at', '>=', Carbon::now()->subMonths(6))
+            ->groupBy('year', 'month')
+            ->orderBy('year', 'desc')
+            ->orderBy('month', 'desc')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'month' => Carbon::createFromDate($item->year, $item->month, 1)->format('M Y'),
+                    'total' => $item->total_requests,
+                    'approved' => $item->approved_requests,
+                    'pending' => $item->pending_requests,
+                ];
+            })
+            ->reverse()
+            ->values();
+
+        // Top Requested Items (This Month)
+        $topRequestedItems = RequestItemDetail::selectRaw('
+            stationary_items.name,
+            stationary_items.category,
+            SUM(request_item_details.quantity) as total_requested,
+            COUNT(DISTINCT request_item_details.request_item_id) as request_count
+        ')
+            ->join('stationary_items', 'request_item_details.stationary_item_id', '=', 'stationary_items.id')
+            ->join('request_items', 'request_item_details.request_item_id', '=', 'request_items.id')
+            ->whereYear('request_items.created_at', $currentYear)
+            ->whereMonth('request_items.created_at', $currentMonth)
+            ->groupBy('stationary_items.id', 'stationary_items.name', 'stationary_items.category')
+            ->orderBy('total_requested', 'desc')
+            ->limit(10)
+            ->get();
+
+        // Top Requestors (This Month) - FIXED: Specify table for status column
+        $topRequestors = RequestItem::selectRaw('
+            users.name,
+            users.email,
+            users.department,
+            COUNT(*) as request_count,
+            SUM(CASE WHEN request_items.status = "approved" THEN 1 ELSE 0 END) as approved_count
+        ')
+            ->join('users', 'request_items.user_id', '=', 'users.id')
+            ->whereYear('request_items.created_at', $currentYear)
+            ->whereMonth('request_items.created_at', $currentMonth)
+            ->groupBy('users.id', 'users.name', 'users.email', 'users.department')
+            ->orderBy('request_count', 'desc')
+            ->limit(8)
+            ->get();
+
+        // Request Status Distribution
+        $statusDistribution = RequestItem::selectRaw('
+            status,
+            COUNT(*) as count,
+            ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM request_items)), 1) as percentage
+        ')
+            ->groupBy('status')
+            ->get();
+
+        // Low Stock Alert Items
+        $lowStockItems = StationaryItem::where('current_stock', '<=', DB::raw('min_stock'))
+            ->where('status', true)
+            ->orderBy('current_stock', 'asc')
+            ->limit(10)
+            ->get(['id', 'name', 'current_stock', 'min_stock', 'unit']);
+
+        // Recent Pending Requests
+        $recentPendingRequests = RequestItem::with(['user:id,name,email', 'items.stationaryItem:id,name'])
+            ->where('status', 'pending')
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get();
+
+        // Department-wise Requests
+        $departmentRequests = RequestItem::selectRaw('
+            COALESCE(users.department, "Not Specified") as department,
+            COUNT(*) as request_count
+        ')
+            ->join('users', 'request_items.user_id', '=', 'users.id')
+            ->whereYear('request_items.created_at', $currentYear)
+            ->groupBy('users.department')
+            ->orderBy('request_count', 'desc')
+            ->get();
 
         return Inertia::render('Dashboard', [
-            'basicStats' => $basicStats,
-            'recentActivities' => $recentActivities,
-            'stockAlerts' => $stockAlerts,
-            'requestStats' => $requestStats,
-            'assetStats' => $assetStats,
-            'movementTrends' => $movementTrends,
+            'stats' => $stats,
+            'monthlyTrends' => $monthlyTrends,
+            'topRequestedItems' => $topRequestedItems,
+            'topRequestors' => $topRequestors,
+            'statusDistribution' => $statusDistribution,
+            'lowStockItems' => $lowStockItems,
+            'recentPendingRequests' => $recentPendingRequests,
+            'departmentRequests' => $departmentRequests,
         ]);
     }
 
-    public function chartData($type = 'requests'): JsonResponse
+    public function getChartData(Request $request)
     {
-        $data = [];
+        // Check if user is admin
+        if (! auth()->user()->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
 
-        switch ($type) {
-            case 'requests':
-                $data = $this->getRequestChartData();
-                break;
-            case 'assets':
-                $data = $this->getAssetChartData();
-                break;
-            case 'stationary':
-                $data = $this->getStationaryChartData();
-                break;
+        $period = $request->get('period', 'monthly'); // monthly, weekly, yearly
+
+        if ($period === 'weekly') {
+            $data = $this->getWeeklyData();
+        } elseif ($period === 'yearly') {
+            $data = $this->getYearlyData();
+        } else {
+            $data = $this->getMonthlyData();
         }
 
         return response()->json($data);
     }
 
-    private function getBasicStats(): array
+    private function getMonthlyData()
     {
-        return [
-            'users' => User::count(),
-            'assets' => Asset::count(),
-            'categories' => Category::count(),
-            'models' => ModelType::count(),
-            'licenses' => License::count(),
-            'stationary_items' => StationaryItem::count(),
-            'pending_requests' => RequestItem::where('status', 'pending')->count(),
-        ];
-    }
-
-    private function getRecentActivities(): array
-    {
-        return [
-            'users' => User::latest()
-                ->take(5)
-                ->get()
-                ->map(function ($user) {
-                    return [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'job_title' => $user->job_title,
-                        'created_at' => $user->created_at,
-                    ];
-                }),
-            'assets' => Asset::with('model') // Changed from 'category' to 'model'
-                ->latest()
-                ->take(5)
-                ->get()
-                ->map(function ($asset) {
-                    return [
-                        'id' => $asset->id,
-                        'name' => $asset->name,
-                        'asset_tag' => $asset->asset_tag,
-                        'created_at' => $asset->created_at,
-                    ];
-                }),
-        ];
-    }
-
-    private function getStockAlerts(): array
-    {
-        return StationaryItem::where(function ($query) {
-            $query->where('current_stock', '<=', DB::raw('min_stock'))
-                ->orWhere('current_stock', '=', 0);
-        })
+        return RequestItem::selectRaw('
+            YEAR(created_at) as year,
+            MONTH(created_at) as month,
+            COUNT(*) as total,
+            SUM(CASE WHEN status = "approved" THEN 1 ELSE 0 END) as approved,
+            SUM(CASE WHEN status = "pending" THEN 1 ELSE 0 END) as pending,
+            SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed
+        ')
+            ->where('created_at', '>=', Carbon::now()->subMonths(11))
+            ->groupBy('year', 'month')
+            ->orderBy('year', 'asc')
+            ->orderBy('month', 'asc')
             ->get()
             ->map(function ($item) {
-                $status = $item->current_stock == 0 ? 'out_of_stock' :
-                         ($item->current_stock <= $item->min_stock ? 'low_stock' : 'adequate');
-
                 return [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'current_stock' => $item->current_stock,
-                    'min_stock' => $item->min_stock,
-                    'status' => $status,
+                    'label' => Carbon::createFromDate($item->year, $item->month, 1)->format('M Y'),
+                    'total' => $item->total,
+                    'approved' => $item->approved,
+                    'pending' => $item->pending,
+                    'completed' => $item->completed,
                 ];
-            })
-            ->toArray();
+            });
     }
 
-    private function getRequestStats(): array
+    private function getWeeklyData()
     {
-        $total = RequestItem::count();
-        $byStatus = RequestItem::select('status', DB::raw('count(*) as count'))
-            ->groupBy('status')
-            ->pluck('count', 'status')
-            ->toArray();
-
-        return [
-            'total' => $total,
-            'by_status' => $byStatus,
-        ];
-    }
-
-    private function getAssetStats(): array
-    {
-        $total = Asset::count();
-
-        // Get assets by category through model relationship
-        $byCategory = Asset::with('model.category')
+        return RequestItem::selectRaw('
+            YEAR(created_at) as year,
+            WEEK(created_at) as week,
+            COUNT(*) as total,
+            SUM(CASE WHEN status = "approved" THEN 1 ELSE 0 END) as approved
+        ')
+            ->where('created_at', '>=', Carbon::now()->subWeeks(8))
+            ->groupBy('year', 'week')
+            ->orderBy('year', 'asc')
+            ->orderBy('week', 'asc')
             ->get()
-            ->groupBy(function ($asset) {
-                return $asset->model->category->name ?? 'Uncategorized';
-            })
-            ->map(function ($group) {
-                return $group->count();
-            })
-            ->toArray();
-
-        return [
-            'total' => $total,
-            'by_category' => $byCategory,
-        ];
+            ->map(function ($item) {
+                return [
+                    'label' => 'Week '.$item->week.' '.$item->year,
+                    'total' => $item->total,
+                    'approved' => $item->approved,
+                ];
+            });
     }
 
-    private function getMovementTrends(): array
+    private function getYearlyData()
     {
-        // Get assets by status
-        $assetsByStatus = Asset::select('status', DB::raw('count(*) as count'))
-            ->groupBy('status')
-            ->pluck('count', 'status')
-            ->toArray();
-
-        return [
-            'assets_added' => Asset::where('created_at', '>=', now()->subDays(30))->count(),
-            'assets_by_status' => $assetsByStatus,
-            'total_assets' => Asset::count(),
-        ];
-    }
-
-    private function getRequestChartData(): array
-    {
-        $startDate = now()->subDays(30);
-        $endDate = now();
-
-        $requests = Request::select(
-            DB::raw('DATE(created_at) as date'),
-            DB::raw('count(*) as count')
-        )
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
-
-        $dates = [];
-        $counts = [];
-        $currentDate = $startDate->copy();
-
-        while ($currentDate <= $endDate) {
-            $dateString = $currentDate->format('Y-m-d');
-            $dates[] = $currentDate->format('M j');
-            $count = $requests->firstWhere('date', $dateString);
-            $counts[] = $count ? $count->count : 0;
-            $currentDate->addDay();
-        }
-
-        return [
-            'labels' => $dates,
-            'datasets' => [
-                [
-                    'label' => 'Requests',
-                    'data' => $counts,
-                    'fill' => false,
-                    'borderColor' => '#3B82F6',
-                    'tension' => 0.4,
-                    'backgroundColor' => 'rgba(59, 130, 246, 0.1)',
-                ],
-            ],
-        ];
-    }
-
-    private function getAssetChartData(): array
-    {
-        $startDate = now()->subDays(30);
-        $endDate = now();
-
-        $assets = Asset::select(
-            DB::raw('DATE(created_at) as date'),
-            DB::raw('count(*) as count')
-        )
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
-
-        $dates = [];
-        $counts = [];
-        $currentDate = $startDate->copy();
-
-        while ($currentDate <= $endDate) {
-            $dateString = $currentDate->format('Y-m-d');
-            $dates[] = $currentDate->format('M j');
-            $count = $assets->firstWhere('date', $dateString);
-            $counts[] = $count ? $count->count : 0;
-            $currentDate->addDay();
-        }
-
-        return [
-            'labels' => $dates,
-            'datasets' => [
-                [
-                    'label' => 'Assets Added',
-                    'data' => $counts,
-                    'fill' => false,
-                    'borderColor' => '#10B981',
-                    'tension' => 0.4,
-                    'backgroundColor' => 'rgba(16, 185, 129, 0.1)',
-                ],
-            ],
-        ];
-    }
-
-    private function getStationaryChartData(): array
-    {
-        $startDate = now()->subDays(30);
-        $endDate = now();
-
-        $stationary = StationaryItem::select(
-            DB::raw('DATE(created_at) as date'),
-            DB::raw('count(*) as count')
-        )
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
-
-        $dates = [];
-        $counts = [];
-        $currentDate = $startDate->copy();
-
-        while ($currentDate <= $endDate) {
-            $dateString = $currentDate->format('Y-m-d');
-            $dates[] = $currentDate->format('M j');
-            $count = $stationary->firstWhere('date', $dateString);
-            $counts[] = $count ? $count->count : 0;
-            $currentDate->addDay();
-        }
-
-        return [
-            'labels' => $dates,
-            'datasets' => [
-                [
-                    'label' => 'Stationary Items',
-                    'data' => $counts,
-                    'fill' => false,
-                    'borderColor' => '#8B5CF6',
-                    'tension' => 0.4,
-                    'backgroundColor' => 'rgba(139, 92, 246, 0.1)',
-                ],
-            ],
-        ];
-    }
-
-    // Additional helper method for asset status breakdown
-    private function getAssetStatusBreakdown(): array
-    {
-        return Asset::select('status', DB::raw('count(*) as count'))
-            ->groupBy('status')
-            ->pluck('count', 'status')
-            ->toArray();
-    }
-
-    // Additional helper method for license status
-    private function getLicenseStats(): array
-    {
-        return [
-            'total' => License::count(),
-            'active' => License::active()->count(),
-            'expired' => License::expired()->count(),
-            'expiring_soon' => License::expiringSoon()->count(),
-            'low_stock' => License::where('available_qty', '<=', DB::raw('min_qty'))->count(),
-        ];
+        return RequestItem::selectRaw('
+            YEAR(created_at) as year,
+            COUNT(*) as total,
+            SUM(CASE WHEN status = "approved" THEN 1 ELSE 0 END) as approved
+        ')
+            ->where('created_at', '>=', Carbon::now()->subYears(5))
+            ->groupBy('year')
+            ->orderBy('year', 'asc')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'label' => $item->year,
+                    'total' => $item->total,
+                    'approved' => $item->approved,
+                ];
+            });
     }
 }

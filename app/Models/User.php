@@ -75,12 +75,34 @@ class User extends Authenticatable
     }
 
     /**
-     * isSuperAdmin
-     *
-     * @return void
+     * Check if user is system admin (using Spatie permissions)
      */
-    public function isSuperAdmin()
+    public function isSystemAdmin(): bool
+    {
+        return $this->hasRole('system-admin');
+    }
+
+    /**
+     * Check if user is super admin
+     */
+    public function isSuperAdmin(): bool
     {
         return $this->hasRole('super-admin');
+    }
+
+    /**
+     * Check if user is admin (any admin role)
+     */
+    public function isAdmin(): bool
+    {
+        return $this->hasAnyRole(['system-admin', 'super-admin', 'admin']);
+    }
+
+    /**
+     * Check if user is regular user
+     */
+    public function isRegularUser(): bool
+    {
+        return ! $this->isAdmin();
     }
 }

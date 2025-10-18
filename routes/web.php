@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\StationaryItemController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\User\CartController;
 use App\Http\Controllers\User\RequestItemController;
+use App\Http\Controllers\User\UserDashboardController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
@@ -21,8 +22,16 @@ Route::get('/', function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/dashboard/chart-data', [DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
+    // Main dashboard route that redirects based on role
+    Route::get('/dashboard', function () {
+        $user = auth()->user();
+
+        if ($user->isAdmin()) {
+            return redirect()->route('admin.dashboard');
+        } else {
+            return redirect()->route('user.dashboard');
+        }
+    })->name('dashboard');
 });
 
 Route::middleware('auth')->group(function () {
@@ -36,6 +45,9 @@ Route::group([
     'as' => 'admin.',
     'middleware' => ['auth', 'verified'],
 ], function () {
+
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/chart-data', [DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
 
     // Asset Routes
     Route::resource('assets', AssetController::class);
@@ -141,6 +153,8 @@ Route::group([
     'as' => 'user.',
     'middleware' => ['auth', 'verified'],
 ], function () {
+    // User Dashboard
+    Route::get('/dashboard', [UserDashboardController::class, 'index'])->name('dashboard');
 
     // Request Items Routes
     Route::resource('request-items', RequestItemController::class);

@@ -21,7 +21,9 @@
     },
     "dependencies": {
         "@primeuix/themes": "^1.0.0-rc.1",
+        "apexcharts": "^5.3.5",
         "primeicons": "^7.0.0",
-        "primevue": "^4.2.5"
+        "primevue": "^4.2.5",
+        "vue3-apexcharts": "^1.9.0"
     }
 }
