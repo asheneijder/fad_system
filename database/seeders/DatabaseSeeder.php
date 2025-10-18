@@ -4,13 +4,10 @@ namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Database\Seeders\UserSeeder;
-use Database\Seeders\AssetSeeder;
-use Database\Seeders\LicenseSeeder;
+use Database\Seeders\CategorySeeder;
+use Database\Seeders\LicensesSeeder;
 use Database\Seeders\ModelTypeSeeder;
-use Database\Seeders\CategoryTypeSeeder;
-use Database\Seeders\StationaryItemSeeder;
-use Database\Seeders\StationaryItemMovementSeeder;
+use Database\Seeders\StationaryItemsSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -20,12 +17,10 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            CategoryTypeSeeder::class,
+            CategorySeeder::class,
+            LicensesSeeder::class,
             ModelTypeSeeder::class,
-            LicenseSeeder::class,
-            AssetSeeder::class,
-            StationaryItemSeeder::class,
-            StationaryItemMovementSeeder::class,
+            StationaryItemsSeeder::class,
         ]);
     }
 }

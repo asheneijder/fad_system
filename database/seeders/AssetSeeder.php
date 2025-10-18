@@ -11,7 +11,7 @@ class AssetSeeder extends Seeder
     public function run(): void
     {
         $modelTypeId = \App\Models\ModelType::first()?->id ?? 1;
-        $categoryTypeId = \App\Models\CategoryType::first()?->id ?? 1;
+        $categoryTypeId = \App\Models\Category::first()?->id ?? 1;
         $userId = \App\Models\User::first()?->id ?? 1;
 
         $assets = [
