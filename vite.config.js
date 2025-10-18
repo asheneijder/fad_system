@@ -17,19 +17,22 @@ export default defineConfig({
                     includeAbsolute: false,
                 },
             },
-            
+
         }),
         // Components({
         //     resolvers: [PrimeVueResolver()]
         // }),
     ],
     server: {
-        host: '0.0.0.0', 
-        port: 5175, 
+        host: '0.0.0.0',
+        port: 5175,
         strictPort: true,
         hmr: {
             host: 'localhost',
-            port: 5175, 
+            port: 5175,
         },
     },
+    build: {
+        chunkSizeWarningLimit: 1000
+    }
 });
