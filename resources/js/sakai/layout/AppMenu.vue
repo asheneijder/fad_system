@@ -113,4 +113,34 @@ const model = computed(() => {
     </ul>
 </template>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.layout-menu {
+    list-style: none;
+    margin: 0;
+    padding: 0.5rem 0;
+    
+    // Add subtle background and border
+    background: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+    
+    // Smooth scrolling
+    &::-webkit-scrollbar {
+        width: 4px;
+    }
+    
+    &::-webkit-scrollbar-track {
+        background: #f1f5f9;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 2px;
+    }
+}
+
+.menu-separator {
+    height: 1px;
+    background: #e2e8f0;
+    margin: 0.5rem 1rem;
+}
+</style>

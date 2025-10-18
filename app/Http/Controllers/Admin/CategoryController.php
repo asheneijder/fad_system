@@ -16,25 +16,28 @@ class CategoryController extends Controller
     public function index(Request $request)
     {
         $search = $request->query('search');
+        $type = $request->query('type');
         $page = $request->query('page', 1);
+        $perPage = $request->query('per_page', 10);
 
         $categories = Category::with('parent')
             ->when($search, function ($query) use ($search) {
                 return $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhere('meta_title', 'like', "%{$search}%")
-                        ->orWhere('meta_keywords', 'like', "%{$search}%");
+                        ->orWhere('description', 'like', "%{$search}%");
                 });
+            })
+            ->when($type, function ($query) use ($type) {
+                return $query->where('type', $type);
             })
             ->orderBy('sort_order', 'asc')
             ->orderBy('name', 'asc')
-            ->paginate(10)
+            ->paginate($perPage, ['*'], 'page', $page)
             ->withQueryString();
 
         return Inertia::render('Admin/Category/Index', [
             'categories' => $categories,
-            'filters' => $request->only(['search']) + ['page' => $page],
+            'filters' => $request->only(['search', 'type']) + ['page' => $page, 'per_page' => $perPage],
         ]);
     }
 
@@ -45,14 +48,11 @@ class CategoryController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:categories,name',
-            'description' => 'nullable|string|max:1000',
-            'type' => 'required|string|in:product,blog,service,document,general',
+            'description' => 'nullable|string|max:500',
+            'type' => 'required|string|in:asset,stationary,equipment,furniture,electronic,other',
             'status' => 'boolean',
             'parent_id' => 'nullable|exists:categories,id',
             'sort_order' => 'nullable|integer|min:0',
-            'meta_title' => 'nullable|string|max:255',
-            'meta_description' => 'nullable|string|max:500',
-            'meta_keywords' => 'nullable|string|max:255',
         ]);
 
         Category::create($validated);
@@ -73,14 +73,11 @@ class CategoryController extends Controller
                 'max:255',
                 Rule::unique('categories')->ignore($category->id),
             ],
-            'description' => 'nullable|string|max:1000',
-            'type' => 'required|string|in:product,blog,service,document,general',
+            'description' => 'nullable|string|max:500',
+            'type' => 'required|string|in:asset,stationary,equipment,furniture,electronic,other',
             'status' => 'boolean',
             'parent_id' => 'nullable|exists:categories,id',
             'sort_order' => 'nullable|integer|min:0',
-            'meta_title' => 'nullable|string|max:255',
-            'meta_description' => 'nullable|string|max:500',
-            'meta_keywords' => 'nullable|string|max:255',
         ]);
 
         // Prevent category from being its own parent
@@ -105,6 +102,12 @@ class CategoryController extends Controller
                 ->with('error', 'Cannot delete category that has sub-categories.');
         }
 
+        // Check if category has items
+        if ($category->items()->exists()) {
+            return redirect()->route('admin.categories.index')
+                ->with('error', 'Cannot delete category that has items assigned.');
+        }
+
         $category->delete();
 
         return redirect()->route('admin.categories.index')
@@ -112,111 +115,15 @@ class CategoryController extends Controller
     }
 
     /**
-     * Bulk update category status
+     * Get categories by type for dropdowns
      */
-    public function bulkUpdateStatus(Request $request)
+    public function getByType($type)
     {
-        $validated = $request->validate([
-            'category_ids' => 'required|array',
-            'category_ids.*' => 'exists:categories,id',
-            'status' => 'required|boolean',
-        ]);
+        $categories = Category::where('type', $type)
+            ->where('status', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
-        Category::whereIn('id', $validated['category_ids'])
-            ->update(['status' => $validated['status']]);
-
-        return response()->json([
-            'success' => true,
-            'message' => count($validated['category_ids']).' category(s) updated successfully.',
-        ]);
-    }
-
-    /**
-     * Bulk delete categories
-     */
-    public function bulkDelete(Request $request)
-    {
-        $validated = $request->validate([
-            'category_ids' => 'required|array',
-            'category_ids.*' => 'exists:categories,id',
-        ]);
-
-        // Check if any category has children
-        $categoriesWithChildren = Category::whereIn('id', $validated['category_ids'])
-            ->whereHas('children')
-            ->count();
-
-        if ($categoriesWithChildren > 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot delete categories that have sub-categories.',
-            ], 422);
-        }
-
-        Category::whereIn('id', $validated['category_ids'])->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => count($validated['category_ids']).' category(s) deleted successfully.',
-        ]);
-    }
-
-    /**
-     * Export categories
-     */
-    public function export(Request $request)
-    {
-        $categoryIds = $request->input('category_ids', []);
-
-        $categories = Category::with('parent')
-            ->when(! empty($categoryIds), function ($query) use ($categoryIds) {
-                return $query->whereIn('id', $categoryIds);
-            })
-            ->get();
-
-        $fileName = 'categories_'.date('Y-m-d_H-i-s').'.csv';
-
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
-        ];
-
-        $callback = function () use ($categories) {
-            $file = fopen('php://output', 'w');
-
-            // Add CSV headers
-            fputcsv($file, [
-                'Name',
-                'Type',
-                'Parent Category',
-                'Description',
-                'Sort Order',
-                'Status',
-                'Meta Title',
-                'Meta Description',
-                'Meta Keywords',
-                'Created At',
-            ]);
-
-            // Add data rows
-            foreach ($categories as $category) {
-                fputcsv($file, [
-                    $category->name,
-                    $category->type,
-                    $category->parent ? $category->parent->name : '',
-                    $category->description,
-                    $category->sort_order,
-                    $category->status ? 'Active' : 'Inactive',
-                    $category->meta_title,
-                    $category->meta_description,
-                    $category->meta_keywords,
-                    $category->created_at->format('Y-m-d H:i:s'),
-                ]);
-            }
-
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        return response()->json($categories);
     }
 }

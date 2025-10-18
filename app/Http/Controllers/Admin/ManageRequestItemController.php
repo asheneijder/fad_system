@@ -21,6 +21,7 @@ class ManageRequestItemController extends Controller
         $status = $request->query('status');
         $priority = $request->query('priority');
         $page = $request->query('page', 1);
+        $perPage = $request->query('per_page', 10);
 
         $requests = RequestItem::with(['user', 'approvedBy', 'items.stationaryItem'])
             ->when($search, function ($query) use ($search) {
@@ -37,7 +38,7 @@ class ManageRequestItemController extends Controller
                 return $query->where('priority', $priority);
             })
             ->orderBy('created_at', 'desc')
-            ->paginate(10)
+            ->paginate($perPage, ['*'], 'page', $page)
             ->withQueryString();
 
         // Statistics for dashboard
@@ -52,7 +53,7 @@ class ManageRequestItemController extends Controller
         return Inertia::render('Admin/ManageRequestItems/Index', [
             'requests' => $requests,
             'statistics' => $statistics,
-            'filters' => $request->only(['search', 'status', 'priority']) + ['page' => $page],
+            'filters' => $request->only(['search', 'status', 'priority']) + ['page' => $page, 'per_page' => $perPage],
         ]);
     }
 

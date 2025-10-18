@@ -21,6 +21,7 @@ class ModelController extends Controller
         $status = $request->query('status');
         $category_id = $request->query('category_id');
         $page = $request->query('page', 1);
+        $perPage = $request->query('per_page', 10);
 
         $models = ModelType::with(['category'])
             ->when($search, function ($query) use ($search) {
@@ -36,7 +37,7 @@ class ModelController extends Controller
                 return $query->where('category_id', $category_id);
             })
             ->orderBy('created_at', 'desc')
-            ->paginate(10)
+            ->paginate($perPage, ['*'], 'page', $page)
             ->withQueryString();
 
         // Get categories for filter
@@ -55,7 +56,7 @@ class ModelController extends Controller
             'models' => $models,
             'categories' => $categories,
             'statistics' => $statistics,
-            'filters' => $request->only(['search', 'status', 'category_id']) + ['page' => $page],
+            'filters' => $request->only(['search', 'status', 'category_id']) + ['page' => $page, 'per_page' => $perPage],
         ]);
     }
 

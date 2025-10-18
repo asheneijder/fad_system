@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use Spatie\Permission\Models\Role;
 
 class ManageUserController extends Controller
 {
@@ -26,6 +27,7 @@ class ManageUserController extends Controller
         $perPage = $request->query('per_page', 10);
 
         $users = $this->user->query()
+            ->with('roles')
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -36,16 +38,24 @@ class ManageUserController extends Controller
                 });
             })
             ->when($status !== null && $status !== '', function ($query) use ($status) {
-                $query->where('status', $status);
+                if ($status === 'with_roles') {
+                    $query->whereHas('roles');
+                } elseif ($status === 'without_roles') {
+                    $query->whereDoesntHave('roles');
+                }
             })
             ->orderBy('created_at', 'desc')
             ->paginate($perPage, ['*'], 'page', $page)
             ->withQueryString();
 
-        // Statistics - Since we don't have status field yet, we'll use basic counts
+        // Get all roles for the filter dropdown
+        $roles = Role::orderBy('name')->get(['id', 'name']);
+
+        // Statistics
         $statistics = [
             'total' => $this->user->count(),
-            'active' => $this->user->count(), // Default all users as active for now
+            'with_roles' => $this->user->whereHas('roles')->count(),
+            'without_roles' => $this->user->whereDoesntHave('roles')->count(),
             'this_month' => $this->user->whereYear('created_at', now()->year)
                 ->whereMonth('created_at', now()->month)
                 ->count(),
@@ -55,6 +65,7 @@ class ManageUserController extends Controller
 
         return Inertia::render('Admin/Users/Index', [
             'users' => $users,
+            'roles' => $roles,
             'filters' => $request->only(['search', 'status']),
             'statistics' => $statistics,
         ]);
@@ -72,6 +83,8 @@ class ManageUserController extends Controller
             'department' => 'nullable|string|max:255',
             'office_location' => 'nullable|string|max:255',
             'password' => 'required|string|min:8|confirmed',
+            'role_ids' => 'nullable|array',
+            'role_ids.*' => 'exists:roles,id',
         ], [
             'name.required' => 'Full name is required.',
             'email.required' => 'Email address is required.',
@@ -95,12 +108,18 @@ class ManageUserController extends Controller
                 'email_verified_at' => now(),
             ]);
 
+            // Assign roles if provided
+            if (! empty($validated['role_ids'])) {
+                $roles = Role::whereIn('id', $validated['role_ids'])->get();
+                $user->syncRoles($roles);
+            }
+
             DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'User created successfully',
-                'user' => $user,
+                'user' => $user->load('roles'),
             ]);
 
         } catch (\Exception $e) {
@@ -139,6 +158,8 @@ class ManageUserController extends Controller
             'department' => 'nullable|string|max:255',
             'office_location' => 'nullable|string|max:255',
             'password' => 'nullable|string|min:8|confirmed',
+            'role_ids' => 'nullable|array',
+            'role_ids.*' => 'exists:roles,id',
         ], [
             'name.required' => 'Full name is required.',
             'email.required' => 'Email address is required.',
@@ -166,12 +187,18 @@ class ManageUserController extends Controller
 
             $user->update($updateData);
 
+            // Sync roles if provided
+            if (isset($validated['role_ids'])) {
+                $roles = Role::whereIn('id', $validated['role_ids'])->get();
+                $user->syncRoles($roles);
+            }
+
             DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'User updated successfully',
-                'user' => $user->fresh(),
+                'user' => $user->fresh(['roles']),
             ]);
 
         } catch (\Exception $e) {

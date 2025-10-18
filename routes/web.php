@@ -143,7 +143,10 @@ Route::group([
         ->name('permissions.bulk-destroy');
 
     Route::post('permissions/{permission}/remove-role/{role}', [PermissionController::class, 'removeRole'])
-        ->name('admin.permissions.remove-role');
+        ->name('permissions.remove-role');
+
+    Route::post('permissions/{permission}/assign-roles', [PermissionController::class, 'assignRoles'])
+        ->name('permissions.assign-roles');
 
     Route::resource('audit-logs', AuditLogController::class)->only(['index', 'show']);
 });

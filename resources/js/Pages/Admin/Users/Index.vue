@@ -10,6 +10,7 @@ import Toast from "primevue/toast";
 import Dialog from "primevue/dialog";
 import Password from "primevue/password";
 import Select from 'primevue/select';
+import MultiSelect from 'primevue/multiselect';
 import Breadcrumb from 'primevue/breadcrumb';
 import Card from "primevue/card";
 import Menu from 'primevue/menu';
@@ -27,6 +28,10 @@ const props = defineProps({
     users: {
         type: Object,
         default: () => ({ data: [], total: 0, per_page: 10, current_page: 1 })
+    },
+    roles: {
+        type: Array,
+        default: () => []
     },
     filters: {
         type: Object,
@@ -61,6 +66,7 @@ const userForm = useForm({
     office_location: '',
     password: '',
     password_confirmation: '',
+    role_ids: [],
 });
 
 // Action menu items
@@ -90,20 +96,23 @@ const actionItems = ref([
 // Status options
 const statusOptions = ref([
     { label: 'All Users', value: '' },
+    { label: 'With Roles', value: 'with_roles' },
+    { label: 'Without Roles', value: 'without_roles' },
     { label: 'With Job Title', value: 'with_job_title' },
     { label: 'Without Job Title', value: 'without_job_title' },
 ]);
 
-// Statistics with computed properties like license management
+// Statistics with computed properties
 const statistics = computed(() => {
     const data = users.value?.data || [];
     
     return {
         total: users.value?.total || 0,
+        withRoles: data.filter(u => u.roles && u.roles.length > 0).length,
+        withoutRoles: data.filter(u => !u.roles || u.roles.length === 0).length,
         withJobTitle: data.filter(u => u.job_title && u.job_title.trim() !== '').length,
         withoutJobTitle: data.filter(u => !u.job_title || u.job_title.trim() === '').length,
         withDepartment: data.filter(u => u.department && u.department.trim() !== '').length,
-        withLocation: data.filter(u => u.office_location && u.office_location.trim() !== '').length,
         recentUsers: data.filter(u => {
             const created = new Date(u.created_at);
             const thirtyDaysAgo = new Date();
@@ -213,6 +222,7 @@ const openEditModal = (user) => {
     userForm.office_location = user.office_location || '';
     userForm.password = '';
     userForm.password_confirmation = '';
+    userForm.role_ids = user.roles ? user.roles.map(role => role.id) : [];
     
     showUserModal.value = true;
 };
@@ -471,6 +481,11 @@ const hasJobTitle = (user) => {
     return user.job_title && user.job_title.trim() !== '';
 };
 
+const getUserRoles = (user) => {
+    if (!user.roles || user.roles.length === 0) return [];
+    return user.roles.map(role => role.name);
+};
+
 // Computed properties for form validation
 const isFormValid = computed(() => {
     const baseValid = userForm.name && userForm.email;
@@ -540,11 +555,11 @@ const isFormValid = computed(() => {
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="text-xs font-medium text-gray-500 truncate">With Job Title</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.withJobTitle }}</p>
+                                <p class="text-xs font-medium text-gray-500 truncate">With Roles</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.withRoles }}</p>
                             </div>
                             <div class="p-2 sm:p-3 bg-green-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-green-600 pi pi-briefcase"></i>
+                                <i class="text-base sm:text-lg md:text-xl text-green-600 pi pi-shield"></i>
                             </div>
                         </div>
                     </template>
@@ -554,8 +569,8 @@ const isFormValid = computed(() => {
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="text-xs font-medium text-gray-500 truncate">No Job Title</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.withoutJobTitle }}</p>
+                                <p class="text-xs font-medium text-gray-500 truncate">No Roles</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.withoutRoles }}</p>
                             </div>
                             <div class="p-2 sm:p-3 bg-red-100 rounded-full flex-shrink-0">
                                 <i class="text-base sm:text-lg md:text-xl text-red-600 pi pi-exclamation-triangle"></i>
@@ -568,11 +583,11 @@ const isFormValid = computed(() => {
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="text-xs font-medium text-gray-500 truncate">With Department</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.withDepartment }}</p>
+                                <p class="text-xs font-medium text-gray-500 truncate">With Job Title</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.withJobTitle }}</p>
                             </div>
                             <div class="p-2 sm:p-3 bg-yellow-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-yellow-600 pi pi-building"></i>
+                                <i class="text-base sm:text-lg md:text-xl text-yellow-600 pi pi-briefcase"></i>
                             </div>
                         </div>
                     </template>
@@ -582,11 +597,11 @@ const isFormValid = computed(() => {
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="text-xs font-medium text-gray-500 truncate">With Location</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.withLocation }}</p>
+                                <p class="text-xs font-medium text-gray-500 truncate">With Department</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.withDepartment }}</p>
                             </div>
                             <div class="p-2 sm:p-3 bg-orange-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-orange-600 pi pi-map-marker"></i>
+                                <i class="text-base sm:text-lg md:text-xl text-orange-600 pi pi-building"></i>
                             </div>
                         </div>
                     </template>
@@ -623,7 +638,7 @@ const isFormValid = computed(() => {
                             <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                                 <div class="w-full sm:w-48">
                                     <Select v-model="statusFilter" :options="statusOptions" optionLabel="label" 
-                                        optionValue="value" placeholder="Filter by Job Title" 
+                                        optionValue="value" placeholder="Filter by status" 
                                         class="w-full text-xs sm:text-sm" />
                                 </div>
                                 <div class="w-full sm:w-64 md:w-80">
@@ -697,6 +712,22 @@ const isFormValid = computed(() => {
                                 </template>
                             </Column>
 
+                            <Column header="Roles" style="min-width: 150px;">
+                                <template #body="slotProps">
+                                    <div class="flex flex-wrap gap-1">
+                                        <Badge v-for="role in getUserRoles(slotProps.data)" 
+                                               :key="role" 
+                                               :value="role" 
+                                               severity="info" 
+                                               class="text-xs" />
+                                        <Badge v-if="getUserRoles(slotProps.data).length === 0" 
+                                               value="No Roles" 
+                                               severity="secondary" 
+                                               class="text-xs" />
+                                    </div>
+                                </template>
+                            </Column>
+
                             <Column header="Job Title" sortable style="min-width: 150px;">
                                 <template #body="slotProps">
                                     <div class="text-xs sm:text-sm">
@@ -717,16 +748,6 @@ const isFormValid = computed(() => {
                                         severity="info" 
                                         class="text-xs" />
                                     <Badge v-else value="—" severity="secondary" class="text-xs" />
-                                </template>
-                            </Column>
-
-                            <Column header="Job Title Status" sortable style="min-width: 120px;">
-                                <template #body="slotProps">
-                                    <Badge v-if="hasJobTitle(slotProps.data)" 
-                                        value="Has Title" 
-                                        severity="success" 
-                                        class="text-xs capitalize" />
-                                    <Badge v-else value="No Title" severity="warning" class="text-xs capitalize" />
                                 </template>
                             </Column>
 
@@ -830,6 +851,40 @@ const isFormValid = computed(() => {
                                 placeholder="Enter office location" 
                                 class="w-full text-xs sm:text-sm"
                                 :disabled="userForm.processing" />
+                        </div>
+
+                        <!-- Roles Assignment -->
+                        <div class="space-y-1 sm:space-y-2 md:col-span-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Assign Roles</label>
+                            <MultiSelect v-model="userForm.role_ids" 
+                                :options="roles" 
+                                optionLabel="name" 
+                                optionValue="id"
+                                placeholder="Select roles..."
+                                display="chip"
+                                class="w-full text-xs sm:text-sm"
+                                :maxSelectedLabels="3"
+                                :disabled="userForm.processing">
+                                <template #value="slotProps">
+                                    <div v-if="slotProps.value && slotProps.value.length > 0" class="flex flex-wrap gap-1">
+                                        <Badge v-for="roleId in slotProps.value" 
+                                               :key="roleId"
+                                               :value="roles.find(r => r.id === roleId)?.name"
+                                               severity="info"
+                                               class="text-xs" />
+                                    </div>
+                                    <span v-else class="text-gray-400 text-xs sm:text-sm">{{ slotProps.placeholder }}</span>
+                                </template>
+                                <template #option="slotProps">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="pi pi-shield text-blue-500 text-xs"></i>
+                                        <span class="text-xs sm:text-sm">{{ slotProps.option.name }}</span>
+                                    </div>
+                                </template>
+                            </MultiSelect>
+                            <small class="text-gray-500 text-xs">
+                                Select one or more roles to assign to this user
+                            </small>
                         </div>
 
                         <!-- Password -->

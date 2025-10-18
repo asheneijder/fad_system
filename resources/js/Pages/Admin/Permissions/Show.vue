@@ -9,14 +9,19 @@ import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Tag from 'primevue/tag';
 import ConfirmDialog from 'primevue/confirmdialog';
+import Dialog from 'primevue/dialog';
+import MultiSelect from 'primevue/multiselect';
 import { useConfirm } from "primevue/useconfirm";
 
 const props = defineProps({
     permission: Object,
     roles: Array,
+    availableRoles: Array,
 });
 
 const confirm = useConfirm();
+const showAssignRolesDialog = ref(false);
+const selectedRoles = ref([]); 
 
 const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -65,6 +70,25 @@ const confirmDelete = (permission) => {
                     router.visit(route('admin.permissions.index'));
                 }
             });
+        }
+    });
+};
+
+const openAssignRolesDialog = () => {
+    selectedRoles.value = [];
+    showAssignRolesDialog.value = true;
+};
+
+const assignRoles = () => {
+    if (selectedRoles.value.length === 0) return;
+
+    router.post(route('admin.permissions.assign-roles', props.permission.id), {
+        role_ids: selectedRoles.value // Now this is just an array of IDs
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showAssignRolesDialog.value = false;
+            selectedRoles.value = [];
         }
     });
 };
@@ -151,18 +175,26 @@ const confirmDelete = (permission) => {
                     </Card>
 
                     <!-- Assigned Roles Card -->
-                    <Card v-if="roles && roles.length > 0">
+                    <Card>
                         <template #title>
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-2">
                                     <i class="pi pi-users text-green-500"></i>
                                     <span>Assigned Roles ({{ roles.length }})</span>
                                 </div>
-                                <Badge :value="roles.length" severity="info" />
+                                <div class="flex items-center space-x-2">
+                                    <Badge :value="roles.length" severity="info" />
+                                    <Button label="Assign Roles" 
+                                            icon="pi pi-plus" 
+                                            severity="success" 
+                                            size="small"
+                                            @click="openAssignRolesDialog" />
+                                </div>
                             </div>
                         </template>
                         <template #content>
-                            <DataTable :value="roles" 
+                            <DataTable v-if="roles && roles.length > 0" 
+                                     :value="roles" 
                                      dataKey="id"
                                      :rows="10"
                                      :paginator="true"
@@ -202,18 +234,18 @@ const confirmDelete = (permission) => {
                                     </template>
                                 </Column>
                             </DataTable>
-                        </template>
-                    </Card>
 
-                    <!-- Empty State for Roles -->
-                    <Card v-else>
-                        <template #content>
-                            <div class="text-center py-8">
+                            <!-- Empty State for Roles -->
+                            <div v-else class="text-center py-8">
                                 <i class="pi pi-users text-4xl text-gray-300 mb-3"></i>
                                 <h3 class="text-lg font-medium text-gray-900">No Roles Assigned</h3>
-                                <p class="mt-1 text-sm text-gray-500">
+                                <p class="mt-1 text-sm text-gray-500 mb-4">
                                     This permission is not assigned to any roles. Users won't have access to this permission.
                                 </p>
+                                <Button label="Assign Roles" 
+                                        icon="pi pi-plus" 
+                                        severity="success"
+                                        @click="openAssignRolesDialog" />
                             </div>
                         </template>
                     </Card>
@@ -228,6 +260,11 @@ const confirmDelete = (permission) => {
                         </template>
                         <template #content>
                             <div class="space-y-2">
+                                <Button label="Assign Roles" 
+                                        icon="pi pi-user-plus" 
+                                        severity="success" 
+                                        class="w-full justify-start"
+                                        @click="openAssignRolesDialog" />
                                 <Button label="Edit Permission" 
                                         icon="pi pi-pencil" 
                                         severity="secondary" 
@@ -254,6 +291,10 @@ const confirmDelete = (permission) => {
                                     <span class="text-sm font-medium text-gray-900">
                                         {{ roles.reduce((total, role) => total + (role.users_count || 0), 0) }}
                                     </span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-600">Available Roles</span>
+                                    <Badge :value="availableRoles.length" severity="info" />
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-sm text-gray-600">Created</span>
@@ -302,6 +343,60 @@ const confirmDelete = (permission) => {
                 </template>
             </Card>
         </div>
+
+        <!-- Assign Roles Dialog -->
+        <Dialog v-model:visible="showAssignRolesDialog" 
+                modal 
+                header="Assign Roles to Permission" 
+                :style="{ width: '500px' }">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Select Roles to Assign
+                    </label>
+                    <MultiSelect v-model="selectedRoles" 
+                                :options="availableRoles" 
+                                optionLabel="name" 
+                                optionValue="id"
+                                placeholder="Select roles..."
+                                display="chip"
+                                class="w-full"
+                                :maxSelectedLabels="3">
+                        <template #option="slotProps">
+                            <div class="flex items-center justify-between w-full">
+                                <div class="flex items-center space-x-2">
+                                    <i class="pi pi-shield text-blue-500"></i>
+                                    <span>{{ slotProps.option.name }}</span>
+                                </div>
+                                <Badge :value="slotProps.option.users_count || 0" 
+                                      severity="info" 
+                                      size="small" />
+                            </div>
+                        </template>
+                    </MultiSelect>
+                </div>
+                
+                <div v-if="availableRoles.length === 0" class="p-4 bg-yellow-50 rounded-lg">
+                    <div class="flex items-center space-x-2">
+                        <i class="pi pi-info-circle text-yellow-600"></i>
+                        <p class="text-sm text-yellow-700">
+                            All available roles already have this permission assigned.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-4">
+                    <Button label="Cancel" 
+                            severity="secondary" 
+                            @click="showAssignRolesDialog = false" />
+                    <Button label="Assign Roles" 
+                            icon="pi pi-check" 
+                            severity="success" 
+                            :disabled="selectedRoles.length === 0"
+                            @click="assignRoles" />
+                </div>
+            </div>
+        </Dialog>
 
         <ConfirmDialog />
     </AppLayout>

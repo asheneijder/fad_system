@@ -12,7 +12,7 @@ const year = new Date().getFullYear()
                 Developed by
                 <a href="#"
                     class="font-semibold text-blue-600 transition duration-300 hover:text-blue-800">
-                    Digital Dept ARTB
+                    Digital Dept Amanah Raya Trustees Berhad
                 </a>
             </p>
         </div>

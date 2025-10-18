@@ -13,9 +13,10 @@ import Toast from "primevue/toast";
 import Card from "primevue/card";
 import DatePicker from 'primevue/datepicker';
 import InputNumber from 'primevue/inputnumber';
-import Checkbox from 'primevue/checkbox';
 import Textarea from 'primevue/textarea';
 import Menu from 'primevue/menu';
+import IconField from 'primevue/iconfield';
+import InputIcon from 'primevue/inputicon';
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { router, Head, useForm } from "@inertiajs/vue3";
@@ -27,7 +28,7 @@ const toast = useToast();
 const props = defineProps({
     assets: {
         type: Object,
-        default: () => ({ data: [], total: 0, per_page: 15, current_page: 1 })
+        default: () => ({ data: [], total: 0, per_page: 10, current_page: 1 })
     },
     filters: {
         type: Object,
@@ -67,6 +68,7 @@ const selectedAssetId = ref(null);
 const viewAssetData = ref(null);
 const selectedAssets = ref([]);
 const actionMenu = ref();
+const currentPerPage = ref(props.assets?.per_page || 10);
 
 // Forms
 const assetForm = useForm({
@@ -111,6 +113,14 @@ const statusOptions = ref([
     { label: 'Retired', value: 'retired' },
 ]);
 
+// Category options
+const categoryOptions = computed(() => {
+    return [
+        { name: 'All Categories', id: '' },
+        ...props.categories
+    ];
+});
+
 // Action menu items
 const actionItems = ref([
     {
@@ -122,17 +132,17 @@ const actionItems = ref([
                 command: () => openBulkAssignDialog()
             },
             {
-                label: 'Set Status Available',
+                label: 'Set Available',
                 icon: 'pi pi-check',
                 command: () => bulkUpdateStatus('available')
             },
             {
-                label: 'Set Status Maintenance',
+                label: 'Set Maintenance',
                 icon: 'pi pi-wrench',
                 command: () => bulkUpdateStatus('maintenance')
             },
             {
-                label: 'Set Status Retired',
+                label: 'Set Retired',
                 icon: 'pi pi-times',
                 command: () => bulkUpdateStatus('retired')
             },
@@ -148,6 +158,7 @@ const actionItems = ref([
 // Watchers
 watch(() => props.assets, (newAssets) => {
     assets.value = newAssets;
+    currentPerPage.value = newAssets?.per_page || 10;
 }, { immediate: true });
 
 watch([search, statusFilter, categoryFilter], ([newSearch, newStatus, newCategory], [oldSearch, oldStatus, oldCategory]) => {
@@ -155,9 +166,11 @@ watch([search, statusFilter, categoryFilter], ([newSearch, newStatus, newCategor
         router.get(route("admin.assets.index"), {
             search: newSearch,
             status: newStatus,
-            category: newCategory
+            category: newCategory,
+            page: 1,
+            per_page: currentPerPage.value
         }, {
-            preserveState: true,
+            preserveState: false,
             replace: true,
             preserveScroll: true
         });
@@ -165,21 +178,34 @@ watch([search, statusFilter, categoryFilter], ([newSearch, newStatus, newCategor
 });
 
 watch(showCreateEditDialog, (val) => {
+    if (!val) resetForm();
+});
+
+watch(showAssignDialog, (val) => {
     if (!val) {
-        resetForm();
+        assignForm.reset();
+        selectedAssetId.value = null;
     }
+});
+
+watch(showBulkAssignDialog, (val) => {
+    if (!val) bulkAssignForm.reset();
 });
 
 // Methods
 const onPageChange = (event) => {
     const page = event.page + 1;
+    const perPage = event.rows;
+    currentPerPage.value = perPage;
+    
     router.get(route("admin.assets.index"), {
         search: search.value,
         status: statusFilter.value,
         category: categoryFilter.value,
         page: page,
+        per_page: perPage
     }, {
-        preserveState: true,
+        preserveState: false,
         replace: true,
         preserveScroll: true
     });
@@ -247,63 +273,32 @@ const openBulkAssignDialog = () => {
 };
 
 const saveAsset = () => {
-    const formData = {
-        ...assetForm,
-        purchase_date: assetForm.purchase_date ? assetForm.purchase_date.toISOString().split('T')[0] : null
-    };
-
     if (isEditMode.value) {
         assetForm.put(route('admin.assets.update', selectedAssetId.value), {
             onSuccess: () => {
-                toast.add({
-                    severity: 'success',
-                    summary: 'Success',
-                    detail: 'Asset updated successfully',
-                    life: 3000
-                });
+                toast.add({ severity: 'success', summary: 'Success', detail: 'Asset updated successfully', life: 3000 });
                 showCreateEditDialog.value = false;
                 resetForm();
             },
             onError: (errors) => {
                 let errorMessage = 'Please check all required fields';
-                if (errors.asset_tag) {
-                    errorMessage = 'Asset tag already exists';
-                } else if (errors.serial_number) {
-                    errorMessage = 'Serial number already exists';
-                }
-                toast.add({
-                    severity: 'error',
-                    summary: 'Error',
-                    detail: errorMessage,
-                    life: 3000
-                });
+                if (errors.asset_tag) errorMessage = 'Asset tag already exists';
+                else if (errors.serial_number) errorMessage = 'Serial number already exists';
+                toast.add({ severity: 'error', summary: 'Error', detail: errorMessage, life: 3000 });
             }
         });
     } else {
         assetForm.post(route('admin.assets.store'), {
             onSuccess: () => {
-                toast.add({
-                    severity: 'success',
-                    summary: 'Success',
-                    detail: 'Asset created successfully',
-                    life: 3000
-                });
+                toast.add({ severity: 'success', summary: 'Success', detail: 'Asset created successfully', life: 3000 });
                 showCreateEditDialog.value = false;
                 resetForm();
             },
             onError: (errors) => {
                 let errorMessage = 'Please check all required fields';
-                if (errors.asset_tag) {
-                    errorMessage = 'Asset tag already exists';
-                } else if (errors.serial_number) {
-                    errorMessage = 'Serial number already exists';
-                }
-                toast.add({
-                    severity: 'error',
-                    summary: 'Error',
-                    detail: errorMessage,
-                    life: 3000
-                });
+                if (errors.asset_tag) errorMessage = 'Asset tag already exists';
+                else if (errors.serial_number) errorMessage = 'Serial number already exists';
+                toast.add({ severity: 'error', summary: 'Error', detail: errorMessage, life: 3000 });
             }
         });
     }
@@ -314,20 +309,10 @@ const submitAssignment = () => {
         preserveScroll: true,
         onSuccess: () => {
             showAssignDialog.value = false;
-            toast.add({
-                severity: 'success',
-                summary: 'Success',
-                detail: 'Asset assigned successfully',
-                life: 3000
-            });
+            toast.add({ severity: 'success', summary: 'Success', detail: 'Asset assigned successfully', life: 3000 });
         },
-        onError: (errors) => {
-            toast.add({
-                severity: 'error',
-                summary: 'Error',
-                detail: 'Failed to assign asset',
-                life: 3000
-            });
+        onError: () => {
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to assign asset', life: 3000 });
         }
     });
 };
@@ -338,42 +323,21 @@ const submitBulkAssignment = () => {
         onSuccess: (response) => {
             showBulkAssignDialog.value = false;
             selectedAssets.value = [];
+            toast.add({ severity: 'success', summary: 'Success', detail: response.props.success_count + ' asset(s) assigned', life: 5000 });
             
-            toast.add({
-                severity: 'success',
-                summary: 'Success',
-                detail: response.props.success_count + ' asset(s) assigned successfully',
-                life: 5000
-            });
-            
-            if (response.props.failed_assets && response.props.failed_assets.length > 0) {
-                toast.add({
-                    severity: 'warn',
-                    summary: 'Partial Success',
-                    detail: 'Some assets could not be assigned: ' + response.props.failed_assets.join(', '),
-                    life: 6000
-                });
+            if (response.props.failed_assets?.length > 0) {
+                toast.add({ severity: 'warn', summary: 'Partial Success', detail: 'Some assets could not be assigned', life: 6000 });
             }
         },
-        onError: (errors) => {
-            toast.add({
-                severity: 'error',
-                summary: 'Error',
-                detail: 'Failed to assign assets',
-                life: 3000
-            });
+        onError: () => {
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to assign assets', life: 3000 });
         }
     });
 };
 
 const bulkUpdateStatus = (status) => {
     if (selectedAssets.value.length === 0) {
-        toast.add({
-            severity: 'warn',
-            summary: 'No Selection',
-            detail: 'Please select assets first',
-            life: 3000
-        });
+        toast.add({ severity: 'warn', summary: 'No Selection', detail: 'Please select assets first', life: 3000 });
         return;
     }
 
@@ -381,75 +345,27 @@ const bulkUpdateStatus = (status) => {
     bulkStatusForm.status = status;
 
     bulkStatusForm.post(route('admin.assets.bulk-update-status'), {
-        onSuccess: (response) => {
-            toast.add({
-                severity: 'success',
-                summary: 'Success',
-                detail: response.props.message,
-                life: 3000
-            });
+        onSuccess: () => {
+            toast.add({ severity: 'success', summary: 'Success', detail: `${selectedAssets.value.length} asset(s) updated`, life: 3000 });
             selectedAssets.value = [];
             bulkStatusForm.reset();
         },
-        onError: (errors) => {
-            toast.add({
-                severity: 'error',
-                summary: 'Error',
-                detail: 'Failed to update assets status',
-                life: 3000
-            });
-        }
-    });
-};
-
-const updateStatus = (asset, newStatus) => {
-    router.put(route('admin.assets.updateStatus', asset.id), {
-        status: newStatus
-    }, {
-        preserveScroll: true,
-        onSuccess: () => {
-            toast.add({
-                severity: 'success',
-                summary: 'Success',
-                detail: 'Asset status updated successfully',
-                life: 3000
-            });
-        },
-        onError: (errors) => {
-            toast.add({
-                severity: 'error',
-                summary: 'Error',
-                detail: 'Failed to update asset status',
-                life: 3000
-            });
+        onError: () => {
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update assets status', life: 3000 });
         }
     });
 };
 
 const returnAsset = (asset) => {
     confirm.require({
-        message: `Are you sure you want to return this asset from ${asset.user?.name || 'user'}?`,
+        message: `Return this asset from ${asset.user?.name || 'user'}?`,
         header: "Return Asset Confirmation",
         icon: "pi pi-arrow-left",
         accept: () => {
-            router.post(route('admin.assets.return', asset.id), {
+            router.post(route('admin.assets.return', asset.id), {}, {
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.add({
-                        severity: "success",
-                        summary: "Returned",
-                        detail: "Asset returned successfully",
-                        life: 3000,
-                    });
-                },
-                onError: (errors) => {
-                    toast.add({
-                        severity: "error",
-                        summary: "Error",
-                        detail: "Failed to return asset",
-                        life: 3000,
-                    });
-                }
+                onSuccess: () => toast.add({ severity: "success", summary: "Returned", detail: "Asset returned successfully", life: 3000 }),
+                onError: () => toast.add({ severity: "error", summary: "Error", detail: "Failed to return asset", life: 3000 })
             });
         },
     });
@@ -457,30 +373,16 @@ const returnAsset = (asset) => {
 
 const deleteAsset = (id) => {
     confirm.require({
-        message: "Are you sure you want to delete this asset? This action cannot be undone.",
+        message: "Delete this asset? This action cannot be undone.",
         header: "Delete Confirmation",
         icon: "pi pi-exclamation-triangle",
         acceptClass: "p-button-danger",
         accept: () => {
             router.delete(route("admin.assets.destroy", id), {
-                preserveState: true,
+                preserveState: false,
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.add({
-                        severity: "success",
-                        summary: "Deleted",
-                        detail: "Asset deleted successfully",
-                        life: 3000,
-                    });
-                },
-                onError: (errors) => {
-                    toast.add({
-                        severity: "error",
-                        summary: "Error",
-                        detail: errors.message || "Failed to delete asset",
-                        life: 3000,
-                    });
-                }
+                onSuccess: () => toast.add({ severity: "success", summary: "Deleted", detail: "Asset deleted successfully", life: 3000 }),
+                onError: (errors) => toast.add({ severity: "error", summary: "Error", detail: errors.message || "Failed to delete asset", life: 3000 })
             });
         },
     });
@@ -488,18 +390,11 @@ const deleteAsset = (id) => {
 
 const exportSelected = () => {
     if (selectedAssets.value.length === 0) {
-        toast.add({
-            severity: 'warn',
-            summary: 'No Selection',
-            detail: 'Please select assets to export',
-            life: 3000
-        });
+        toast.add({ severity: 'warn', summary: 'No Selection', detail: 'Please select assets to export', life: 3000 });
         return;
     }
 
     const assetIds = selectedAssets.value.map(asset => asset.id);
-    
-    // Create a temporary form to submit the export request
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = route('admin.assets.export');
@@ -527,39 +422,24 @@ const exportSelected = () => {
 };
 
 const getStatusSeverity = (status) => {
-    switch (status) {
-        case 'available': return 'success';
-        case 'assigned': return 'info';
-        case 'maintenance': return 'warning';
-        case 'retired': return 'danger';
-        default: return 'secondary';
-    }
+    const map = { available: 'success', assigned: 'info', maintenance: 'warning', retired: 'danger' };
+    return map[status] || 'secondary';
 };
 
-const getStatusText = (status) => {
-    return status.charAt(0).toUpperCase() + status.slice(1);
-};
+const getStatusText = (status) => status.charAt(0).toUpperCase() + status.slice(1);
 
 const formatDate = (date) => {
     if (!date) return '—';
     try {
-        const dateObj = new Date(date);
-        return dateObj.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-    } catch (error) {
+        return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch {
         return '—';
     }
 };
 
 const formatCurrency = (amount) => {
     if (!amount) return '—';
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD'
-    }).format(amount);
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
 
 const daysUntilWarrantyExpiry = (asset) => {
@@ -573,8 +453,7 @@ const daysUntilWarrantyExpiry = (asset) => {
     today.setHours(0, 0, 0, 0);
     warrantyExpiry.setHours(0, 0, 0, 0);
     
-    const diffTime = warrantyExpiry - today;
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.ceil((warrantyExpiry - today) / (1000 * 60 * 60 * 24));
 };
 
 const getWarrantyStatus = (asset) => {
@@ -585,13 +464,9 @@ const getWarrantyStatus = (asset) => {
     return { text: 'Active', severity: 'success' };
 };
 
-const toggleActionMenu = (event) => {
-    actionMenu.value.toggle(event);
-};
+const toggleActionMenu = (event) => actionMenu.value.toggle(event);
 
-const viewAssignmentHistory = (asset) => {
-    router.visit(route('admin.assets.assignment-history', asset.id));
-};
+const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assignment-history', asset.id));
 </script>
 
 <template>
@@ -601,39 +476,39 @@ const viewAssignmentHistory = (asset) => {
         <ConfirmDialog />
         <Menu ref="actionMenu" :model="actionItems" :popup="true" />
 
-        <div class="p-6 space-y-6">
+        <div class="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
             <!-- Breadcrumb -->
-            <Breadcrumb :home="home" :model="items" class="mb-4">
+            <Breadcrumb :home="home" :model="items" class="mb-2 sm:mb-4">
                 <template #item="{ item }">
-                    <span class="font-semibold text-gray-700">{{ item.label }}</span>
+                    <span class="font-semibold text-gray-700 text-xs sm:text-sm">{{ item.label }}</span>
                 </template>
             </Breadcrumb>
 
             <!-- Page Header -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">Office Asset Management</h1>
-                    <p class="mt-1 text-gray-500">Manage and track all company assets</p>
+                    <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">Asset Management</h1>
+                    <p class="mt-1 text-xs sm:text-sm text-gray-500">Manage and track all company assets</p>
                 </div>
-                <div class="flex gap-3">
+                <div class="flex flex-wrap gap-2">
                     <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
-                        @click="toggleActionMenu" />
+                        @click="toggleActionMenu" class="flex-1 min-w-fit text-xs sm:text-sm" />
                     <Button label="Create Asset" icon="pi pi-plus" severity="success"
-                        @click="openCreateDialog" class="font-semibold" />
+                        @click="openCreateDialog" class="flex-1 min-w-fit text-xs sm:text-sm font-semibold" />
                 </div>
             </div>
 
             <!-- Statistics Cards -->
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-6">
+            <div class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
                 <Card class="border-l-4 border-blue-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Total Assets</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.total }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Total Assets</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.total || 0 }}</p>
                             </div>
-                            <div class="p-3 bg-blue-100 rounded-full">
-                                <i class="text-xl text-blue-600 pi pi-box"></i>
+                            <div class="p-2 sm:p-3 bg-blue-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-blue-600 pi pi-box"></i>
                             </div>
                         </div>
                     </template>
@@ -641,13 +516,13 @@ const viewAssignmentHistory = (asset) => {
 
                 <Card class="border-l-4 border-green-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Available</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.available }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Available</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.available || 0 }}</p>
                             </div>
-                            <div class="p-3 bg-green-100 rounded-full">
-                                <i class="text-xl text-green-600 pi pi-check-circle"></i>
+                            <div class="p-2 sm:p-3 bg-green-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-green-600 pi pi-check-circle"></i>
                             </div>
                         </div>
                     </template>
@@ -655,13 +530,13 @@ const viewAssignmentHistory = (asset) => {
 
                 <Card class="border-l-4 border-orange-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Assigned</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.assigned }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Assigned</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.assigned || 0 }}</p>
                             </div>
-                            <div class="p-3 bg-orange-100 rounded-full">
-                                <i class="text-xl text-orange-600 pi pi-user"></i>
+                            <div class="p-2 sm:p-3 bg-orange-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-orange-600 pi pi-user"></i>
                             </div>
                         </div>
                     </template>
@@ -669,13 +544,13 @@ const viewAssignmentHistory = (asset) => {
 
                 <Card class="border-l-4 border-yellow-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Maintenance</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.maintenance }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Maintenance</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.maintenance || 0 }}</p>
                             </div>
-                            <div class="p-3 bg-yellow-100 rounded-full">
-                                <i class="text-xl text-yellow-600 pi pi-wrench"></i>
+                            <div class="p-2 sm:p-3 bg-yellow-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-yellow-600 pi pi-wrench"></i>
                             </div>
                         </div>
                     </template>
@@ -683,13 +558,13 @@ const viewAssignmentHistory = (asset) => {
 
                 <Card class="border-l-4 border-red-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Retired</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">{{ statistics.retired }}</p>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">Retired</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.retired || 0 }}</p>
                             </div>
-                            <div class="p-3 bg-red-100 rounded-full">
-                                <i class="text-xl text-red-600 pi pi-times-circle"></i>
+                            <div class="p-2 sm:p-3 bg-red-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-red-600 pi pi-times-circle"></i>
                             </div>
                         </div>
                     </template>
@@ -697,15 +572,15 @@ const viewAssignmentHistory = (asset) => {
 
                 <Card class="border-l-4 border-purple-500 shadow-md">
                     <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">With Warranty</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-500 truncate">With Warranty</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
                                     {{ assets.data.filter(a => a.warranty_months > 0).length }}
                                 </p>
                             </div>
-                            <div class="p-3 bg-purple-100 rounded-full">
-                                <i class="text-xl text-purple-600 pi pi-shield"></i>
+                            <div class="p-2 sm:p-3 bg-purple-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-purple-600 pi pi-shield"></i>
                             </div>
                         </div>
                     </template>
@@ -716,120 +591,121 @@ const viewAssignmentHistory = (asset) => {
             <Card class="shadow-lg">
                 <template #content>
                     <!-- Toolbar -->
-                    <div class="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
-                        <div class="flex gap-3">
-                            <Button label="Create Asset" icon="pi pi-plus" severity="success"
-                                @click="openCreateDialog" class="font-semibold" />
-                            <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
-                                @click="toggleActionMenu" />
-                        </div>
+                    <div class="flex flex-col gap-3 sm:gap-4">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3">
+                            <div class="flex flex-wrap gap-1 sm:gap-2 w-full sm:w-auto">
+                                <Button label="Create" icon="pi pi-plus" severity="success"
+                                    @click="openCreateDialog" class="flex-1 sm:flex-none text-xs sm:text-sm" />
+                                <Button label="Actions" icon="pi pi-cog" severity="secondary" outlined
+                                    @click="toggleActionMenu" class="flex-1 sm:flex-none text-xs sm:text-sm" />
+                            </div>
 
-                        <div class="flex flex-col w-full gap-4 lg:flex-row lg:w-auto">
-                            <div class="w-full lg:w-48">
+                            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                                 <Select v-model="statusFilter" :options="statusOptions" optionLabel="label" 
-                                    optionValue="value" placeholder="Filter by Status" class="w-full" />
-                            </div>
-                            <div class="w-full lg:w-48">
-                                <Select v-model="categoryFilter" :options="categories" optionLabel="name" 
-                                    optionValue="id" placeholder="Filter by Category" class="w-full" />
-                            </div>
-                            <div class="w-full lg:w-80">
-                                <span class="p-input-icon-left w-full">
-                                    <i class="pi pi-search" />
-                                    <InputText v-model="search" placeholder="Search assets..." class="w-full" />
-                                </span>
+                                    optionValue="value" placeholder="All Status" 
+                                    class="w-full sm:w-36 text-xs sm:text-sm" />
+                                <Select v-model="categoryFilter" :options="categoryOptions" optionLabel="name" 
+                                    optionValue="id" placeholder="All Categories" 
+                                    class="w-full sm:w-36 text-xs sm:text-sm" />
+                                <IconField iconPosition="left" class="w-full sm:w-64">
+                                    <InputIcon class="pi pi-search" />
+                                    <InputText v-model="search" placeholder="Search..." 
+                                        class="w-full text-xs sm:text-sm" />
+                                </IconField>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Selected Assets Info -->
-                    <div v-if="selectedAssets.length > 0" class="p-3 mt-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm font-medium text-blue-800">
-                                {{ selectedAssets.length }} asset(s) selected
-                            </span>
-                            <Button label="Clear" icon="pi pi-times" severity="secondary" text
-                                @click="selectedAssets = []" />
+                        <!-- Selected Assets Info -->
+                        <div v-if="selectedAssets.length > 0" class="p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-xs sm:text-sm font-medium text-blue-800">
+                                    {{ selectedAssets.length }} asset(s) selected
+                                </span>
+                                <Button label="Clear" icon="pi pi-times" severity="secondary" text size="small"
+                                    @click="selectedAssets = []" class="text-xs" />
+                            </div>
                         </div>
                     </div>
 
                     <!-- Data Table -->
-                    <div class="mt-6">
-                        <DataTable :value="assets.data" showGridlines stripedRows
-                            :rowHover="true" paginator :rows="assets.per_page" :totalRecords="assets.total"
+                    <div class="mt-4 sm:mt-6 overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+                        <DataTable :value="assets.data" showGridlines stripedRows :rowHover="true" paginator 
+                            :rows="assets.per_page" :totalRecords="assets.total"
                             :first="(assets.current_page - 1) * assets.per_page" @page="onPageChange"
                             v-model:selection="selectedAssets" dataKey="id"
-                            responsiveLayout="scroll" tableStyle="min-width: 50rem" class="p-datatable-custom">
+                            :rowsPerPageOptions="[5, 10, 20, 50]"
+                            paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+                            responsiveLayout="scroll" class="p-datatable-custom">
 
                             <!-- Empty State -->
                             <template #empty>
-                                <div class="flex flex-col items-center justify-center py-12">
-                                    <div class="p-6 mb-4 bg-gray-100 rounded-full">
-                                        <i class="text-6xl text-gray-400 pi pi-box"></i>
+                                <div class="flex flex-col items-center justify-center py-8 sm:py-12">
+                                    <div class="p-3 sm:p-6 mb-4 bg-gray-100 rounded-full">
+                                        <i class="text-4xl sm:text-6xl text-gray-400 pi pi-box"></i>
                                     </div>
-                                    <h3 class="mb-2 text-xl font-semibold text-gray-700">No Assets Found</h3>
-                                    <p class="mb-4 text-gray-500">Try adjusting your search or create a new asset.</p>
+                                    <h3 class="mb-2 text-base sm:text-lg md:text-xl font-semibold text-gray-700">No Assets Found</h3>
+                                    <p class="mb-4 text-xs sm:text-sm text-gray-500 text-center px-2">Try adjusting your search or create a new asset.</p>
                                     <Button label="Create First Asset" icon="pi pi-plus" severity="success"
-                                        @click="openCreateDialog" />
+                                        @click="openCreateDialog" size="small" class="text-xs sm:text-sm" />
                                 </div>
                             </template>
 
                             <!-- Selection Column -->
-                            <Column selectionMode="multiple" headerStyle="width: 3rem" />
+                            <Column selectionMode="multiple" headerStyle="width: 2.5rem" />
 
                             <!-- Columns -->
-                            <Column header="#" style="width: 60px;">
+                            <Column header="#" style="min-width: 50px;">
                                 <template #body="slotProps">
                                     <Badge :value="(assets.current_page - 1) * assets.per_page + slotProps.index + 1"
-                                        severity="secondary" />
+                                        severity="secondary" class="text-xs" />
                                 </template>
                             </Column>
 
-                            <Column field="name" header="Asset Details" sortable>
+                            <Column field="name" header="Asset Details" sortable style="min-width: 180px;">
                                 <template #body="slotProps">
-                                    <div class="font-semibold text-gray-900">{{ slotProps.data.name }}</div>
-                                    <div class="text-sm text-gray-500">
+                                    <div class="font-semibold text-gray-900 text-xs sm:text-sm break-words">{{ slotProps.data.name }}</div>
+                                    <div class="text-xs text-gray-500 truncate">
                                         {{ slotProps.data.asset_tag }} • {{ slotProps.data.model?.brand }} {{ slotProps.data.model?.name }}
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column header="Category" sortable style="width: 120px;">
+                            <Column header="Category" sortable style="min-width: 100px;">
                                 <template #body="slotProps">
-                                    <div class="text-sm">
-                                        <div class="font-medium text-gray-900">
-                                            {{ slotProps.data.model?.category?.name || '—' }}
-                                        </div>
+                                    <div class="text-xs sm:text-sm font-medium text-gray-900">
+                                        {{ slotProps.data.model?.category?.name || '—' }}
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column field="serial_number" header="Serial No" sortable style="width: 120px;">
+                            <Column field="serial_number" header="Serial No" sortable style="min-width: 110px;">
                                 <template #body="slotProps">
-                                    <Badge v-if="slotProps.data.serial_number" :value="slotProps.data.serial_number" severity="info" />
-                                    <Badge v-else value="—" severity="secondary" />
+                                    <Badge v-if="slotProps.data.serial_number" :value="slotProps.data.serial_number.substring(0, 10)" 
+                                        severity="info" class="text-xs" />
+                                    <Badge v-else value="—" severity="secondary" class="text-xs" />
                                 </template>
                             </Column>
 
-                            <Column header="Status" sortable field="status" style="width: 120px;">
+                            <Column header="Status" sortable field="status" style="min-width: 100px;">
                                 <template #body="slotProps">
                                     <Badge :value="getStatusText(slotProps.data.status)"
                                         :severity="getStatusSeverity(slotProps.data.status)"
-                                        class="capitalize" />
+                                        class="capitalize text-xs" />
                                 </template>
                             </Column>
 
-                            <Column header="Assigned To" sortable style="width: 150px;">
+                            <Column header="Assigned To" sortable style="min-width: 130px;">
                                 <template #body="slotProps">
-                                    <div v-if="slotProps.data.user" class="text-sm">
-                                        <div class="font-medium text-gray-900">{{ slotProps.data.user.name }}</div>
+                                    <div v-if="slotProps.data.user" class="text-xs">
+                                        <div class="font-medium text-gray-900 truncate">{{ slotProps.data.user.name }}</div>
                                         <div class="text-gray-500">{{ formatDate(slotProps.data.assigned_at) }}</div>
                                     </div>
-                                    <Badge v-else value="Not Assigned" severity="secondary" />
+                                    <Badge v-else value="Not Assigned" severity="secondary" class="text-xs" />
                                 </template>
                             </Column>
 
-                            <Column header="Warranty" sortable style="width: 120px;">
+                            <Column header="Warranty" sortable style="min-width: 100px;">
                                 <template #body="slotProps">
                                     <Badge :value="getWarrantyStatus(slotProps.data).text"
                                         :severity="getWarrantyStatus(slotProps.data).severity"
@@ -838,37 +714,48 @@ const viewAssignmentHistory = (asset) => {
                             </Column>
 
                             <!-- Actions -->
-                            <Column header="Actions" style="min-width: 200px">
+                            <Column header="Actions" style="min-width: 180px">
                                 <template #body="slotProps">
-                                    <div class="flex gap-2">
+                                    <div class="flex gap-1 flex-wrap">
                                         <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
-                                            v-tooltip.top="'View Details'" @click="viewAsset(slotProps.data)" />
+                                            v-tooltip.top="'View'" @click="viewAsset(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button icon="pi pi-history" outlined rounded severity="help" size="small"
-                                            v-tooltip.top="'Assignment History'" 
-                                            @click="viewAssignmentHistory(slotProps.data)" />
+                                            v-tooltip.top="'History'" 
+                                            @click="viewAssignmentHistory(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button v-if="slotProps.data.status === 'available'" 
                                             icon="pi pi-user-plus" outlined rounded severity="success" size="small"
-                                            v-tooltip.top="'Assign to User'" 
-                                            @click="openAssignDialog(slotProps.data)" />
+                                            v-tooltip.top="'Assign'" 
+                                            @click="openAssignDialog(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button v-else-if="slotProps.data.status === 'assigned'"
                                             icon="pi pi-arrow-left" outlined rounded severity="warning" size="small"
-                                            v-tooltip.top="'Return Asset'" 
-                                            @click="returnAsset(slotProps.data)" />
+                                            v-tooltip.top="'Return'" 
+                                            @click="returnAsset(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button icon="pi pi-pencil" outlined rounded severity="warning" size="small"
-                                            v-tooltip.top="'Edit Asset'" 
-                                            @click="openEditDialog(slotProps.data)" />
+                                            v-tooltip.top="'Edit'" 
+                                            @click="openEditDialog(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button icon="pi pi-trash" outlined rounded severity="danger" size="small"
-                                            v-tooltip.top="'Delete Asset'" 
-                                            @click="deleteAsset(slotProps.data.id)" />
+                                            v-tooltip.top="'Delete'" 
+                                            @click="deleteAsset(slotProps.data.id)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
                                     </div>
                                 </template>
                             </Column>
                         </DataTable>
+                    </div>
+
+                    <!-- Mobile Pagination Info -->
+                    <div class="mt-4 text-xs text-gray-600 text-center sm:hidden">
+                        Page {{ assets.current_page }} of {{ Math.ceil(assets.total / assets.per_page) }}
                     </div>
                 </template>
             </Card>
@@ -876,19 +763,19 @@ const viewAssignmentHistory = (asset) => {
             <!-- Create/Edit Asset Dialog -->
             <Dialog v-model:visible="showCreateEditDialog" modal 
                 :header="isEditMode ? 'Edit Asset' : 'Create New Asset'" 
-                :style="{ width: '750px' }"
-                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
+                :style="{ width: '95vw', maxWidth: '750px' }"
+                :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
                 
-                <div class="space-y-6">
-                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                         <!-- Asset Name -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Asset Name <span class="text-red-500">*</span>
                             </label>
                             <InputText v-model="assetForm.name" 
                                 placeholder="Enter asset name" 
-                                class="w-full"
+                                class="w-full text-xs sm:text-sm"
                                 :class="{ 'p-invalid': assetForm.errors.name }" />
                             <small class="text-red-500 text-xs" v-if="assetForm.errors.name">
                                 {{ assetForm.errors.name }}
@@ -896,13 +783,13 @@ const viewAssignmentHistory = (asset) => {
                         </div>
 
                         <!-- Asset Tag -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Asset Tag <span class="text-red-500">*</span>
                             </label>
                             <InputText v-model="assetForm.asset_tag" 
                                 placeholder="Enter asset tag" 
-                                class="w-full"
+                                class="w-full text-xs sm:text-sm"
                                 :class="{ 'p-invalid': assetForm.errors.asset_tag }" />
                             <small class="text-red-500 text-xs" v-if="assetForm.errors.asset_tag">
                                 {{ assetForm.errors.asset_tag }}
@@ -910,11 +797,11 @@ const viewAssignmentHistory = (asset) => {
                         </div>
 
                         <!-- Serial Number -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Serial Number</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Serial Number</label>
                             <InputText v-model="assetForm.serial_number" 
                                 placeholder="Enter serial number" 
-                                class="w-full"
+                                class="w-full text-xs sm:text-sm"
                                 :class="{ 'p-invalid': assetForm.errors.serial_number }" />
                             <small class="text-red-500 text-xs" v-if="assetForm.errors.serial_number">
                                 {{ assetForm.errors.serial_number }}
@@ -922,12 +809,12 @@ const viewAssignmentHistory = (asset) => {
                         </div>
 
                         <!-- Model -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Model <span class="text-red-500">*</span>
                             </label>
                             <Select v-model="assetForm.model_id" :options="models" optionLabel="name" 
-                                optionValue="id" placeholder="Select model" class="w-full"
+                                optionValue="id" placeholder="Select model" class="w-full text-xs sm:text-sm"
                                 :class="{ 'p-invalid': assetForm.errors.model_id }" />
                             <small class="text-red-500 text-xs" v-if="assetForm.errors.model_id">
                                 {{ assetForm.errors.model_id }}
@@ -935,8 +822,8 @@ const viewAssignmentHistory = (asset) => {
                         </div>
 
                         <!-- Status -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Status <span class="text-red-500">*</span>
                             </label>
                             <Select v-model="assetForm.status" :options="[
@@ -944,7 +831,7 @@ const viewAssignmentHistory = (asset) => {
                                 { label: 'Assigned', value: 'assigned' },
                                 { label: 'Maintenance', value: 'maintenance' },
                                 { label: 'Retired', value: 'retired' }
-                            ]" optionLabel="label" optionValue="value" class="w-full"
+                            ]" optionLabel="label" optionValue="value" class="w-full text-xs sm:text-sm"
                             :class="{ 'p-invalid': assetForm.errors.status }" />
                             <small class="text-red-500 text-xs" v-if="assetForm.errors.status">
                                 {{ assetForm.errors.status }}
@@ -952,263 +839,280 @@ const viewAssignmentHistory = (asset) => {
                         </div>
 
                         <!-- Purchase Date -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Purchase Date</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Purchase Date</label>
                             <DatePicker v-model="assetForm.purchase_date" 
                                 dateFormat="yy-mm-dd" 
-                                placeholder="Select purchase date"
-                                class="w-full"
+                                placeholder="Select date"
+                                class="w-full text-xs sm:text-sm"
                                 showIcon />
                         </div>
 
                         <!-- Purchase Cost -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Purchase Cost</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Purchase Cost</label>
                             <InputNumber v-model="assetForm.purchase_cost" 
                                 :min="0" 
                                 mode="currency" 
                                 currency="USD" 
                                 locale="en-US"
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Warranty Months -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Warranty (Months)</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Warranty (Months)</label>
                             <InputNumber v-model="assetForm.warranty_months" 
                                 :min="0" 
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Location -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Location</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Location</label>
                             <InputText v-model="assetForm.location" 
                                 placeholder="Enter location" 
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Image URL -->
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">Image URL</label>
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Image URL</label>
                             <InputText v-model="assetForm.image" 
                                 placeholder="Enter image URL" 
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Notes -->
-                        <div class="space-y-2 md:col-span-2">
-                            <label class="block text-sm font-semibold text-gray-700">Notes</label>
+                        <div class="space-y-1 sm:space-y-2 md:col-span-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Notes</label>
                             <Textarea v-model="assetForm.notes" 
                                 rows="3" 
                                 placeholder="Enter asset notes..."
-                                class="w-full" />
+                                class="w-full text-xs sm:text-sm" />
                         </div>
                     </div>
 
                     <!-- Footer Actions -->
-                    <div class="flex justify-end gap-3 pt-4 border-t">
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
                         <Button label="Cancel" 
                             severity="secondary" 
                             outlined 
                             @click="showCreateEditDialog = false"
-                            :disabled="assetForm.processing" />
-                        <Button :label="isEditMode ? 'Update Asset' : 'Create Asset'" 
+                            :disabled="assetForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button :label="isEditMode ? 'Update' : 'Create'" 
                             icon="pi pi-check" 
                             severity="success" 
                             @click="saveAsset"
-                            :loading="assetForm.processing" />
+                            :loading="assetForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
             </Dialog>
 
             <!-- View Asset Dialog -->
-            <Dialog v-model:visible="showViewDialog" modal header="Asset Details" :style="{ width: '700px' }"
-                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
-                <div v-if="viewAssetData" class="space-y-6">
-                    <div class="grid grid-cols-2 gap-6">
+            <Dialog v-model:visible="showViewDialog" modal header="Asset Details" 
+                :style="{ width: '95vw', maxWidth: '700px' }"
+                :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
+                <div v-if="viewAssetData" class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Asset Name</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">{{ viewAssetData.name }}</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Asset Name</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900 break-words">{{ viewAssetData.name }}</p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Asset Tag</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">{{ viewAssetData.asset_tag }}</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Asset Tag</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.asset_tag }}</p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Serial Number</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Serial Number</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900 break-all">
                                 {{ viewAssetData.serial_number || '—' }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Model</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Model</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
                                 {{ viewAssetData.model?.brand }} {{ viewAssetData.model?.name }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Category</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Category</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
                                 {{ viewAssetData.model?.category?.name || '—' }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Status</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Status</p>
                             <Badge :value="getStatusText(viewAssetData.status)"
                                 :severity="getStatusSeverity(viewAssetData.status)"
-                                class="mt-1 capitalize" />
+                                class="mt-1 capitalize text-xs" />
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Assigned To</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Assigned To</p>
                             <div v-if="viewAssetData.user" class="mt-1">
-                                <p class="text-base font-semibold text-gray-900">{{ viewAssetData.user.name }}</p>
-                                <p class="text-sm text-gray-500">{{ viewAssetData.user.email }}</p>
+                                <p class="text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.user.name }}</p>
+                                <p class="text-xs text-gray-500 break-all">{{ viewAssetData.user.email }}</p>
                                 <p class="text-xs text-gray-400">Since {{ formatDate(viewAssetData.assigned_at) }}</p>
                             </div>
-                            <Badge v-else value="Not Assigned" severity="secondary" class="mt-1" />
+                            <Badge v-else value="Not Assigned" severity="secondary" class="mt-1 text-xs" />
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Warranty Status</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Warranty Status</p>
                             <Badge :value="getWarrantyStatus(viewAssetData).text"
                                 :severity="getWarrantyStatus(viewAssetData).severity"
-                                class="mt-1" />
+                                class="mt-1 text-xs" />
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Purchase Date</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Purchase Date</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
                                 {{ formatDate(viewAssetData.purchase_date) }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Purchase Cost</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Purchase Cost</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
                                 {{ formatCurrency(viewAssetData.purchase_cost) }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Location</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Location</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
                                 {{ viewAssetData.location || '—' }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-500">Created Date</p>
-                            <p class="mt-1 text-base font-semibold text-gray-900">
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Created Date</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
                                 {{ formatDate(viewAssetData.created_at) }}
                             </p>
                         </div>
                     </div>
 
                     <div v-if="viewAssetData.notes" class="md:col-span-2">
-                        <p class="text-sm font-medium text-gray-500">Notes</p>
-                        <p class="mt-1 text-base text-gray-900">{{ viewAssetData.notes }}</p>
+                        <p class="text-xs sm:text-sm font-medium text-gray-500">Notes</p>
+                        <p class="mt-1 text-xs sm:text-base text-gray-900">{{ viewAssetData.notes }}</p>
                     </div>
 
-                    <div class="flex justify-end gap-3 pt-4 border-t">
-                        <Button label="Close" severity="secondary" outlined @click="showViewDialog = false" />
-                        <Button label="Edit Asset" icon="pi pi-pencil" severity="warning" 
-                            @click="showViewDialog = false; openEditDialog(viewAssetData)" />
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
+                        <Button label="Close" severity="secondary" outlined @click="showViewDialog = false" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button label="Edit" icon="pi pi-pencil" severity="warning" 
+                            @click="showViewDialog = false; openEditDialog(viewAssetData)" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                         <Button v-if="viewAssetData.status === 'available'" 
-                            label="Assign to User" icon="pi pi-user-plus" severity="success" 
-                            @click="showViewDialog = false; openAssignDialog(viewAssetData)" />
+                            label="Assign" icon="pi pi-user-plus" severity="success" 
+                            @click="showViewDialog = false; openAssignDialog(viewAssetData)" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                         <Button v-else-if="viewAssetData.status === 'assigned'"
-                            label="Return Asset" icon="pi pi-arrow-left" severity="warning" 
-                            @click="showViewDialog = false; returnAsset(viewAssetData)" />
-                        <Button label="View History" icon="pi pi-history" severity="help" 
-                            @click="showViewDialog = false; viewAssignmentHistory(viewAssetData)" />
+                            label="Return" icon="pi pi-arrow-left" severity="warning" 
+                            @click="showViewDialog = false; returnAsset(viewAssetData)" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
             </Dialog>
 
             <!-- Assign Asset Dialog -->
-            <Dialog v-model:visible="showAssignDialog" modal header="Assign Asset to User" :style="{ width: '600px' }"
-                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
+            <Dialog v-model:visible="showAssignDialog" modal header="Assign Asset to User" 
+                :style="{ width: '95vw', maxWidth: '600px' }"
+                :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
                 
-                <div class="space-y-4">
-                    <div class="field">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">User</label>
+                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                            User <span class="text-red-500">*</span>
+                        </label>
                         <Select v-model="assignForm.user_id" :options="users" optionLabel="name" 
-                            optionValue="id" placeholder="Select user" class="w-full"
+                            optionValue="id" placeholder="Select user" class="w-full text-xs sm:text-sm"
                             :class="{ 'p-invalid': assignForm.errors.user_id }" />
                         <small class="text-red-500 text-xs" v-if="assignForm.errors.user_id">
                             {{ assignForm.errors.user_id }}
                         </small>
                     </div>
 
-                    <div class="field">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Condition Assigned</label>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Condition Assigned</label>
                         <InputText v-model="assignForm.condition_assigned" 
-                            placeholder="Describe the condition of the asset"
-                            class="w-full"
+                            placeholder="Describe the condition"
+                            class="w-full text-xs sm:text-sm"
                             :class="{ 'p-invalid': assignForm.errors.condition_assigned }" />
                         <small class="text-red-500 text-xs" v-if="assignForm.errors.condition_assigned">
                             {{ assignForm.errors.condition_assigned }}
                         </small>
                     </div>
 
-                    <div class="field">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
-                        <InputText v-model="assignForm.notes" 
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Notes</label>
+                        <Textarea v-model="assignForm.notes" 
                             placeholder="Additional notes (optional)"
-                            class="w-full" />
+                            rows="3"
+                            class="w-full text-xs sm:text-sm" />
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
+                        <Button label="Cancel" severity="secondary" outlined @click="showAssignDialog = false"
+                            :disabled="assignForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button label="Assign" icon="pi pi-user-plus" severity="success" 
+                            @click="submitAssignment" :loading="assignForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
-
-                <template #footer>
-                    <Button label="Cancel" severity="secondary" outlined @click="showAssignDialog = false"
-                        :disabled="assignForm.processing" />
-                    <Button label="Assign Asset" icon="pi pi-user-plus" severity="success" 
-                        @click="submitAssignment" :loading="assignForm.processing" />
-                </template>
             </Dialog>
 
             <!-- Bulk Assign Dialog -->
-            <Dialog v-model:visible="showBulkAssignDialog" modal header="Bulk Assign Assets" :style="{ width: '600px' }"
-                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
+            <Dialog v-model:visible="showBulkAssignDialog" modal header="Bulk Assign Assets" 
+                :style="{ width: '95vw', maxWidth: '600px' }"
+                :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
                 
-                <div class="space-y-4">
-                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p class="text-sm text-blue-800">
+                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                    <div class="p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-xs sm:text-sm text-blue-800">
                             Assigning {{ selectedAssets.length }} asset(s) to user
                         </p>
                     </div>
 
-                    <div class="field">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">User</label>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                            User <span class="text-red-500">*</span>
+                        </label>
                         <Select v-model="bulkAssignForm.user_id" :options="users" optionLabel="name" 
-                            optionValue="id" placeholder="Select user" class="w-full"
+                            optionValue="id" placeholder="Select user" class="w-full text-xs sm:text-sm"
                             :class="{ 'p-invalid': bulkAssignForm.errors.user_id }" />
                         <small class="text-red-500 text-xs" v-if="bulkAssignForm.errors.user_id">
                             {{ bulkAssignForm.errors.user_id }}
                         </small>
                     </div>
 
-                    <div class="field">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Condition Assigned</label>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Condition Assigned</label>
                         <InputText v-model="bulkAssignForm.condition_assigned" 
-                            placeholder="Describe the condition of the assets"
-                            class="w-full"
+                            placeholder="Describe the condition"
+                            class="w-full text-xs sm:text-sm"
                             :class="{ 'p-invalid': bulkAssignForm.errors.condition_assigned }" />
                         <small class="text-red-500 text-xs" v-if="bulkAssignForm.errors.condition_assigned">
                             {{ bulkAssignForm.errors.condition_assigned }}
                         </small>
                     </div>
 
-                    <div class="field">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
-                        <InputText v-model="bulkAssignForm.notes" 
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Notes</label>
+                        <Textarea v-model="bulkAssignForm.notes" 
                             placeholder="Additional notes (optional)"
-                            class="w-full" />
+                            rows="3"
+                            class="w-full text-xs sm:text-sm" />
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
+                        <Button label="Cancel" severity="secondary" outlined @click="showBulkAssignDialog = false"
+                            :disabled="bulkAssignForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button label="Assign Assets" icon="pi pi-user-plus" severity="success" 
+                            @click="submitBulkAssignment" :loading="bulkAssignForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
-
-                <template #footer>
-                    <Button label="Cancel" severity="secondary" outlined @click="showBulkAssignDialog = false"
-                        :disabled="bulkAssignForm.processing" />
-                    <Button label="Assign Assets" icon="pi pi-user-plus" severity="success" 
-                        @click="submitBulkAssignment" :loading="bulkAssignForm.processing" />
-                </template>
             </Dialog>
         </div>
     </AppLayout>
@@ -1216,7 +1120,19 @@ const viewAssignmentHistory = (asset) => {
 
 <style scoped>
 :deep(.p-card-body) {
-    padding: 1.5rem;
+    padding: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-card-body) {
+        padding: 1rem;
+    }
+}
+
+@media (min-width: 768px) {
+    :deep(.p-card-body) {
+        padding: 1.5rem;
+    }
 }
 
 :deep(.p-card-content) {
@@ -1228,6 +1144,13 @@ const viewAssignmentHistory = (asset) => {
     font-weight: 600;
     color: #495057;
     border-color: #dee2e6;
+    font-size: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-datatable .p-datatable-thead > tr > th) {
+        font-size: 0.875rem;
+    }
 }
 
 :deep(.p-datatable .p-datatable-tbody > tr:hover) {
@@ -1242,22 +1165,10 @@ const viewAssignmentHistory = (asset) => {
     background-color: #f8f9fa;
 }
 
-:deep(.p-inputtext) {
-    border-radius: 0.375rem;
-}
-
-:deep(.p-button) {
-    border-radius: 0.375rem;
-}
-
-:deep(.p-dropdown) {
-    border-radius: 0.375rem;
-}
-
-:deep(.p-calendar) {
-    border-radius: 0.375rem;
-}
-
+:deep(.p-inputtext),
+:deep(.p-button),
+:deep(.p-dropdown),
+:deep(.p-calendar),
 :deep(.p-inputnumber-input) {
     border-radius: 0.375rem;
 }
@@ -1272,6 +1183,13 @@ const viewAssignmentHistory = (asset) => {
 :deep(.p-dialog .p-dialog-header .p-dialog-title) {
     color: white;
     font-weight: 600;
+    font-size: 0.875rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-dialog .p-dialog-header .p-dialog-title) {
+        font-size: 1rem;
+    }
 }
 
 :deep(.p-dialog .p-dialog-header .p-dialog-header-icon) {
@@ -1283,6 +1201,78 @@ const viewAssignmentHistory = (asset) => {
 }
 
 :deep(.p-dialog .p-dialog-content) {
-    padding: 1.5rem;
+    padding: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-dialog .p-dialog-content) {
+        padding: 1rem;
+    }
+}
+
+@media (min-width: 768px) {
+    :deep(.p-dialog .p-dialog-content) {
+        padding: 1.5rem;
+    }
+}
+
+:deep(.p-paginator) {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 0 0 0.375rem 0.375rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-paginator) {
+        padding: 1rem;
+    }
+}
+
+:deep(.p-paginator .p-paginator-pages) {
+    flex-wrap: wrap;
+}
+
+:deep(.p-paginator-current) {
+    font-size: 0.75rem;
+    align-self: center;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-paginator-current) {
+        font-size: 0.875rem;
+    }
+}
+
+/* Responsive button sizing */
+:deep(.p-button.p-button-sm) {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-button.p-button-sm) {
+        font-size: 0.875rem;
+    }
+}
+
+/* Mobile table fixes */
+@media (max-width: 640px) {
+    :deep(.p-datatable .p-datatable-wrapper) {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    :deep(.p-button.p-button-icon-only) {
+        width: 1.75rem;
+        height: 1.75rem;
+    }
+    
+    :deep(.p-paginator .p-paginator-pages) {
+        width: 100%;
+    }
 }
 </style>

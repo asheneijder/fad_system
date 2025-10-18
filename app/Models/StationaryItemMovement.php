@@ -5,10 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class StationaryItemMovement extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'stationary_item_id',
@@ -77,5 +79,14 @@ class StationaryItemMovement extends Model
             'adjustment' => $this->new_stock - $this->previous_stock,
             default => 0
         };
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['stationary_item_id', 'type', 'quantity', 'previous_stock', 'new_stock', 'notes', 'movement_date', 'reference'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->setDescriptionForEvent(fn (string $eventName) => "Stationary Item Movement {$eventName}");
     }
 }

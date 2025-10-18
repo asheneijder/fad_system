@@ -5,10 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class RequestItemDetail extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'request_item_id',
@@ -56,5 +58,14 @@ class RequestItemDetail extends Model
     public function getFinalQuantityAttribute(): int
     {
         return $this->approved_quantity ?? $this->quantity;
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['request_item_id', 'stationary_item_id', 'quantity', 'notes', 'unit_price', 'approved_quantity'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->setDescriptionForEvent(fn (string $eventName) => "Request Item Detail {$eventName}");
     }
 }

@@ -368,7 +368,7 @@ class AssetController extends Controller
 
             $success = $asset->returnFromAssignment(
                 $validated['condition_returned'],
-                $validated['notes']
+                $validated['notes'] ?? null
             );
 
             if (! $success) {
@@ -388,7 +388,7 @@ class AssetController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Asset returned successfully.',
-                'asset' => $asset->fresh(['model', 'user']),
+                'asset' => $asset->fresh(['model', 'user', 'currentAssignment']),
             ]);
 
         } catch (\Exception $e) {

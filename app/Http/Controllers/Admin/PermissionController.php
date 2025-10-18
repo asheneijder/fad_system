@@ -48,9 +48,15 @@ class PermissionController extends Controller
             $query->withCount('users');
         }]);
 
+        // Get available roles that don't have this permission
+        $availableRoles = Role::whereDoesntHave('permissions', function ($query) use ($permission) {
+            $query->where('permissions.id', $permission->id);
+        })->get();
+
         return Inertia::render('Admin/Permissions/Show', [
             'permission' => $permission,
             'roles' => $permission->roles,
+            'availableRoles' => $availableRoles,
         ]);
     }
 
@@ -117,5 +123,24 @@ class PermissionController extends Controller
 
         return redirect()->back()
             ->with('success', "Permission removed from {$role->name} role successfully.");
+    }
+
+    public function assignRoles(Request $request, Permission $permission)
+    {
+        $request->validate([
+            'role_ids' => 'required|array',
+            'role_ids.*' => 'exists:roles,id',
+        ]);
+
+        $roles = Role::whereIn('id', $request->role_ids)->get();
+
+        foreach ($roles as $role) {
+            $role->givePermissionTo($permission);
+        }
+
+        $roleNames = $roles->pluck('name')->implode(', ');
+
+        return redirect()->back()
+            ->with('success', "Permission assigned to {$roleNames} successfully.");
     }
 }

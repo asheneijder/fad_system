@@ -15,13 +15,10 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->text('description')->nullable();
-            $table->enum('type', ['product', 'blog', 'service', 'document', 'general'])->default('product');
+            $table->enum('type', ['asset', 'stationary', 'equipment', 'furniture', 'electronic', 'other'])->default('asset');
             $table->boolean('status')->default(true);
             $table->foreignId('parent_id')->nullable()->constrained('categories')->onDelete('cascade');
             $table->integer('sort_order')->default(0);
-            $table->string('meta_title')->nullable();
-            $table->text('meta_description')->nullable();
-            $table->string('meta_keywords')->nullable();
             $table->timestamps();
 
             $table->index(['type', 'status']);
