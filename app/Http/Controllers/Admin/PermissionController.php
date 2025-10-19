@@ -12,16 +12,27 @@ class PermissionController extends Controller
 {
     public function index(Request $request)
     {
-        $permissions = Permission::withCount('roles')
+        $perPage = $request->query('per_page', 10);
+        $page = $request->query('page', 1);
+
+        $query = Permission::withCount('roles')
             ->when($request->search, function ($query, $search) {
                 $query->where('name', 'like', "%{$search}%");
             })
-            ->orderBy('name')
-            ->paginate(10)
-            ->withQueryString();
+            ->orderBy('name');
+
+        $permissions = $query->paginate($perPage, ['*'], 'page', $page);
 
         return Inertia::render('Admin/Permissions/Index', [
-            'permissions' => $permissions,
+            'permissions' => [
+                'data' => $permissions->items(),
+                'current_page' => $permissions->currentPage(),
+                'last_page' => $permissions->lastPage(),
+                'per_page' => $permissions->perPage(),
+                'total' => $permissions->total(),
+                'from' => $permissions->firstItem(),
+                'to' => $permissions->lastItem(),
+            ],
             'filters' => $request->only(['search']),
         ]);
     }

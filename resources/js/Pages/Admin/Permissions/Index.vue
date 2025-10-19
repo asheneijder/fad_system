@@ -27,6 +27,10 @@ const editModalVisible = ref(false);
 const selectedPermission = ref(null);
 const { hasPermission } = usePermissions();
 
+// Server-side pagination state
+const currentPage = ref(props.permissions.current_page || 1);
+const perPage = ref(props.permissions.per_page || 10);
+
 const form = reactive({
     name: '',
     guard_name: 'web',
@@ -38,14 +42,33 @@ const editForm = reactive({
 
 // Watch for search changes and update URL
 watch(search, (newSearch) => {
-    const filters = {};
+    const filters = { page: 1 }; // Reset to page 1 on search
     if (newSearch) filters.search = newSearch;
+    if (perPage.value !== 10) filters.per_page = perPage.value;
     
     router.get(route('admin.permissions.index'), filters, {
         preserveState: true,
         replace: true
     });
 });
+
+// Handle pagination
+const onPage = (event) => {
+    const page = event.page + 1; // PrimeVue uses 0-based indexing
+    const rows = event.rows;
+    
+    const filters = { page, per_page: rows };
+    if (search.value) filters.search = search.value;
+    
+    router.get(route('admin.permissions.index'), filters, {
+        preserveState: true,
+        replace: true,
+        onSuccess: () => {
+            currentPage.value = page;
+            perPage.value = rows;
+        }
+    });
+};
 
 const openCreateModal = () => {
     form.name = '';
@@ -240,12 +263,16 @@ const clearFilters = () => {
                 <template #content>
                     <DataTable ref="dataTable"
                             :value="permissions.data"
+                            lazy
                             :paginator="true"
-                            :rows="10"
+                            :rows="perPage"
+                            :totalRecords="permissions.total"
+                            :first="(currentPage - 1) * perPage"
                             :rowsPerPageOptions="[5, 10, 20, 50]"
                             dataKey="id"
                             selectionMode="multiple"
                             v-model:selection="selectedPermissions"
+                            @page="onPage"
                             paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                             currentPageReportTemplate="Showing {first} to {last} of {totalRecords} permissions">
                         
