@@ -11,6 +11,7 @@ import Badge from 'primevue/badge';
 import Dialog from 'primevue/dialog';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { useConfirm } from "primevue/useconfirm";
+import usePermissions from '@/Composables/usePermissions'; 
 
 const props = defineProps({
     permissions: Object,
@@ -24,6 +25,7 @@ const selectedPermissions = ref([]);
 const createModalVisible = ref(false);
 const editModalVisible = ref(false);
 const selectedPermission = ref(null);
+const { hasPermission } = usePermissions();
 
 const form = reactive({
     name: '',
@@ -143,7 +145,8 @@ const clearFilters = () => {
                     <h1 class="text-3xl font-bold text-gray-800">System Permissions</h1>
                     <p class="mt-1 text-gray-500">Manage all system permissions and access controls</p>
                 </div>
-                <Button label="Create Permission" icon="pi pi-plus" @click="openCreateModal" />
+                <Button v-if="hasPermission('can.create.permission')"
+                        label="Create Permission" icon="pi pi-plus" @click="openCreateModal" />
             </div>
 
             <!-- Statistics Cards -->
@@ -225,7 +228,7 @@ const clearFilters = () => {
                     <div class="flex items-center justify-between">
                         <span>All Permissions</span>
                         <div class="flex space-x-2">
-                            <Button v-if="selectedPermissions.length > 0" 
+                            <Button v-if="selectedPermissions.length > 0 && hasPermission('can.delete.permission')" 
                                     label="Delete Selected" 
                                     icon="pi pi-trash" 
                                     severity="danger" 
@@ -292,13 +295,15 @@ const clearFilters = () => {
                                             size="small"
                                             v-tooltip="'View details'"
                                             @click="router.visit(route('admin.permissions.show', data.id))" />
-                                    <Button icon="pi pi-pencil" 
+                                    <Button v-if="hasPermission('can.edit.permission')"
+                                            icon="pi pi-pencil" 
                                             severity="secondary" 
                                             outlined 
                                             size="small"
                                             v-tooltip="'Edit permission'"
                                             @click="openEditModal(data)" />
-                                    <Button icon="pi pi-trash" 
+                                    <Button v-if="hasPermission('can.delete.permission')"
+                                            icon="pi pi-trash" 
                                             severity="danger" 
                                             outlined 
                                             size="small"

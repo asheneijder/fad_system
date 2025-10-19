@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendStationaryRequestNotification;
 use App\Models\Cart;
 use App\Models\RequestItem;
 use App\Models\RequestItemDetail;
@@ -92,7 +93,7 @@ class RequestItemController extends Controller
             'cart_item_ids.*' => 'exists:carts,id,user_id,'.auth()->id(),
         ]);
 
-        DB::transaction(function () use ($validated) {
+        $requestItem = DB::transaction(function () use ($validated) {
             // Create the request
             $requestItem = RequestItem::create([
                 'user_id' => auth()->id(),
@@ -124,10 +125,18 @@ class RequestItemController extends Controller
             Cart::where('user_id', auth()->id())
                 ->whereIn('id', $validated['cart_item_ids'])
                 ->delete();
+
+            return $requestItem;
         });
 
+        // Load relationships for the email
+        $requestItem->load(['items.stationaryItem', 'user']);
+
+        // Dispatch job to send email notification
+        SendStationaryRequestNotification::dispatch($requestItem);
+
         return redirect()->route('user.request-items.index')
-            ->with('success', 'Request submitted successfully.');
+            ->with('success', 'Request submitted successfully. Admins have been notified.');
     }
 
     /**

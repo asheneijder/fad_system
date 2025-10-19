@@ -3,12 +3,14 @@
 use App\Http\Controllers\Admin\AssetController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\CronJobController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LicensesController;
 use App\Http\Controllers\Admin\ManageRequestItemController;
 use App\Http\Controllers\Admin\ManageUserController;
 use App\Http\Controllers\Admin\ModelController;
 use App\Http\Controllers\Admin\PermissionController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\StationaryItemController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\User\CartController;
@@ -149,6 +151,18 @@ Route::group([
         ->name('permissions.assign-roles');
 
     Route::resource('audit-logs', AuditLogController::class)->only(['index', 'show']);
+
+    Route::resource('reports', ReportController::class);
+
+    Route::get('reports/asset-report', [ReportController::class, 'assetReport'])->name('reports.asset-report');
+    Route::get('reports/license-report', [ReportController::class, 'licenseReport'])->name('reports.license-report');
+    Route::get('reports/user-activity-report', [ReportController::class, 'userActivityReport'])->name('reports.user-activity-report');
+    Route::get('reports/stationary-report', [ReportController::class, 'stationaryReport'])->name('reports.stationary-report');
+    Route::get('reports/dashboard-report', [ReportController::class, 'dashboardReport'])->name('reports.dashboard-report');
+
+    Route::get('/cron', [CronJobController::class, 'index'])->name('cron.index');
+    Route::post('/cron/run-command', [CronJobController::class, 'runCommand'])->name('cron.run-command');
+    Route::post('/cron/test-notifications', [CronJobController::class, 'testNotifications'])->name('cron.test-notifications');
 });
 
 Route::group([

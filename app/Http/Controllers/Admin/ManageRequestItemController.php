@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendRequestApprovedNotification;
+use App\Jobs\SendRequestRejectedNotification;
 use App\Models\RequestItem;
 use App\Models\RequestItemDetail;
 use App\Models\StationaryItem;
@@ -103,13 +105,13 @@ class ManageRequestItemController extends Controller
                 'approved_at' => now(),
                 'notes' => $validated['notes'] ?: $manageRequestItem->notes,
             ]);
-
-            // Deduct from stock (you might want to do this when items are actually issued)
-            // $this->deductFromStock($manageRequestItem);
         });
 
+        // Send approval notification email
+        SendRequestApprovedNotification::dispatch($manageRequestItem->load(['user', 'approvedBy', 'items.stationaryItem']));
+
         return redirect()->route('admin.manage-request-items.index')
-            ->with('success', 'Request approved successfully.');
+            ->with('success', 'Request approved successfully. User has been notified.');
     }
 
     /**
@@ -128,8 +130,14 @@ class ManageRequestItemController extends Controller
             'rejection_reason' => $validated['rejection_reason'],
         ]);
 
+        // Send rejection notification email
+        SendRequestRejectedNotification::dispatch(
+            $manageRequestItem->load(['user', 'approvedBy', 'items.stationaryItem']),
+            $validated['rejection_reason']
+        );
+
         return redirect()->route('admin.manage-request-items.index')
-            ->with('success', 'Request rejected successfully.');
+            ->with('success', 'Request rejected successfully. User has been notified.');
     }
 
     /**
@@ -189,20 +197,5 @@ class ManageRequestItemController extends Controller
         });
 
         return back()->with('success', 'Quantities updated successfully.');
-    }
-
-    /**
-     * Deduct items from stock (optional - can be called separately)
-     */
-    private function deductFromStock(RequestItem $requestItem)
-    {
-        foreach ($requestItem->items as $item) {
-            $approvedQuantity = $item->approved_quantity ?? $item->quantity;
-
-            if ($approvedQuantity > 0) {
-                StationaryItem::where('id', $item->stationary_item_id)
-                    ->decrement('current_stock', $approvedQuantity);
-            }
-        }
     }
 }

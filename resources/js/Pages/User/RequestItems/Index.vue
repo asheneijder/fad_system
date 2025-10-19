@@ -346,7 +346,7 @@ const submitRequest = () => {
             toast.add({
                 severity: 'error',
                 summary: 'Error',
-                detail: errors.purpose?.[0] || 'Failed to submit request',
+                detail: 'Failed to submit request',
                 life: 3000
             });
         }
@@ -853,7 +853,7 @@ const clearFilters = () => {
                     </div>
 
                     <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t" v-if="Array.isArray(cartItems) && cartItems.length > 0">
-                        <Button label="Continue Shopping" severity="secondary" outlined 
+                        <Button label="Continue Choosing Items" severity="secondary" outlined 
                             @click="scrollToAvailableItems"
                             class="w-full sm:w-auto" />
                         <Button label="Submit Request" icon="pi pi-send" severity="success" 

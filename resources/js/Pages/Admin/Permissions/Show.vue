@@ -12,6 +12,7 @@ import ConfirmDialog from 'primevue/confirmdialog';
 import Dialog from 'primevue/dialog';
 import MultiSelect from 'primevue/multiselect';
 import { useConfirm } from "primevue/useconfirm";
+import usePermissions from '@/Composables/usePermissions'; 
 
 const props = defineProps({
     permission: Object,
@@ -22,6 +23,7 @@ const props = defineProps({
 const confirm = useConfirm();
 const showAssignRolesDialog = ref(false);
 const selectedRoles = ref([]); 
+const { hasPermission } = usePermissions();
 
 const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -315,7 +317,7 @@ const assignRoles = () => {
             </div>
 
             <!-- Danger Zone -->
-            <Card>
+            <Card v-if="hasPermission('can.delete.permission')">
                 <template #title>
                     <span class="text-red-600">Danger Zone</span>
                 </template>

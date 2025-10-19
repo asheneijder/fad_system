@@ -14,9 +14,11 @@ import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { router, Head, useForm } from "@inertiajs/vue3";
 import { ref, computed, watch } from "vue";
+import usePermissions from '@/Composables/usePermissions'; 
 
 const confirm = useConfirm();
 const toast = useToast();
+const { hasPermission } = usePermissions();
 
 const props = defineProps({
     requestItem: {
@@ -323,14 +325,14 @@ const updateQuantities = () => {
                 
                 <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
                     <div v-if="requestItem.status === 'pending'" class="flex flex-col sm:flex-row gap-2 w-full">
-                        <Button label="Approve Request" icon="pi pi-check" severity="success"
+                        <Button v-if="hasPermission('can.approve.request')" label="Approve Request" icon="pi pi-check" severity="success"
                             @click="showApproveDialog = true" class="flex-1 sm:flex-none text-sm" />
-                        <Button label="Reject Request" icon="pi pi-times" severity="danger" outlined
+                        <Button v-if="hasPermission('can.reject.request')" label="Reject Request" icon="pi pi-times" severity="danger" outlined
                             @click="showRejectDialog = true" class="flex-1 sm:flex-none text-sm" />
                     </div>
                     
                     <div v-else-if="requestItem.status === 'approved'" class="flex flex-col sm:flex-row gap-2 w-full">
-                        <Button label="Mark as Completed" icon="pi pi-check-square" severity="help"
+                        <Button v-if="hasPermission('can.approve.request')" label="Mark as Completed" icon="pi pi-check-square" severity="help"
                             @click="completeRequest" class="flex-1 sm:flex-none text-sm" />
                     </div>
 

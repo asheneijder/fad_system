@@ -20,6 +20,7 @@ import { router, Head, useForm } from "@inertiajs/vue3";
 import { ref, watch, computed } from "vue";
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
+import usePermissions from '@/Composables/usePermissions'; 
 
 const confirm = useConfirm();
 const toast = useToast();
@@ -56,6 +57,7 @@ const selectedUsers = ref([]);
 const actionMenu = ref();
 const loading = ref(false);
 const currentPerPage = ref(props.users?.per_page || 10);
+const { hasPermission } = usePermissions();
 
 // Form data
 const userForm = useForm({
@@ -530,7 +532,8 @@ const isFormValid = computed(() => {
                 <div class="flex flex-wrap gap-2">
                     <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
                         @click="toggleActionMenu" class="flex-1 min-w-fit text-xs sm:text-sm" />
-                    <Button label="Create User" icon="pi pi-plus" severity="success"
+                    <Button v-if="hasPermission('can.create.user')"
+                        label="Create User" icon="pi pi-plus" severity="success"
                         @click="openCreateModal" class="flex-1 min-w-fit text-xs sm:text-sm font-semibold" />
                 </div>
             </div>
@@ -629,7 +632,8 @@ const isFormValid = computed(() => {
                     <div class="flex flex-col gap-3 sm:gap-4">
                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3">
                             <div class="flex flex-wrap gap-1 sm:gap-2 w-full sm:w-auto">
-                                <Button label="Create" icon="pi pi-plus" severity="success"
+                                <Button v-if="hasPermission('can.create.user')"
+                                    label="Create" icon="pi pi-plus" severity="success"
                                     @click="openCreateModal" class="flex-1 sm:flex-none text-xs sm:text-sm" />
                                 <Button label="Actions" icon="pi pi-cog" severity="secondary" outlined
                                     @click="toggleActionMenu" class="flex-1 sm:flex-none text-xs sm:text-sm" />
@@ -674,7 +678,7 @@ const isFormValid = computed(() => {
                             @page="onPageChange"
                             v-model:selection="selectedUsers" 
                             dataKey="id"
-                            :rowsPerPageOptions="[5, 10, 20, 50]"
+                            :rowsPerPageOptions="[5, 10, 20, 50, 100, 200, 500]"
                             paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                             currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
                             responsiveLayout="scroll" 
@@ -771,7 +775,8 @@ const isFormValid = computed(() => {
                                             v-tooltip.top="'Reset Password'" @click="resetPassword(slotProps.data)" 
                                             class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
-                                        <Button icon="pi pi-trash" outlined rounded severity="danger" size="small"
+                                        <Button v-if="hasPermission('can.delete.user')"
+                                            icon="pi pi-trash" outlined rounded severity="danger" size="small"
                                             v-tooltip.top="'Delete'" @click="deleteUser(slotProps.data)" 
                                             class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
                                     </div>

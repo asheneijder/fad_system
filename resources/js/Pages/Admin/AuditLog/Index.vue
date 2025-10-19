@@ -9,7 +9,7 @@ import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
 import Breadcrumb from 'primevue/breadcrumb';
 import Card from "primevue/card";
-import Calendar from 'primevue/calendar';
+import DatePicker from 'primevue/datepicker';
 import { router, Head, useForm } from "@inertiajs/vue3";
 import { ref, watch, computed } from "vue";
 
@@ -270,7 +270,7 @@ const clearFilters = () => {
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div class="w-full">
                                     <label class="block mb-1 text-xs sm:text-sm font-medium text-gray-700">Start Date</label>
-                                    <Calendar v-model="startDate" 
+                                    <DatePicker v-model="startDate" 
                                         placeholder="Start Date" 
                                         dateFormat="yy-mm-dd"
                                         showIcon
@@ -278,7 +278,7 @@ const clearFilters = () => {
                                 </div>
                                 <div class="w-full">
                                     <label class="block mb-1 text-xs sm:text-sm font-medium text-gray-700">End Date</label>
-                                    <Calendar v-model="endDate" 
+                                    <DatePicker v-model="endDate" 
                                         placeholder="End Date" 
                                         dateFormat="yy-mm-dd"
                                         showIcon
