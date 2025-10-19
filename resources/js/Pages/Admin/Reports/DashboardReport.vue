@@ -3,8 +3,8 @@ import AppLayout from "@/sakai/layout/AppLayout.vue";
 import Card from "primevue/card";
 import Button from "primevue/button";
 import Dropdown from "primevue/dropdown";
-import Breadcrumb from 'primevue/breadcrumb';
-import Badge from 'primevue/badge';
+import Breadcrumb from "primevue/breadcrumb";
+import Badge from "primevue/badge";
 import { Head, router } from "@inertiajs/vue3";
 import { ref } from "vue";
 

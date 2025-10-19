@@ -6,7 +6,7 @@ import Dropdown from "primevue/dropdown";
 import Breadcrumb from "primevue/breadcrumb";
 import DataTable from "primevue/datatable";
 import Column from "primevue/column";
-import Badge from 'primevue/badge';
+import Badge from "primevue/badge";
 import { Head, router } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
 

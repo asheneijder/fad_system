@@ -3,7 +3,7 @@ import AppLayout from "@/sakai/layout/AppLayout.vue";
 import Card from "primevue/card";
 import Button from "primevue/button";
 import Select from "primevue/select";
-import Breadcrumb from 'primevue/breadcrumb';
+import Breadcrumb from "primevue/breadcrumb";
 import { Head, router } from "@inertiajs/vue3";
 import { ref } from "vue";
 
