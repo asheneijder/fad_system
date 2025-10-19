@@ -6,6 +6,7 @@ import Button from "primevue/button";
 import Badge from 'primevue/badge';
 import Breadcrumb from 'primevue/breadcrumb';
 import Card from "primevue/card";
+import Dialog from 'primevue/dialog';
 import { Head, router } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
 
@@ -17,9 +18,62 @@ const props = defineProps({
 const home = { icon: 'pi pi-home', url: route('dashboard') };
 const items = [
     { label: 'Asset Management', url: route('admin.assets.index') },
-    { label: 'Asset Details', url: route('admin.assets.show', props.asset.id) },
     { label: 'Assignment History' }
 ];
+
+const showAssignmentDialog = ref(false);
+const selectedAssignment = ref(null);
+
+// Computed properties
+const activeAssignment = computed(() => props.assignments.data.find(a => !a.returned_at));
+const returnedAssignments = computed(() => props.assignments.data.filter(a => a.returned_at));
+
+const averageAssignmentDuration = computed(() => {
+    if (returnedAssignments.value.length === 0) return 0;
+    
+    const totalDays = returnedAssignments.value.reduce((sum, assignment) => {
+        const start = new Date(assignment.assigned_at);
+        const end = new Date(assignment.returned_at);
+        return sum + Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    }, 0);
+    
+    return Math.round(totalDays / returnedAssignments.value.length);
+});
+
+const assignmentStats = computed(() => [
+    {
+        label: 'Total Assignments',
+        value: props.assignments.total,
+        icon: 'pi pi-history',
+        bgColor: 'bg-blue-100',
+        textColor: 'text-blue-600',
+        valueColor: 'text-blue-600'
+    },
+    {
+        label: 'Active Assignments',
+        value: props.assignments.data.filter(a => !a.returned_at).length,
+        icon: 'pi pi-user',
+        bgColor: 'bg-green-100',
+        textColor: 'text-green-600',
+        valueColor: 'text-green-600'
+    },
+    {
+        label: 'Completed Assignments',
+        value: returnedAssignments.value.length,
+        icon: 'pi pi-check-circle',
+        bgColor: 'bg-purple-100',
+        textColor: 'text-purple-600',
+        valueColor: 'text-purple-600'
+    },
+    {
+        label: 'Average Duration',
+        value: `${averageAssignmentDuration.value} days`,
+        icon: 'pi pi-clock',
+        bgColor: 'bg-orange-100',
+        textColor: 'text-orange-600',
+        valueColor: 'text-orange-600'
+    }
+]);
 
 // Methods
 const formatDate = (date) => {
@@ -65,6 +119,28 @@ const getStatusSeverity = (assignment) => {
     return assignment.returned_at ? 'success' : 'info';
 };
 
+const getAssetStatusSeverity = (status) => {
+    const map = { 
+        available: 'success', 
+        assigned: 'info', 
+        maintenance: 'warning', 
+        retired: 'danger' 
+    };
+    return map[status] || 'secondary';
+};
+
+const getRowNumber = (index) => {
+    return (props.assignments.current_page - 1) * props.assignments.per_page + index + 1;
+};
+
+const onPageChange = (event) => {
+    const page = event.page + 1;
+    router.visit(route('admin.assets.assignment-history', props.asset.id, { page }), {
+        preserveState: true,
+        preserveScroll: true
+    });
+};
+
 const viewUser = (userId) => {
     router.visit(route('admin.users.show', userId));
 };
@@ -77,21 +153,24 @@ const goBack = () => {
     router.visit(route('admin.assets.index'));
 };
 
-// Computed properties
-const totalAssignments = computed(() => props.assignments.total);
-const activeAssignment = computed(() => props.assignments.data.find(a => !a.returned_at));
-const averageAssignmentDuration = computed(() => {
-    const returnedAssignments = props.assignments.data.filter(a => a.returned_at);
-    if (returnedAssignments.length === 0) return 0;
+const viewAssignmentDetails = (assignment) => {
+    selectedAssignment.value = assignment;
+    showAssignmentDialog.value = true;
+};
+
+const exportAssignments = () => {
+    const form = document.createElement('form');
+    form.method = 'GET';
+    form.action = route('admin.assets.assignment-history.export', props.asset.id);
     
-    const totalDays = returnedAssignments.reduce((sum, assignment) => {
-        const start = new Date(assignment.assigned_at);
-        const end = new Date(assignment.returned_at);
-        return sum + Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-    }, 0);
-    
-    return Math.round(totalDays / returnedAssignments.length);
-});
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+};
+
+const visit = (url) => {
+    router.visit(url);
+};
 </script>
 
 <template>
@@ -102,7 +181,7 @@ const averageAssignmentDuration = computed(() => {
             <Breadcrumb :home="home" :model="items" class="mb-4">
                 <template #item="{ item }">
                     <span v-if="item.url" class="text-blue-600 cursor-pointer hover:text-blue-800" 
-                          @click="router.visit(item.url)">
+                          @click="visit(item.url)">
                         {{ item.label }}
                     </span>
                     <span v-else class="font-semibold text-gray-700">{{ item.label }}</span>
@@ -110,60 +189,92 @@ const averageAssignmentDuration = computed(() => {
             </Breadcrumb>
 
             <!-- Page Header -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">Assignment History</h1>
+                    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800">Assignment History</h1>
                     <p class="mt-1 text-gray-500">
                         Track all assignments for 
                         <span class="font-semibold text-blue-600">{{ asset.name }}</span>
                         ({{ asset.asset_tag }})
                     </p>
                 </div>
-                <div class="flex gap-3">
+                <div class="flex flex-wrap gap-2">
                     <Button label="Back to Assets" icon="pi pi-arrow-left" severity="secondary"
-                        @click="goBack" />
-                    <Button label="View Asset" icon="pi pi-eye" severity="info"
-                        @click="viewAsset" />
+                        @click="goBack" class="flex-1 lg:flex-none" />
                 </div>
             </div>
 
-            <!-- Asset Summary -->
-            <Card>
-                <template #content>
-                    <div class="grid grid-cols-1 gap-6 md:grid-cols-4">
+            <!-- Asset Summary Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card class="bg-gradient-to-r from-blue-50 to-blue-100 border-0">
+                    <template #content>
                         <div class="text-center">
-                            <p class="text-sm font-medium text-gray-500">Total Assignments</p>
-                            <p class="mt-1 text-2xl font-bold text-gray-900">{{ totalAssignments }}</p>
+                            <div class="p-3 bg-blue-500 rounded-full inline-flex mb-3">
+                                <i class="pi pi-history text-white text-xl"></i>
+                            </div>
+                            <p class="text-sm font-medium text-gray-600">Total Assignments</p>
+                            <p class="mt-1 text-2xl font-bold text-gray-900">{{ assignments.total }}</p>
                         </div>
+                    </template>
+                </Card>
+
+                <Card class="bg-gradient-to-r from-green-50 to-green-100 border-0">
+                    <template #content>
                         <div class="text-center">
-                            <p class="text-sm font-medium text-gray-500">Current Status</p>
+                            <div class="p-3 bg-green-500 rounded-full inline-flex mb-3">
+                                <i class="pi pi-user text-white text-xl"></i>
+                            </div>
+                            <p class="text-sm font-medium text-gray-600">Current Status</p>
                             <Badge :value="asset.status" 
-                                   :severity="asset.status === 'assigned' ? 'info' : 'success'"
-                                   class="mt-1 capitalize" />
+                                   :severity="getAssetStatusSeverity(asset.status)"
+                                   class="mt-1 capitalize text-sm" />
                         </div>
+                    </template>
+                </Card>
+
+                <Card class="bg-gradient-to-r from-orange-50 to-orange-100 border-0">
+                    <template #content>
                         <div class="text-center">
-                            <p class="text-sm font-medium text-gray-500">Currently Assigned To</p>
-                            <p v-if="asset.user" class="mt-1 text-lg font-semibold text-gray-900">
+                            <div class="p-3 bg-orange-500 rounded-full inline-flex mb-3">
+                                <i class="pi pi-users text-white text-xl"></i>
+                            </div>
+                            <p class="text-sm font-medium text-gray-600">Assigned To</p>
+                            <p v-if="asset.user" class="mt-1 text-lg font-semibold text-gray-900 truncate">
                                 {{ asset.user.name }}
                             </p>
                             <Badge v-else value="Not Assigned" severity="secondary" class="mt-1" />
                         </div>
+                    </template>
+                </Card>
+
+                <Card class="bg-gradient-to-r from-purple-50 to-purple-100 border-0">
+                    <template #content>
                         <div class="text-center">
-                            <p class="text-sm font-medium text-gray-500">Avg. Assignment Duration</p>
+                            <div class="p-3 bg-purple-500 rounded-full inline-flex mb-3">
+                                <i class="pi pi-clock text-white text-xl"></i>
+                            </div>
+                            <p class="text-sm font-medium text-gray-600">Avg. Duration</p>
                             <p class="mt-1 text-2xl font-bold text-gray-900">
                                 {{ averageAssignmentDuration }} days
                             </p>
                         </div>
-                    </div>
-                </template>
-            </Card>
+                    </template>
+                </Card>
+            </div>
 
-            <!-- Assignment History -->
+            <!-- Assignment History Table -->
             <Card class="shadow-lg">
                 <template #title>
-                    <div class="flex items-center justify-between">
-                        <span>Assignment Records</span>
-                        <Badge :value="totalAssignments" severity="info" />
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xl font-semibold">Assignment Records</span>
+                            <Badge :value="assignments.total" severity="info" />
+                        </div>
+                        <div class="flex gap-2">
+                            <Button label="Export CSV" icon="pi pi-download" severity="help" outlined
+                                @click="exportAssignments" class="text-sm" 
+                                v-tooltip="'Export all assignment records to CSV'" />
+                        </div>
                     </div>
                 </template>
                 <template #content>
@@ -171,157 +282,179 @@ const averageAssignmentDuration = computed(() => {
                         :rowHover="true" paginator :rows="assignments.per_page" 
                         :totalRecords="assignments.total"
                         :first="(assignments.current_page - 1) * assignments.per_page"
-                        @page="(event) => router.visit(route('admin.assets.assignment-history', asset.id, { page: event.page + 1 }), { preserveState: true })"
-                        responsiveLayout="scroll" tableStyle="min-width: 50rem" 
-                        class="p-datatable-custom">
+                        @page="onPageChange"
+                        responsiveLayout="scroll" 
+                        :class="['p-datatable-custom', { 'min-h-[400px]': assignments.data.length > 0 }]"
+                        paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
+                        :rowsPerPageOptions="[5, 10, 20, 50]">
 
                         <!-- Empty State -->
                         <template #empty>
-                            <div class="flex flex-col items-center justify-center py-12">
-                                <div class="p-6 mb-4 bg-gray-100 rounded-full">
-                                    <i class="text-6xl text-gray-400 pi pi-history"></i>
+                            <div class="flex flex-col items-center justify-center py-12 text-center">
+                                <div class="p-4 mb-4 bg-gray-100 rounded-full">
+                                    <i class="text-4xl text-gray-400 pi pi-history"></i>
                                 </div>
                                 <h3 class="mb-2 text-xl font-semibold text-gray-700">No Assignment History</h3>
-                                <p class="mb-4 text-gray-500">
+                                <p class="mb-6 text-gray-500 max-w-md">
                                     This asset has not been assigned to any users yet.
                                 </p>
+                                <Button label="Assign This Asset" icon="pi pi-user-plus" severity="success"
+                                    @click="viewAsset" />
                             </div>
                         </template>
 
                         <!-- Columns -->
                         <Column header="#" style="width: 60px;">
                             <template #body="slotProps">
-                                <Badge :value="(assignments.current_page - 1) * assignments.per_page + slotProps.index + 1"
-                                    severity="secondary" />
+                                <Badge :value="getRowNumber(slotProps.index)" 
+                                       severity="secondary" 
+                                       class="min-w-[2rem] justify-center" />
                             </template>
                         </Column>
 
-                        <Column header="Assigned To" sortable>
+                        <Column header="User" style="min-width: 180px;">
                             <template #body="slotProps">
-                                <div class="cursor-pointer" @click="viewUser(slotProps.data.assigned_to)">
-                                    <div class="font-semibold text-gray-900 hover:text-blue-600">
-                                        {{ slotProps.data.user?.name }}
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <i class="pi pi-user text-blue-600 text-sm"></i>
                                     </div>
-                                    <div class="text-sm text-gray-500">
-                                        {{ slotProps.data.user?.email }}
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-semibold text-gray-900 truncate hover:text-blue-600 cursor-pointer"
+                                             @click="viewUser(slotProps.data.assigned_to)">
+                                            {{ slotProps.data.user?.name || 'Unknown User' }}
+                                        </div>
+                                        <div class="text-xs text-gray-500 truncate">
+                                            {{ slotProps.data.user?.email || '—' }}
+                                        </div>
                                     </div>
                                 </div>
                             </template>
                         </Column>
 
-                        <Column header="Assigned By" sortable>
+                        <Column header="Assignment Details" style="min-width: 250px;">
                             <template #body="slotProps">
-                                <div v-if="slotProps.data.assignedBy" 
-                                     class="cursor-pointer" 
-                                     @click="viewUser(slotProps.data.assigned_by)">
-                                    <div class="font-medium text-gray-900 hover:text-blue-600">
-                                        {{ slotProps.data.assignedBy.name }}
+                                <div class="space-y-1">
+                                    <div class="flex items-center gap-2">
+                                        <i class="pi pi-calendar text-gray-400 text-sm"></i>
+                                        <span class="text-sm font-medium text-gray-900">
+                                            {{ formatDate(slotProps.data.assigned_at) }}
+                                        </span>
                                     </div>
-                                    <div class="text-xs text-gray-500">
-                                        {{ formatDate(slotProps.data.assigned_at) }}
+                                    <div v-if="slotProps.data.assignedBy" class="flex items-center gap-2">
+                                        <i class="pi pi-user-edit text-gray-400 text-sm"></i>
+                                        <span class="text-sm text-gray-600">
+                                            Assigned by 
+                                            <span class="font-medium hover:text-blue-600 cursor-pointer"
+                                                  @click="viewUser(slotProps.data.assigned_by)">
+                                                {{ slotProps.data.assignedBy.name }}
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <div v-if="slotProps.data.condition_assigned" class="flex items-center gap-2">
+                                        <i class="pi pi-tag text-gray-400 text-sm"></i>
+                                        <span class="text-xs text-gray-500 truncate">
+                                            {{ slotProps.data.condition_assigned }}
+                                        </span>
                                     </div>
                                 </div>
-                                <div v-else class="text-gray-500">—</div>
                             </template>
                         </Column>
 
-                        <Column header="Assignment Period" sortable style="width: 200px;">
+                        <Column header="Return Details" style="min-width: 200px;">
                             <template #body="slotProps">
-                                <div class="text-sm">
-                                    <div class="font-medium text-gray-900">
-                                        {{ formatDate(slotProps.data.assigned_at) }}
+                                <div v-if="slotProps.data.returned_at" class="space-y-1">
+                                    <div class="flex items-center gap-2">
+                                        <i class="pi pi-calendar-times text-green-500 text-sm"></i>
+                                        <span class="text-sm font-medium text-gray-900">
+                                            {{ formatDate(slotProps.data.returned_at) }}
+                                        </span>
                                     </div>
-                                    <div v-if="slotProps.data.returned_at" class="text-gray-600">
-                                        to {{ formatDate(slotProps.data.returned_at) }}
+                                    <div v-if="slotProps.data.condition_returned" class="flex items-center gap-2">
+                                        <i class="pi pi-tags text-green-500 text-sm"></i>
+                                        <span class="text-xs text-gray-500 truncate">
+                                            {{ slotProps.data.condition_returned }}
+                                        </span>
                                     </div>
-                                    <div v-else class="text-green-600 font-medium">
-                                        Currently Assigned
-                                    </div>
-                                    <div class="text-xs text-gray-500 mt-1">
+                                    <div class="text-xs text-green-600 font-medium">
                                         {{ getAssignmentDuration(slotProps.data) }}
                                     </div>
                                 </div>
+                                <div v-else class="flex items-center gap-2">
+                                    <i class="pi pi-clock text-orange-500 text-sm"></i>
+                                    <Badge value="Active" severity="info" class="text-xs" />
+                                </div>
                             </template>
                         </Column>
 
-                        <Column header="Status" sortable style="width: 120px;">
+                        <Column header="Status" style="width: 120px;">
                             <template #body="slotProps">
                                 <Badge :value="getAssignmentStatus(slotProps.data)"
                                     :severity="getStatusSeverity(slotProps.data)"
-                                    class="capitalize" />
+                                    class="capitalize text-xs" />
                             </template>
                         </Column>
 
-                        <Column header="Condition" style="width: 150px;">
+                        <Column header="Actions" style="width: 100px;">
                             <template #body="slotProps">
-                                <div class="text-sm">
-                                    <div v-if="slotProps.data.condition_assigned" 
-                                         class="text-gray-600 truncate" 
-                                         :title="slotProps.data.condition_assigned">
-                                        Assigned: {{ slotProps.data.condition_assigned }}
-                                    </div>
-                                    <div v-if="slotProps.data.condition_returned" 
-                                         class="text-gray-600 truncate mt-1" 
-                                         :title="slotProps.data.condition_returned">
-                                        Returned: {{ slotProps.data.condition_returned }}
-                                    </div>
+                                <div class="flex justify-center">
+                                    <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
+                                        v-tooltip.top="'View Details'"
+                                        @click="viewAssignmentDetails(slotProps.data)"
+                                        class="w-8 h-8" />
                                 </div>
-                            </template>
-                        </Column>
-
-                        <Column header="Notes" style="width: 200px;">
-                            <template #body="slotProps">
-                                <div v-if="slotProps.data.notes" 
-                                     class="text-sm text-gray-600 truncate" 
-                                     :title="slotProps.data.notes">
-                                    {{ slotProps.data.notes }}
-                                </div>
-                                <span v-else class="text-gray-400">—</span>
                             </template>
                         </Column>
                     </DataTable>
                 </template>
             </Card>
 
-            <!-- Statistics Section -->
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <!-- Current Assignment Details -->
-                <Card v-if="activeAssignment">
-                    <template #title>Current Assignment</template>
+            <!-- Statistics & Current Assignment -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Current Assignment Card -->
+                <Card v-if="activeAssignment" class="border-l-4 border-l-blue-500">
+                    <template #title>
+                        <div class="flex items-center gap-2">
+                            <i class="pi pi-user text-blue-500"></i>
+                            <span>Current Assignment</span>
+                        </div>
+                    </template>
                     <template #content>
                         <div class="space-y-4">
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-500">Assigned To</span>
-                                <span class="font-semibold text-gray-900">
-                                    {{ activeAssignment.user?.name }}
-                                </span>
+                            <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <i class="pi pi-user text-blue-600"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-semibold text-gray-900">{{ activeAssignment.user?.name }}</div>
+                                        <div class="text-sm text-gray-500">{{ activeAssignment.user?.email }}</div>
+                                    </div>
+                                </div>
+                                <Badge value="Active" severity="info" />
                             </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-500">Assigned By</span>
-                                <span class="font-semibold text-gray-900">
-                                    {{ activeAssignment.assignedBy?.name }}
-                                </span>
+
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p class="font-medium text-gray-500">Assigned By</p>
+                                    <p class="font-semibold text-gray-900">{{ activeAssignment.assignedBy?.name }}</p>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-gray-500">Assignment Date</p>
+                                    <p class="font-semibold text-gray-900">{{ formatDate(activeAssignment.assigned_at) }}</p>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-gray-500">Duration</p>
+                                    <p class="font-semibold text-gray-900">{{ getAssignmentDuration(activeAssignment) }}</p>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-gray-500">Condition</p>
+                                    <p class="font-semibold text-gray-900 truncate">{{ activeAssignment.condition_assigned }}</p>
+                                </div>
                             </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-500">Assignment Date</span>
-                                <span class="font-semibold text-gray-900">
-                                    {{ formatDate(activeAssignment.assigned_at) }}
-                                </span>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-500">Duration</span>
-                                <span class="font-semibold text-gray-900">
-                                    {{ getAssignmentDuration(activeAssignment) }}
-                                </span>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-500">Condition</span>
-                                <span class="font-semibold text-gray-900 text-right">
-                                    {{ activeAssignment.condition_assigned }}
-                                </span>
-                            </div>
-                            <div v-if="activeAssignment.notes" class="pt-4 border-t">
-                                <p class="text-sm font-medium text-gray-500 mb-2">Notes</p>
+
+                            <div v-if="activeAssignment.notes" class="p-3 bg-gray-50 rounded-lg">
+                                <p class="text-sm font-medium text-gray-500 mb-1">Notes</p>
                                 <p class="text-sm text-gray-700">{{ activeAssignment.notes }}</p>
                             </div>
                         </div>
@@ -330,65 +463,83 @@ const averageAssignmentDuration = computed(() => {
 
                 <!-- Assignment Statistics -->
                 <Card>
-                    <template #title>Assignment Statistics</template>
+                    <template #title>
+                        <div class="flex items-center gap-2">
+                            <i class="pi pi-chart-bar text-purple-500"></i>
+                            <span>Assignment Statistics</span>
+                        </div>
+                    </template>
                     <template #content>
                         <div class="space-y-4">
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-500">Total Assignments</span>
-                                <span class="font-semibold text-gray-900">{{ totalAssignments }}</span>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-500">Active Assignments</span>
-                                <Badge :value="assignments.data.filter(a => !a.returned_at).length" 
-                                       severity="info" />
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-500">Completed Assignments</span>
-                                <Badge :value="assignments.data.filter(a => a.returned_at).length" 
-                                       severity="success" />
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-500">Average Duration</span>
-                                <span class="font-semibold text-gray-900">
-                                    {{ averageAssignmentDuration }} days
-                                </span>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-500">First Assignment</span>
-                                <span class="text-sm font-semibold text-gray-900">
-                                    {{ assignments.data.length > 0 ? formatDate(assignments.data[assignments.data.length - 1].assigned_at) : '—' }}
-                                </span>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-500">Latest Assignment</span>
-                                <span class="text-sm font-semibold text-gray-900">
-                                    {{ assignments.data.length > 0 ? formatDate(assignments.data[0].assigned_at) : '—' }}
-                                </span>
+                            <div v-for="stat in assignmentStats" :key="stat.label" 
+                                 class="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <div :class="['p-2 rounded-full', stat.bgColor]">
+                                        <i :class="[stat.icon, stat.textColor]"></i>
+                                    </div>
+                                    <span class="font-medium text-gray-700">{{ stat.label }}</span>
+                                </div>
+                                <span :class="['font-bold', stat.valueColor]">{{ stat.value }}</span>
                             </div>
                         </div>
                     </template>
                 </Card>
             </div>
-
-            <!-- Quick Actions -->
-            <Card>
-                <template #title>Quick Actions</template>
-                <template #content>
-                    <div class="flex flex-wrap gap-4">
-                        <Button label="Return to Asset Details" icon="pi pi-arrow-left" severity="secondary"
-                            @click="viewAsset" />
-                        <Button label="Back to Assets List" icon="pi pi-list" severity="secondary"
-                            @click="goBack" />
-                        <Button v-if="asset.status === 'assigned'" 
-                            label="Return Asset" icon="pi pi-arrow-left" severity="warning"
-                            :href="route('admin.assets.show', asset.id)" />
-                        <Button v-else-if="asset.status === 'available'"
-                            label="Assign Asset" icon="pi pi-user-plus" severity="success"
-                            :href="route('admin.assets.show', asset.id)" />
-                    </div>
-                </template>
-            </Card>
         </div>
+
+        <!-- Assignment Detail Dialog -->
+        <Dialog v-model:visible="showAssignmentDialog" modal header="Assignment Details" 
+                :style="{ width: '95vw', maxWidth: '600px' }"
+                :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
+            <div v-if="selectedAssignment" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Assigned To</label>
+                        <p class="mt-1 font-semibold text-gray-900">{{ selectedAssignment.user?.name }}</p>
+                        <p class="text-sm text-gray-500">{{ selectedAssignment.user?.email }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Assigned By</label>
+                        <p class="mt-1 font-semibold text-gray-900">{{ selectedAssignment.assignedBy?.name }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Assignment Date</label>
+                        <p class="mt-1 font-semibold text-gray-900">{{ formatDate(selectedAssignment.assigned_at) }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Return Date</label>
+                        <p class="mt-1 font-semibold text-gray-900">
+                            {{ selectedAssignment.returned_at ? formatDate(selectedAssignment.returned_at) : '—' }}
+                        </p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Status</label>
+                        <Badge :value="getAssignmentStatus(selectedAssignment)"
+                               :severity="getStatusSeverity(selectedAssignment)"
+                               class="mt-1 capitalize" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Duration</label>
+                        <p class="mt-1 font-semibold text-gray-900">{{ getAssignmentDuration(selectedAssignment) }}</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Condition When Assigned</label>
+                        <p class="mt-1 text-gray-900">{{ selectedAssignment.condition_assigned || '—' }}</p>
+                    </div>
+                    <div v-if="selectedAssignment.condition_returned">
+                        <label class="block text-sm font-medium text-gray-500">Condition When Returned</label>
+                        <p class="mt-1 text-gray-900">{{ selectedAssignment.condition_returned }}</p>
+                    </div>
+                    <div v-if="selectedAssignment.notes">
+                        <label class="block text-sm font-medium text-gray-500">Notes</label>
+                        <p class="mt-1 text-gray-900 whitespace-pre-wrap">{{ selectedAssignment.notes }}</p>
+                    </div>
+                </div>
+            </div>
+        </Dialog>
     </AppLayout>
 </template>
 
@@ -406,17 +557,26 @@ const averageAssignmentDuration = computed(() => {
     font-weight: 600;
     color: #495057;
     border-color: #dee2e6;
+    font-size: 0.875rem;
 }
 
 :deep(.p-datatable .p-datatable-tbody > tr:hover) {
     background-color: #f8f9fa;
+    transition: background-color 0.2s;
 }
 
-:deep(.p-datatable .p-datatable-tbody > tr.p-row-odd) {
-    background-color: #ffffff;
+:deep(.p-datatable .p-datatable-tbody > tr) {
+    transition: background-color 0.2s;
 }
 
-:deep(.p-datatable .p-datatable-tbody > tr.p-row-even) {
-    background-color: #f8f9fa;
+:deep(.p-button.p-button-sm) {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+    :deep(.p-datatable .p-datatable-wrapper) {
+        overflow-x: auto;
+    }
 }
 </style>

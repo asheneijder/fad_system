@@ -92,6 +92,11 @@ class Asset extends Model
         return $query->where('warranty_months', '>', 0);
     }
 
+    public function assignedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
+    }
+
     // Accessors
     public function getWarrantyExpiryAttribute()
     {

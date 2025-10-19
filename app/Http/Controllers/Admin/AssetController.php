@@ -409,9 +409,73 @@ class AssetController extends Controller
             ->paginate(10);
 
         return Inertia::render('Admin/Assets/AssignmentHistory', [
-            'asset' => $asset->load(['model']),
+            'asset' => $asset->load(['model', 'user']),
             'assignments' => $assignments,
         ]);
+    }
+
+    public function exportAssignmentHistory(Asset $asset)
+    {
+        $assignments = $asset->assignments()
+            ->with(['user', 'assignedBy'])
+            ->orderBy('assigned_at', 'desc')
+            ->get();
+
+        $filename = 'assignment_history_'.$asset->asset_tag.'_'.now()->format('Y-m-d').'.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ];
+
+        $callback = function () use ($assignments, $asset) {
+            $file = fopen('php://output', 'w');
+
+            // Add headers
+            fputcsv($file, [
+                'Asset Name',
+                'Asset Tag',
+                'Assigned To',
+                'User Email',
+                'Assigned By',
+                'Assignment Date',
+                'Return Date',
+                'Status',
+                'Duration (Days)',
+                'Condition Assigned',
+                'Condition Returned',
+                'Notes',
+            ]);
+
+            // Add data
+            foreach ($assignments as $assignment) {
+                $duration = '—';
+                if ($assignment->assigned_at) {
+                    $startDate = new \Carbon\Carbon($assignment->assigned_at);
+                    $endDate = $assignment->returned_at ? new \Carbon\Carbon($assignment->returned_at) : now();
+                    $duration = $startDate->diffInDays($endDate);
+                }
+
+                fputcsv($file, [
+                    $asset->name,
+                    $asset->asset_tag,
+                    $assignment->user?->name ?? 'Unknown User',
+                    $assignment->user?->email ?? '—',
+                    $assignment->assignedBy?->name ?? 'Unknown',
+                    $assignment->assigned_at ? $assignment->assigned_at->format('Y-m-d H:i:s') : '—',
+                    $assignment->returned_at ? $assignment->returned_at->format('Y-m-d H:i:s') : '—',
+                    $assignment->returned_at ? 'Returned' : 'Active',
+                    $duration,
+                    $assignment->condition_assigned ?? '—',
+                    $assignment->condition_returned ?? '—',
+                    $assignment->notes ?? '—',
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     public function bulkAssign(Request $request)

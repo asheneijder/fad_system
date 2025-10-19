@@ -62,6 +62,8 @@ Route::group([
     Route::post('assets/{asset}/return', [AssetController::class, 'returnAsset'])->name('assets.return');
     Route::get('assets/{asset}/assignment-history', [AssetController::class, 'assignmentHistory'])->name('assets.assignment-history');
     Route::post('assets/export', [AssetController::class, 'export'])->name('assets.export');
+    Route::get('assets/{asset}/assignment-history/export', [AssetController::class, 'exportAssignmentHistory'])
+        ->name('assets.assignment-history.export');
 
     Route::resource('models', ModelController::class);
 

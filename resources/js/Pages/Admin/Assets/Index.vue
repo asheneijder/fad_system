@@ -63,6 +63,7 @@ const showCreateEditDialog = ref(false);
 const showViewDialog = ref(false);
 const showAssignDialog = ref(false);
 const showBulkAssignDialog = ref(false);
+const showReturnDialog = ref(false);
 const isEditMode = ref(false);
 const selectedAssetId = ref(null);
 const viewAssetData = ref(null);
@@ -102,6 +103,12 @@ const bulkAssignForm = useForm({
 const bulkStatusForm = useForm({
     asset_ids: [],
     status: 'available',
+});
+
+const returnForm = useForm({
+    asset_id: null,
+    condition_returned: '',
+    notes: '',
 });
 
 // Status options
@@ -192,6 +199,10 @@ watch(showBulkAssignDialog, (val) => {
     if (!val) bulkAssignForm.reset();
 });
 
+watch(showReturnDialog, (val) => {
+    if (!val) returnForm.reset();
+});
+
 // Methods
 const onPageChange = (event) => {
     const page = event.page + 1;
@@ -243,6 +254,12 @@ const openEditDialog = (asset) => {
     assetForm.location = asset.location || '';
     
     showCreateEditDialog.value = true;
+};
+
+const openReturnDialog = (asset) => {
+    returnForm.reset();
+    returnForm.asset_id = asset.id;
+    showReturnDialog.value = true;
 };
 
 const viewAsset = (asset) => {
@@ -356,18 +373,30 @@ const bulkUpdateStatus = (status) => {
     });
 };
 
-const returnAsset = (asset) => {
-    confirm.require({
-        message: `Return this asset from ${asset.user?.name || 'user'}?`,
-        header: "Return Asset Confirmation",
-        icon: "pi pi-arrow-left",
-        accept: () => {
-            router.post(route('admin.assets.return', asset.id), {}, {
-                preserveScroll: true,
-                onSuccess: () => toast.add({ severity: "success", summary: "Returned", detail: "Asset returned successfully", life: 3000 }),
-                onError: () => toast.add({ severity: "error", summary: "Error", detail: "Failed to return asset", life: 3000 })
+const submitReturn = () => {
+    returnForm.post(route('admin.assets.return', returnForm.asset_id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showReturnDialog.value = false;
+            toast.add({ 
+                severity: 'success', 
+                summary: 'Success', 
+                detail: 'Asset returned successfully', 
+                life: 3000 
             });
         },
+        onError: (errors) => {
+            let errorMessage = 'Failed to return asset';
+            if (errors.condition_returned) {
+                errorMessage = errors.condition_returned;
+            }
+            toast.add({ 
+                severity: 'error', 
+                summary: 'Error', 
+                detail: errorMessage, 
+                life: 3000 
+            });
+        }
     });
 };
 
@@ -735,7 +764,7 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                                         <Button v-else-if="slotProps.data.status === 'assigned'"
                                             icon="pi pi-arrow-left" outlined rounded severity="warning" size="small"
                                             v-tooltip.top="'Return'" 
-                                            @click="returnAsset(slotProps.data)" 
+                                            @click="openReturnDialog(slotProps.data)" 
                                             class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button icon="pi pi-pencil" outlined rounded severity="warning" size="small"
@@ -1007,13 +1036,13 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             class="w-full sm:w-auto text-xs sm:text-sm" />
                         <Button v-else-if="viewAssetData.status === 'assigned'"
                             label="Return" icon="pi pi-arrow-left" severity="warning" 
-                            @click="showViewDialog = false; returnAsset(viewAssetData)" 
+                            @click="showViewDialog = false; openReturnDialog(viewAssetData)" 
                             class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
             </Dialog>
 
-            <!-- Assign Asset Dialog -->
+           <!-- Alternative using Select with filter -->
             <Dialog v-model:visible="showAssignDialog" modal header="Assign Asset to User" 
                 :style="{ width: '95vw', maxWidth: '600px' }"
                 :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
@@ -1023,9 +1052,28 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                         <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                             User <span class="text-red-500">*</span>
                         </label>
-                        <Select v-model="assignForm.user_id" :options="users" optionLabel="name" 
-                            optionValue="id" placeholder="Select user" class="w-full text-xs sm:text-sm"
-                            :class="{ 'p-invalid': assignForm.errors.user_id }" />
+                        <Select v-model="assignForm.user_id" 
+                            :options="users" 
+                            optionLabel="name" 
+                            optionValue="id" 
+                            placeholder="Select user" 
+                            :filter="true"
+                            filterPlaceholder="Search users..."
+                            :showClear="true"
+                            class="w-full text-xs sm:text-sm"
+                            :class="{ 'p-invalid': assignForm.errors.user_id }">
+                            <template #option="slotProps">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <i class="pi pi-user text-blue-600 text-xs"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="font-medium text-gray-900 truncate">{{ slotProps.option.name }}</div>
+                                        <div class="text-xs text-gray-500 truncate">{{ slotProps.option.email }}</div>
+                                    </div>
+                                </div>
+                            </template>
+                        </Select>
                         <small class="text-red-500 text-xs" v-if="assignForm.errors.user_id">
                             {{ assignForm.errors.user_id }}
                         </small>
@@ -1110,6 +1158,102 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             class="w-full sm:w-auto text-xs sm:text-sm" />
                         <Button label="Assign Assets" icon="pi pi-user-plus" severity="success" 
                             @click="submitBulkAssignment" :loading="bulkAssignForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                    </div>
+                </div>
+            </Dialog>
+
+            <!-- Return Asset Dialog -->
+            <Dialog v-model:visible="showReturnDialog" modal header="Return Asset" 
+                :style="{ width: '95vw', maxWidth: '600px' }"
+                :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
+        
+                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                    <!-- Asset Information -->
+                    <div v-if="returnForm.asset_id" class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <i class="pi pi-box text-blue-600"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="font-semibold text-gray-900 text-sm truncate">
+                                    {{ assets.data.find(a => a.id === returnForm.asset_id)?.name || 'Asset' }}
+                                </div>
+                                <div class="text-xs text-gray-600 truncate">
+                                    {{ assets.data.find(a => a.id === returnForm.asset_id)?.asset_tag || '' }}
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    Currently assigned to: 
+                                    <span class="font-medium">
+                                        {{ assets.data.find(a => a.id === returnForm.asset_id)?.user?.name || 'User' }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                            Condition Returned <span class="text-red-500">*</span>
+                        </label>
+                        <InputText v-model="returnForm.condition_returned" 
+                            placeholder="Describe the condition when returned"
+                            class="w-full text-xs sm:text-sm"
+                            :class="{ 'p-invalid': returnForm.errors.condition_returned }" />
+                        <small class="text-red-500 text-xs" v-if="returnForm.errors.condition_returned">
+                            {{ returnForm.errors.condition_returned }}
+                        </small>
+                        <small class="text-gray-500 text-xs">
+                            Describe the physical condition and any damages noted upon return
+                        </small>
+                    </div>
+
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Return Notes</label>
+                        <Textarea v-model="returnForm.notes" 
+                            placeholder="Additional notes about the return (optional)"
+                            rows="3"
+                            class="w-full text-xs sm:text-sm"
+                            :class="{ 'p-invalid': returnForm.errors.notes }" />
+                        <small class="text-red-500 text-xs" v-if="returnForm.errors.notes">
+                            {{ returnForm.errors.notes }}
+                        </small>
+                        <small class="text-gray-500 text-xs">
+                            Any additional information about the return process
+                        </small>
+                    </div>
+
+                    <!-- Return Checklist -->
+                    <div class="space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Return Checklist</label>
+                        <div class="grid grid-cols-1 gap-2 text-xs">
+                            <div class="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                                <i class="pi pi-check-circle text-green-500"></i>
+                                <span>Asset is physically inspected</span>
+                            </div>
+                            <div class="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                                <i class="pi pi-check-circle text-green-500"></i>
+                                <span>All accessories are returned</span>
+                            </div>
+                            <div class="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                                <i class="pi pi-check-circle text-green-500"></i>
+                                <span>Condition is properly documented</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
+                        <Button label="Cancel" 
+                            severity="secondary" 
+                            outlined 
+                            @click="showReturnDialog = false"
+                            :disabled="returnForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button label="Return Asset" 
+                            icon="pi pi-arrow-left" 
+                            severity="warning" 
+                            @click="submitReturn" 
+                            :loading="returnForm.processing"
                             class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
