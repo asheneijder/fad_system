@@ -14,7 +14,7 @@ import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { router, Head, useForm } from "@inertiajs/vue3";
 import { ref, computed, watch } from "vue";
-import usePermissions from '@/Composables/usePermissions'; 
+import usePermissions from '@/composables/usePermissions'; 
 
 const confirm = useConfirm();
 const toast = useToast();

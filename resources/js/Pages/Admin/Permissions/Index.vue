@@ -11,7 +11,7 @@ import Badge from 'primevue/badge';
 import Dialog from 'primevue/dialog';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { useConfirm } from "primevue/useconfirm";
-import usePermissions from '@/Composables/usePermissions'; 
+import usePermissions from '@/composables/usePermissions'; 
 
 const props = defineProps({
     permissions: Object,

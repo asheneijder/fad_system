@@ -12,7 +12,7 @@ import ConfirmDialog from 'primevue/confirmdialog';
 import Dialog from 'primevue/dialog';
 import MultiSelect from 'primevue/multiselect';
 import { useConfirm } from "primevue/useconfirm";
-import usePermissions from '@/Composables/usePermissions'; 
+import usePermissions from '@/composables/usePermissions'; 
 
 const props = defineProps({
     permission: Object,

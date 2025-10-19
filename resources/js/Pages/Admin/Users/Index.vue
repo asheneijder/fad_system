@@ -20,7 +20,7 @@ import { router, Head, useForm } from "@inertiajs/vue3";
 import { ref, watch, computed } from "vue";
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
-import usePermissions from '@/Composables/usePermissions'; 
+import usePermissions from '@/composables/usePermissions'; 
 
 const confirm = useConfirm();
 const toast = useToast();
