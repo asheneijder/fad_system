@@ -191,10 +191,10 @@ const quickActions = [
         color: 'purple'
     },
     {
-        label: 'Create Request',
-        description: 'Submit a new stationary request',
-        icon: 'pi pi-plus',
-        route: 'user.requests.create',
+        label: 'Asset List',
+        description: 'View and manage the asset list',
+        icon: 'pi pi-list',
+        route: 'admin.assets.index',
         color: 'orange'
     }
 ];
