@@ -28,7 +28,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
         $user = auth()->user();
 
-        if ($user->isAdmin()) {
+        if ($user->isAdmin() || $user->isFadApprover()) {
             return redirect()->route('admin.dashboard');
         } else {
             return redirect()->route('user.dashboard');

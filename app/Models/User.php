@@ -87,9 +87,9 @@ class User extends Authenticatable
     /**
      * Check if user is super admin
      */
-    public function isSuperAdmin(): bool
+    public function isFadApprover(): bool
     {
-        return $this->hasRole('super-admin');
+        return $this->hasRole('fad-approver');
     }
 
     /**

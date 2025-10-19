@@ -16,8 +16,8 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        // Check if user is admin
-        if (! auth()->user()->isAdmin()) {
+        // Check if user is admin or FAD approver
+        if (! auth()->user()->isAdmin() && ! auth()->user()->isFadApprover()) {
             abort(403, 'Unauthorized access.');
         }
         $currentMonth = Carbon::now()->month;
