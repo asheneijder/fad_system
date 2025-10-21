@@ -69,18 +69,18 @@ const baseMenu = ref([
                 to: '/admin/audit-logs',
                 permission: 'can.view.audit'
             },
-            { 
-                label: 'Reports', 
-                icon: 'pi pi-chart-line', 
-                to: '/admin/reports',
-                permission: 'can.view.reports'
-            },
-            { 
-                label: 'Cron Jobs', 
-                icon: 'pi pi-clock ', 
-                to: '/admin/cron',
-                permission: 'can.view.cron'
-            }
+            // { 
+            //     label: 'Reports', 
+            //     icon: 'pi pi-chart-line', 
+            //     to: '/admin/reports',
+            //     permission: 'can.view.reports'
+            // },
+            // { 
+            //     label: 'Cron Jobs', 
+            //     icon: 'pi pi-clock ', 
+            //     to: '/admin/cron',
+            //     permission: 'can.view.cron'
+            // }
         ]
     },
     {
