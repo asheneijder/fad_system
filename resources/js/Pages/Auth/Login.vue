@@ -8,6 +8,7 @@ import Checkbox from 'primevue/checkbox';
 import { Link } from "@inertiajs/vue3";
 import Card from 'primevue/card';
 import Divider from 'primevue/divider';
+import InputText from 'primevue/inputtext';
 import { ref } from 'vue';
 
 const form = useForm({
@@ -48,10 +49,10 @@ const passwordVisible = ref(false);
                             </div>
                             <div>
                                 <h1 class="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-emerald-600 to-teal-700 bg-clip-text text-transparent">
-                                    ARTB Stationary
+                                    ART Inventory System
                                 </h1>
                                 <p class="text-lg text-gray-600 dark:text-gray-300 mt-2">Amanah Raya Trustees Berhad</p>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Staff Stationary Management System</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Staff Inventory Management System</p>
                             </div>
                         </div>
                         
@@ -102,7 +103,7 @@ const passwordVisible = ref(false);
                                     Staff Portal
                                 </h2>
                                 <p class="text-gray-600 dark:text-gray-300">
-                                    Access stationary request system
+                                    Access inventory management system
                                 </p>
                             </div>
 
@@ -112,17 +113,16 @@ const passwordVisible = ref(false);
                                     <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Corporate Email
                                     </label>
-                                    <div class="relative">
-                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <div class="relative email-wrapper">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                                             <i class="pi pi-envelope text-gray-400"></i>
                                         </div>
                                         <InputText 
                                             id="email" 
                                             type="email" 
                                             placeholder="your.name@amanahraya.com"
-                                            class="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white transition-colors"
-                                            :class="{ 'border-red-500': form.errors.email }"
                                             v-model="form.email"
+                                            :class="{ 'border-red-500': form.errors.email }"
                                         />
                                     </div>
                                     <Message v-if="form.errors.email" severity="error" class="mt-2">
@@ -135,8 +135,8 @@ const passwordVisible = ref(false);
                                     <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Password
                                     </label>
-                                    <div class="relative">
-                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <div class="relative password-wrapper">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                                             <i class="pi pi-lock text-gray-400"></i>
                                         </div>
                                         <Password 
@@ -145,8 +145,8 @@ const passwordVisible = ref(false);
                                             placeholder="Enter your password" 
                                             :toggleMask="true"
                                             :feedback="false"
-                                            inputClass="w-full pl-10 pr-12 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white transition-colors"
-                                            :class="{ 'border-red-500': form.errors.password }"
+                                            class="w-full"
+                                            :inputClass="'w-full pl-10 pr-12 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white transition-colors' + (form.errors.password ? ' border-red-500' : '')"
                                         />
                                     </div>
                                     <Message v-if="form.errors.password" severity="error" class="mt-2">
@@ -251,14 +251,53 @@ const passwordVisible = ref(false);
 }
 
 /* Custom styles for PrimeVue components */
-:deep(.p-password-input) {
+:deep(.email-wrapper) {
+    position: relative;
     width: 100%;
-    padding-left: 2.5rem;
-    padding-right: 3rem;
 }
 
-:deep(.p-password .p-icon-wrapper) {
-    right: 1rem;
+:deep(.email-wrapper .p-inputtext) {
+    width: 100% !important;
+    padding-left: 2.5rem !important;
+    padding-right: 1rem !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease-in-out;
+}
+
+:deep(.email-wrapper .p-inputtext:focus) {
+    outline: none;
+    border-color: #059669;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+    ring: 2px;
+    ring-color: #059669;
+}
+
+:deep(.password-wrapper) {
+    position: relative;
+    width: 100%;
+}
+
+:deep(.password-wrapper .p-password) {
+    width: 100%;
+    display: block;
+}
+
+:deep(.password-wrapper .p-password-input) {
+    width: 100% !important;
+    padding-left: 2.5rem !important;
+    padding-right: 3rem !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+}
+
+:deep(.password-wrapper .p-icon-wrapper) {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 :deep(.p-checkbox .p-checkbox-box) {
@@ -323,11 +362,11 @@ const passwordVisible = ref(false);
         grid-template-columns: 1fr;
     }
     
-    .text-center.lg\\:text-left {
+    .text-center.lg\:text-left {
         text-align: center;
     }
     
-    .max-w-md.mx-auto.lg\\:mx-0 {
+    .max-w-md.mx-auto.lg\:mx-0 {
         margin-left: auto;
         margin-right: auto;
     }

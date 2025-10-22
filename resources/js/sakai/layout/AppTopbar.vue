@@ -15,7 +15,7 @@ const { onMenuToggle, toggleDarkMode, isDarkTheme } = useLayout();
             </button>
             <nav-link href="/dashboard" class="layout-topbar-logo">
                 <!-- <img src="/images/icon-system.jpg" alt="logo" /> -->
-                <span>FAD Inventory System</span>
+                <span>ART Inventory System</span>
             </nav-link>
         </div>
 

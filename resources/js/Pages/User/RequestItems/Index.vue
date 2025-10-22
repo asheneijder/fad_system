@@ -130,12 +130,12 @@ let searchTimeout;
 watch(search, (newSearch) => {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
-        loadStationaryItems(1); // Reset to first page when searching
+        loadStationaryItems(1);
     }, 500);
 });
 
 watch(category, (newCategory) => {
-    loadStationaryItems(1); // Reset to first page when filtering
+    loadStationaryItems(1);
 });
 
 watch(showAddToCartDialog, (val) => {
@@ -469,11 +469,11 @@ const clearFilters = () => {
                     <Button label="View Cart" icon="pi pi-shopping-cart" severity="info" 
                         @click="showCartDialog = true"
                         :badge="statistics.cartItems.toString()" badgeClass="p-badge-danger"
-                        class="flex-1 sm:flex-initial" size="small" />
+                        class="flex-1 sm:flex-initial responsive-button" />
                     <Button label="Submit Request" icon="pi pi-send" severity="success"
                         @click="openRequestDialog" 
                         :disabled="statistics.cartItems === 0"
-                        class="flex-1 sm:flex-initial" size="small" />
+                        class="flex-1 sm:flex-initial responsive-button" />
                 </div>
             </div>
 
@@ -567,23 +567,23 @@ const clearFilters = () => {
                             <Button label="Clear Filters" icon="pi pi-filter-slash" severity="secondary" outlined
                                 @click="clearFilters" 
                                 :disabled="!search && !category"
-                                class="w-full" />
+                                class="w-full responsive-button" />
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                         <div v-for="item in stationaryItems.data" :key="item.id" 
-                            class="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow">
-                            <div class="flex items-start justify-between mb-2">
-                                <h3 class="font-semibold text-sm sm:text-base text-gray-900">{{ item.name }}</h3>
+                            class="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow flex flex-col">
+                            <div class="flex items-start justify-between gap-2 mb-2">
+                                <h3 class="font-semibold text-sm sm:text-base text-gray-900 flex-1 min-w-0 pr-2">{{ item.name }}</h3>
                                 <Badge :value="getStockStatus(item).text"
                                     :severity="getStockStatus(item).severity"
-                                    class="text-xs" />
+                                    class="responsive-badge flex-shrink-0" />
                             </div>
                             
-                            <p class="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2">{{ item.description }}</p>
+                            <p class="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2 flex-grow-0">{{ item.description }}</p>
                             
-                            <div class="space-y-1 text-xs sm:text-sm text-gray-600">
+                            <div class="space-y-1 text-xs sm:text-sm text-gray-600 flex-grow">
                                 <div class="flex justify-between">
                                     <span>Category:</span>
                                     <span class="font-medium capitalize">{{ item.category }}</span>
@@ -599,10 +599,10 @@ const clearFilters = () => {
                             </div>
 
                             <div class="mt-3 sm:mt-4">
-                                <Button label="Add to Cart" icon="pi pi-cart-plus" severity="success" size="small"
+                                <Button label="Add to Cart" icon="pi pi-cart-plus" severity="success"
                                     @click="openAddToCartDialog(item)"
                                     :disabled="item.current_stock === 0"
-                                    class="w-full" />
+                                    class="w-full responsive-button" />
                             </div>
                         </div>
 
@@ -617,7 +617,7 @@ const clearFilters = () => {
                                     {{ search || category ? 'Try adjusting your search or filters' : 'No stationary items are currently available for request.' }}
                                 </p>
                                 <Button v-if="search || category" label="Clear Filters" severity="primary"
-                                    @click="clearFilters" class="mt-3" size="small" />
+                                    @click="clearFilters" class="mt-3 responsive-button" />
                             </div>
                         </div>
                     </div>
@@ -628,7 +628,7 @@ const clearFilters = () => {
                         <Button label="Load More Items" icon="pi pi-chevron-down" severity="secondary" outlined
                             @click="loadMoreItems" 
                             :loading="loadingMore"
-                            class="px-6" />
+                            class="responsive-button" />
                     </div>
 
                     <!-- Showing information -->
@@ -659,7 +659,7 @@ const clearFilters = () => {
                                     <h3 class="mb-2 text-lg sm:text-xl font-semibold text-gray-700">No Requests Found</h3>
                                     <p class="mb-3 sm:mb-4 text-sm sm:text-base text-gray-500 text-center">You haven't made any requests yet.</p>
                                     <Button label="Browse Items" icon="pi pi-shopping-cart" severity="success"
-                                        @click="scrollToAvailableItems" size="small" />
+                                        @click="scrollToAvailableItems" class="responsive-button" />
                                 </div>
                             </template>
 
@@ -667,7 +667,7 @@ const clearFilters = () => {
                             <Column header="#" style="width: 60px;">
                                 <template #body="slotProps">
                                     <Badge :value="(requests.current_page - 1) * requests.per_page + slotProps.index + 1"
-                                        severity="secondary" />
+                                        severity="secondary" class="responsive-badge" />
                                 </template>
                             </Column>
 
@@ -684,7 +684,7 @@ const clearFilters = () => {
                                 <template #body="slotProps">
                                     <Badge :value="slotProps.data.priority"
                                         :severity="getPrioritySeverity(slotProps.data.priority)"
-                                        class="capitalize" />
+                                        class="capitalize responsive-badge" />
                                 </template>
                             </Column>
 
@@ -692,7 +692,7 @@ const clearFilters = () => {
                                 <template #body="slotProps">
                                     <Badge :value="getStatusText(slotProps.data.status)"
                                         :severity="getStatusSeverity(slotProps.data.status)"
-                                        class="capitalize" />
+                                        class="capitalize responsive-badge" />
                                 </template>
                             </Column>
 
@@ -716,14 +716,16 @@ const clearFilters = () => {
                             <Column header="Actions" style="min-width: 120px">
                                 <template #body="slotProps">
                                     <div class="flex flex-wrap gap-2">
-                                        <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
+                                        <Button icon="pi pi-eye" outlined rounded severity="info"
                                             v-tooltip.top="'View Details'" 
-                                            @click="router.get(route('user.request-items.show', slotProps.data.id))" />
+                                            @click="router.get(route('user.request-items.show', slotProps.data.id))"
+                                            class="responsive-icon-button" />
 
                                         <Button v-if="slotProps.data.status === 'pending'" 
-                                            icon="pi pi-times" outlined rounded severity="danger" size="small"
+                                            icon="pi pi-times" outlined rounded severity="danger"
                                             v-tooltip.top="'Cancel Request'" 
-                                            @click="cancelRequest(slotProps.data.id)" />
+                                            @click="cancelRequest(slotProps.data.id)"
+                                            class="responsive-icon-button" />
                                     </div>
                                 </template>
                             </Column>
@@ -780,10 +782,10 @@ const clearFilters = () => {
                         <Button label="Cancel" severity="secondary" outlined 
                             @click="showAddToCartDialog = false"
                             :disabled="cartForm.processing"
-                            class="w-full sm:w-auto" />
+                            class="w-full sm:w-auto responsive-button" />
                         <Button label="Add to Cart" icon="pi pi-cart-plus" severity="success" 
                             @click="addToCart" :loading="cartForm.processing"
-                            class="w-full sm:w-auto" />
+                            class="w-full sm:w-auto responsive-button" />
                     </div>
                 </div>
             </Dialog>
@@ -810,12 +812,14 @@ const clearFilters = () => {
                                 
                                 <div class="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
                                     <div class="flex items-center gap-2">
-                                        <Button icon="pi pi-minus" outlined rounded severity="secondary" size="small"
-                                            @click="updateCartQuantity(cartItem.id, cartItem.quantity - 1)" />
+                                        <Button icon="pi pi-minus" outlined rounded severity="secondary"
+                                            @click="updateCartQuantity(cartItem.id, cartItem.quantity - 1)"
+                                            class="responsive-icon-button" />
                                         <span class="font-semibold w-8 text-center text-sm sm:text-base">{{ cartItem.quantity }}</span>
-                                        <Button icon="pi pi-plus" outlined rounded severity="secondary" size="small"
+                                        <Button icon="pi pi-plus" outlined rounded severity="secondary"
                                             @click="updateCartQuantity(cartItem.id, cartItem.quantity + 1)"
-                                            :disabled="cartItem.quantity >= (cartItem.stationary_item?.current_stock || 0)" />
+                                            :disabled="cartItem.quantity >= (cartItem.stationary_item?.current_stock || 0)"
+                                            class="responsive-icon-button" />
                                     </div>
                                     
                                     <div class="text-right min-w-20">
@@ -824,8 +828,9 @@ const clearFilters = () => {
                                         </p>
                                     </div>
                                     
-                                    <Button icon="pi pi-trash" outlined rounded severity="danger" size="small"
-                                        @click="removeFromCart(cartItem.id)" />
+                                    <Button icon="pi pi-trash" outlined rounded severity="danger"
+                                        @click="removeFromCart(cartItem.id)"
+                                        class="responsive-icon-button" />
                                 </div>
                             </div>
                         </div>
@@ -849,16 +854,16 @@ const clearFilters = () => {
                         <h3 class="mb-2 text-lg sm:text-xl font-semibold text-gray-700">Your Cart is Empty</h3>
                         <p class="text-sm sm:text-base text-gray-500 mb-3 sm:mb-4">Add some items to your cart to make a request.</p>
                         <Button label="Browse Items" severity="primary" 
-                            @click="scrollToAvailableItems" size="small" />
+                            @click="scrollToAvailableItems" class="responsive-button" />
                     </div>
 
                     <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t" v-if="Array.isArray(cartItems) && cartItems.length > 0">
                         <Button label="Continue Choosing Items" severity="secondary" outlined 
                             @click="scrollToAvailableItems"
-                            class="w-full sm:w-auto" />
+                            class="w-full sm:w-auto responsive-button" />
                         <Button label="Submit Request" icon="pi pi-send" severity="success" 
                             @click="showCartDialog = false; openRequestDialog()"
-                            class="w-full sm:w-auto" />
+                            class="w-full sm:w-auto responsive-button" />
                     </div>
                 </div>
             </Dialog>
@@ -936,10 +941,10 @@ const clearFilters = () => {
                         <Button label="Cancel" severity="secondary" outlined 
                             @click="showRequestDialog = false"
                             :disabled="requestForm.processing"
-                            class="w-full sm:w-auto" />
+                            class="w-full sm:w-auto responsive-button" />
                         <Button label="Submit Request" icon="pi pi-send" severity="success" 
                             @click="submitRequest" :loading="requestForm.processing"
-                            class="w-full sm:w-auto" />
+                            class="w-full sm:w-auto responsive-button" />
                     </div>
                 </div>
             </Dialog>
@@ -1007,33 +1012,119 @@ const clearFilters = () => {
     display: block;
 }
 
-:deep(.p-badge) {
+/* Responsive Button Styles */
+.responsive-button :deep(.p-button-label) {
     font-size: 0.75rem;
 }
 
 @media (min-width: 640px) {
-    :deep(.p-badge) {
+    .responsive-button :deep(.p-button-label) {
         font-size: 0.875rem;
     }
 }
 
-:deep(.p-inputtext) {
-    font-size: 0.875rem;
-}
-
-@media (min-width: 640px) {
-    :deep(.p-inputtext) {
+@media (min-width: 1024px) {
+    .responsive-button :deep(.p-button-label) {
         font-size: 1rem;
     }
 }
 
-:deep(.p-button) {
+.responsive-button :deep(.p-button-icon) {
     font-size: 0.875rem;
 }
 
 @media (min-width: 640px) {
-    :deep(.p-button) {
+    .responsive-button :deep(.p-button-icon) {
         font-size: 1rem;
+    }
+}
+
+.responsive-button :deep(.p-button) {
+    padding: 0.5rem 0.75rem;
+}
+
+@media (min-width: 640px) {
+    .responsive-button :deep(.p-button) {
+        padding: 0.625rem 1rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .responsive-button :deep(.p-button) {
+        padding: 0.75rem 1.25rem;
+    }
+}
+
+/* Responsive Icon Button Styles */
+.responsive-icon-button :deep(.p-button) {
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+}
+
+@media (min-width: 640px) {
+    .responsive-icon-button :deep(.p-button) {
+        width: 2.25rem;
+        height: 2.25rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .responsive-icon-button :deep(.p-button) {
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+}
+
+.responsive-icon-button :deep(.p-button-icon) {
+    font-size: 0.875rem;
+}
+
+@media (min-width: 640px) {
+    .responsive-icon-button :deep(.p-button-icon) {
+        font-size: 1rem;
+    }
+}
+
+/* Responsive Badge Styles */
+.responsive-badge :deep(.p-badge) {
+    font-size: 0.625rem;
+    padding: 0.25rem 0.5rem;
+    white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+    .responsive-badge :deep(.p-badge) {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.6rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .responsive-badge :deep(.p-badge) {
+        font-size: 0.875rem;
+        padding: 0.35rem 0.7rem;
+    }
+}
+
+.responsive-badge {
+    flex-shrink: 0;
+}
+
+:deep(.p-button .p-badge) {
+    font-size: 0.625rem;
+    min-width: 1rem;
+    height: 1rem;
+    line-height: 1rem;
+    white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-button .p-badge) {
+        font-size: 0.75rem;
+        min-width: 1.25rem;
+        height: 1.25rem;
+        line-height: 1.25rem;
     }
 }
 
@@ -1073,6 +1164,15 @@ const clearFilters = () => {
     
     :deep(.p-datatable .p-datatable-thead > tr > th) {
         padding: 0.75rem 0.5rem;
+    }
+}
+
+/* Ensure buttons don't wrap text awkwardly on small screens */
+@media (max-width: 639px) {
+    .responsive-button :deep(.p-button) {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }
 </style>

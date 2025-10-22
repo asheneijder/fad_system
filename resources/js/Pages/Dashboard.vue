@@ -287,7 +287,7 @@ const updateChartData = async () => {
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Dashboard</h1>
-                    <p class="text-gray-600 mt-1">Welcome to your stationary management system</p>
+                    <p class="text-gray-600 mt-1">Welcome to your inventory management system</p>
                 </div>
                 <div class="flex items-center gap-3">
                     <span class="text-sm text-gray-500">Chart Period:</span>
