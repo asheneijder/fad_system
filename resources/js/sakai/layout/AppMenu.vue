@@ -49,7 +49,7 @@ const baseMenu = ref([
             { 
                 label: 'Manage Claim Requests',
                 icon: 'pi pi-clipboard',
-                to: '/admin/manage-claim-request',
+                to: '/admin/manage/claim-request',
                 permission: 'can.manage.claim-request'
             },
             { 

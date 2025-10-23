@@ -11,6 +11,15 @@ class DailyAllowance extends Model implements HasMedia
 {
     use InteractsWithMedia;
 
+    // Status constants
+    const STATUS_DRAFT = 'draft';
+
+    const STATUS_SUBMITTED = 'submitted';
+
+    const STATUS_APPROVED = 'approved';
+
+    const STATUS_REJECTED = 'rejected';
+
     protected $fillable = [
         'user_id',
         'claim_date',
@@ -25,24 +34,26 @@ class DailyAllowance extends Model implements HasMedia
         'approver_id',
         'approval_date',
         'rejection_reason',
+        'submitted_at',
     ];
 
     protected $casts = [
         'claim_date' => 'date',
         'approval_date' => 'datetime',
+        'submitted_at' => 'datetime',
         'daily_rate' => 'decimal:2',
         'claim_percentage' => 'decimal:2',
         'claim_amount' => 'decimal:2',
     ];
 
     // Allowance type constants
-    const TYPE_FULL_DAY = 'full_day'; // 100% - Kelayakan Penuh
+    const TYPE_FULL_DAY = 'full_day';
 
-    const TYPE_BREAKFAST = 'breakfast'; // 20%
+    const TYPE_BREAKFAST = 'breakfast';
 
-    const TYPE_LUNCH = 'lunch'; // 40%
+    const TYPE_LUNCH = 'lunch';
 
-    const TYPE_DINNER = 'dinner'; // 40%
+    const TYPE_DINNER = 'dinner';
 
     // Currency constants
     const CURRENCY_MYR = 'MYR';
@@ -64,6 +75,16 @@ class DailyAllowance extends Model implements HasMedia
         return [
             self::CURRENCY_MYR => 'MYR - Malaysian Ringgit',
             self::CURRENCY_USD => 'USD - US Dollar',
+        ];
+    }
+
+    public static function getStatuses(): array
+    {
+        return [
+            self::STATUS_DRAFT => 'Draft',
+            self::STATUS_SUBMITTED => 'Pending Approval',
+            self::STATUS_APPROVED => 'Approved',
+            self::STATUS_REJECTED => 'Rejected',
         ];
     }
 
@@ -117,5 +138,49 @@ class DailyAllowance extends Model implements HasMedia
         $currencies = self::getCurrencies();
 
         return $currencies[$this->currency] ?? $this->currency;
+    }
+
+    // Get display text for status
+    public function getStatusDisplayAttribute(): string
+    {
+        $statuses = self::getStatuses();
+
+        return $statuses[$this->status] ?? $this->status;
+    }
+
+    // Scope for draft claims
+    public function scopeDraft($query)
+    {
+        return $query->where('status', self::STATUS_DRAFT);
+    }
+
+    // Scope for submitted claims
+    public function scopeSubmitted($query)
+    {
+        return $query->where('status', self::STATUS_SUBMITTED);
+    }
+
+    // Scope for approved claims
+    public function scopeApproved($query)
+    {
+        return $query->where('status', self::STATUS_APPROVED);
+    }
+
+    // Check if claim can be edited
+    public function getCanEditAttribute(): bool
+    {
+        return $this->status === self::STATUS_DRAFT;
+    }
+
+    // Check if claim can be submitted
+    public function getCanSubmitAttribute(): bool
+    {
+        return $this->status === self::STATUS_DRAFT;
+    }
+
+    // Check if claim can be deleted
+    public function getCanDeleteAttribute(): bool
+    {
+        return $this->status === self::STATUS_DRAFT;
     }
 }

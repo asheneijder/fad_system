@@ -14,9 +14,12 @@ use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\StationaryItemController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\User\AccommodationClaimController;
 use App\Http\Controllers\User\CartController;
 use App\Http\Controllers\User\ClaimRequestController;
+use App\Http\Controllers\User\DailyAllowanceController;
 use App\Http\Controllers\User\RequestItemController;
+use App\Http\Controllers\User\TransportationClaimController;
 use App\Http\Controllers\User\TravelClaimController;
 use App\Http\Controllers\User\UserDashboardController;
 use App\Models\User;
@@ -177,6 +180,7 @@ Route::group([
     Route::post('/cron/test-notifications', [CronJobController::class, 'testNotifications'])->name('cron.test-notifications');
 
     Route::resource('manage/claim-request', ManageClaimRequestController::class);
+    Route::post('/manage/claim-request/bulk-action', [ManageClaimRequestController::class, 'bulkAction'])->name('manage.claim-request.bulk-action');
 });
 
 Route::group([
@@ -215,17 +219,32 @@ Route::group([
         Route::delete('travel/{travelClaim}', [TravelClaimController::class, 'destroy'])->name('travel-claims.destroy');
         Route::post('travel/{travelClaim}/submit', [TravelClaimController::class, 'submit'])->name('travel-claims.submit');
 
-        // Daily Allowance
-        // Route::get('daily-allowance/create', [DailyAllowanceController::class, 'create'])->name('daily-allowances.create');
-        // Route::post('daily-allowance', [DailyAllowanceController::class, 'store'])->name('daily-allowances.store');
+        // Daily Allowance Routes
+        Route::get('daily-allowance/create', [DailyAllowanceController::class, 'create'])->name('daily-allowances.create');
+        Route::post('daily-allowance', [DailyAllowanceController::class, 'store'])->name('daily-allowances.store');
+        Route::get('daily-allowance/{dailyAllowance}', [DailyAllowanceController::class, 'show'])->name('daily-allowances.show');
+        Route::get('daily-allowance/{dailyAllowance}/edit', [DailyAllowanceController::class, 'edit'])->name('daily-allowances.edit');
+        Route::put('daily-allowance/{dailyAllowance}', [DailyAllowanceController::class, 'update'])->name('daily-allowances.update');
+        Route::delete('daily-allowance/{dailyAllowance}', [DailyAllowanceController::class, 'destroy'])->name('daily-allowances.destroy');
+        Route::post('daily-allowance/{dailyAllowance}/submit', [DailyAllowanceController::class, 'submit'])->name('daily-allowances.submit');
 
         // // Accommodation Claims
-        // Route::get('accommodation/create', [AccommodationClaimController::class, 'create'])->name('accommodation-claims.create');
-        // Route::post('accommodation', [AccommodationClaimController::class, 'store'])->name('accommodation-claims.store');
+        Route::get('accommodation/create', [AccommodationClaimController::class, 'create'])->name('accommodation-claims.create');
+        Route::post('accommodation', [AccommodationClaimController::class, 'store'])->name('accommodation-claims.store');
+        Route::get('accommodation/{accommodationClaim}', [AccommodationClaimController::class, 'show'])->name('accommodation-claims.show');
+        Route::get('accommodation/{accommodationClaim}/edit', [AccommodationClaimController::class, 'edit'])->name('accommodation-claims.edit');
+        Route::put('accommodation/{accommodationClaim}', [AccommodationClaimController::class, 'update'])->name('accommodation-claims.update');
+        Route::delete('accommodation/{accommodationClaim}', [AccommodationClaimController::class, 'destroy'])->name('accommodation-claims.destroy');
+        Route::post('accommodation/{accommodationClaim}/submit', [AccommodationClaimController::class, 'submit'])->name('accommodation-claims.submit');
 
-        // // Transportation Claims
-        // Route::get('transportation/create', [TransportationClaimController::class, 'create'])->name('transportation-claims.create');
-        // Route::post('transportation', [TransportationClaimController::class, 'store'])->name('transportation-claims.store');
+        // Transportation Claims
+        Route::get('transportation/create', [TransportationClaimController::class, 'create'])->name('transportation-claims.create');
+        Route::post('transportation', [TransportationClaimController::class, 'store'])->name('transportation-claims.store');
+        Route::get('transportation/{transportationClaim}', [TransportationClaimController::class, 'show'])->name('transportation-claims.show');
+        Route::get('transportation/{transportationClaim}/edit', [TransportationClaimController::class, 'edit'])->name('transportation-claims.edit');
+        Route::put('transportation/{transportationClaim}', [TransportationClaimController::class, 'update'])->name('transportation-claims.update');
+        Route::delete('transportation/{transportationClaim}', [TransportationClaimController::class, 'destroy'])->name('transportation-claims.destroy');
+        Route::post('transportation/{transportationClaim}/submit', [TransportationClaimController::class, 'submit'])->name('transportation-claims.submit');
     });
 });
 

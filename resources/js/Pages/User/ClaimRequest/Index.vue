@@ -124,15 +124,47 @@ const navigateToClaim = (claimType) => {
     }
 };
 
+// Add this helper function
+const getClaimRoute = (action, type, id) => {
+    const routeMap = {
+        travel: {
+            show: 'user.travel-claims.show',
+            edit: 'user.travel-claims.edit',
+            param: 'travelClaim'
+        },
+        daily: {
+            show: 'user.daily-allowances.show',
+            edit: 'user.daily-allowances.edit',
+            param: 'dailyAllowance'
+        },
+        accommodation: {
+            show: 'user.accommodation-claims.show',
+            edit: 'user.accommodation-claims.edit',
+            param: 'accommodationClaim'
+        },
+        transportation: {
+            show: 'user.transportation-claims.show',
+            edit: 'user.transportation-claims.edit',
+            param: 'transportationClaim'
+        }
+    };
+
+    const routeConfig = routeMap[type];
+    if (!routeConfig || !routeConfig[action]) {
+        throw new Error(`Route not found for ${action} ${type} claim`);
+    }
+
+    return {
+        name: routeConfig[action],
+        params: { [routeConfig.param]: id }
+    };
+};
+
+// Updated functions
 const viewClaimDetails = (claimId, type) => {
     try {
-        const routeName = `user.${type}-claims.show`;
-        
-        if (route().has(routeName)) {
-            router.get(route(routeName, { travelClaim: claimId }));
-        } else {
-            throw new Error(`Route ${routeName} not found`);
-        }
+        const routeInfo = getClaimRoute('show', type, claimId);
+        router.get(route(routeInfo.name, routeInfo.params));
     } catch (error) {
         console.error('Error navigating to claim details:', error);
         toast.add({
@@ -146,13 +178,8 @@ const viewClaimDetails = (claimId, type) => {
 
 const editClaim = (claimId, type) => {
     try {
-        const routeName = `user.${type}-claims.edit`;
-        
-        if (route().has(routeName)) {
-            router.get(route(routeName, { travelClaim: claimId }));
-        } else {
-            throw new Error(`Route ${routeName} not found`);
-        }
+        const routeInfo = getClaimRoute('edit', type, claimId);
+        router.get(route(routeInfo.name, routeInfo.params));
     } catch (error) {
         console.error('Error navigating to edit claim:', error);
         toast.add({
@@ -410,13 +437,7 @@ const getTransportTypeDisplay = (type) => {
                                                 <Button icon="pi pi-eye" outlined rounded severity="info"
                                                     v-tooltip.top="'View Details'" 
                                                     @click="viewClaimDetails(slotProps.data.id, 'travel')"
-                                                    class="action-btn" />
-
-                                                <Button v-if="slotProps.data.status === 'draft'" 
-                                                    icon="pi pi-pencil" outlined rounded severity="warning"
-                                                    v-tooltip.top="'Edit Claim'" 
-                                                    @click="editClaim(slotProps.data.id, 'travel')"
-                                                    class="action-btn" />
+                                                    class="action-btn" />   
                                             </div>
                                         </template>
                                     </Column>
