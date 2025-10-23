@@ -106,7 +106,7 @@ class TravelClaimController extends Controller
             abort(403);
         }
 
-        $travelClaim->load('media');
+        $travelClaim->load(['media', 'user.approver']); // Load user and approver relationship
 
         // Store rate_per_km in a variable to use in the closure
         $ratePerKm = $travelClaim->rate_per_km;
@@ -132,6 +132,10 @@ class TravelClaimController extends Controller
                     'name' => $travelClaim->user->name,
                     'department' => $travelClaim->user->department,
                     'position' => $travelClaim->user->job_title,
+                    'approver' => $travelClaim->user->approver ? [
+                        'name' => $travelClaim->user->approver->name,
+                        'email' => $travelClaim->user->approver->email,
+                    ] : null,
                 ],
             ],
         ]);
@@ -281,7 +285,18 @@ class TravelClaimController extends Controller
             abort(403);
         }
 
+        // Get the user's assigned approver
+        $user = Auth::user();
+        $approver = $user->approver;
+
+        // Check if user has an approver assigned
+        if (! $approver) {
+            return redirect()->back()
+                ->with('error', 'No approver assigned to your account. Please contact administrator.');
+        }
+
         $travelClaim->update([
+            'approver_id' => $approver->id, // Set the approver from user's approver_id
             'status' => 'submitted',
             'submitted_at' => now(),
         ]);

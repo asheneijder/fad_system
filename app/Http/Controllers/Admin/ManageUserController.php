@@ -27,7 +27,7 @@ class ManageUserController extends Controller
         $perPage = $request->query('per_page', 10);
 
         $users = $this->user->query()
-            ->with('roles')
+            ->with(['roles', 'approver'])
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -51,6 +51,9 @@ class ManageUserController extends Controller
         // Get all roles for the filter dropdown
         $roles = Role::orderBy('name')->get(['id', 'name']);
 
+        // Get all potential approvers (users who can approve)
+        $approvers = User::all();
+
         // Statistics
         $statistics = [
             'total' => $this->user->count(),
@@ -60,12 +63,15 @@ class ManageUserController extends Controller
                 ->whereMonth('created_at', now()->month)
                 ->count(),
             'with_job_title' => $this->user->whereNotNull('job_title')->count(),
+            'with_approvers' => $this->user->whereNotNull('approver_id')->count(),
+            'without_approvers' => $this->user->whereNull('approver_id')->count(),
             'filters' => $request->only(['search', 'per_page']) + ['page' => $page],
         ];
 
         return Inertia::render('Admin/Users/Index', [
             'users' => $users,
             'roles' => $roles,
+            'approvers' => $approvers,
             'filters' => $request->only(['search', 'status']),
             'statistics' => $statistics,
         ]);
@@ -85,6 +91,7 @@ class ManageUserController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'role_ids' => 'nullable|array',
             'role_ids.*' => 'exists:roles,id',
+            'approver_id' => 'nullable|exists:users,id',
         ], [
             'name.required' => 'Full name is required.',
             'email.required' => 'Email address is required.',
@@ -105,6 +112,7 @@ class ManageUserController extends Controller
                 'department' => $validated['department'],
                 'office_location' => $validated['office_location'],
                 'password' => Hash::make($validated['password']),
+                'approver_id' => $validated['approver_id'] ?? null,
                 'email_verified_at' => now(),
             ]);
 
@@ -160,6 +168,7 @@ class ManageUserController extends Controller
             'password' => 'nullable|string|min:8|confirmed',
             'role_ids' => 'nullable|array',
             'role_ids.*' => 'exists:roles,id',
+            'approver_id' => 'nullable|exists:users,id',
         ], [
             'name.required' => 'Full name is required.',
             'email.required' => 'Email address is required.',
@@ -178,6 +187,7 @@ class ManageUserController extends Controller
                 'job_title' => $validated['job_title'],
                 'department' => $validated['department'],
                 'office_location' => $validated['office_location'],
+                'approver_id' => $validated['approver_id'] ?? null,
             ];
 
             // Only update password if provided
@@ -242,6 +252,105 @@ class ManageUserController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete user: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Assign approver to user
+     */
+    public function assignApprover(Request $request, User $user)
+    {
+        $validated = $request->validate([
+            'approver_id' => 'required|exists:users,id',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $user->update([
+                'approver_id' => $validated['approver_id'],
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Approver assigned successfully',
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to assign approver: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove approver from user
+     */
+    public function removeApprover(User $user)
+    {
+        try {
+            DB::beginTransaction();
+
+            $user->update([
+                'approver_id' => null,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Approver removed successfully',
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to remove approver: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk assign approvers
+     */
+    public function bulkAssignApprover(Request $request)
+    {
+        $validated = $request->validate([
+            'user_ids' => 'required|array|min:1',
+            'user_ids.*' => 'exists:users,id',
+            'approver_id' => 'required|exists:users,id',
+        ]);
+
+        $userIds = $validated['user_ids'];
+
+        try {
+            DB::beginTransaction();
+
+            $this->user->whereIn('id', $userIds)->update([
+                'approver_id' => $validated['approver_id'],
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => count($userIds).' user(s) assigned to approver successfully',
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to assign approvers: '.$e->getMessage(),
             ], 500);
         }
     }

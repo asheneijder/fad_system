@@ -555,12 +555,15 @@ const currentDate = computed(() => {
                                 
                                 <div class="space-y-1">
                                     <label class="block text-sm font-medium text-gray-500">Position</label>
-                                    <p class="text-lg font-semibold text-gray-900">{{ travelClaim.user?.position || '—' }}</p>
+                                    <p class="text-lg font-semibold text-gray-900">{{ travelClaim.user?.job_title || '—' }}</p>
                                 </div>
                                 
                                 <div class="space-y-1">
-                                    <label class="block text-sm font-medium text-gray-500">Employee ID</label>
-                                    <p class="text-lg font-semibold text-gray-900">{{ travelClaim.user?.employee_id || '—' }}</p>
+                                    <label class="block text-sm font-medium text-gray-500">Approver Name</label>
+                                    <p class="text-lg font-semibold text-gray-900">{{ travelClaim.user?.approver?.name || 'No Approver Assigned' }}</p>
+                                    <p v-if="travelClaim.user?.approver?.email" class="text-sm text-gray-500">
+                                        {{ travelClaim.user.approver.email }}
+                                    </p>
                                 </div>
                             </div>
                         </template>

@@ -102,7 +102,8 @@ Route::group([
 
     Route::resource('users', ManageUserController::class);
     // Additional User Routes
-    Route::post('/users/{user}/reset-password', [ManageUserController::class, 'resetPassword'])->name('users.reset-password');
+    Route::post('/users/{user}/assign-approver', [ManageUserController::class, 'assignApprover'])->name('users.assign-approver');
+    Route::delete('/users/{user}/remove-approver', [ManageUserController::class, 'removeApprover'])->name('users.remove-approver');
     Route::post('/users/bulk-reset-password', [ManageUserController::class, 'bulkResetPassword'])->name('users.bulk-reset-password');
     Route::post('/users/bulk-delete', [ManageUserController::class, 'bulkDelete'])->name('users.bulk-delete');
     Route::post('/users/export', [ManageUserController::class, 'export'])->name('users.export');
