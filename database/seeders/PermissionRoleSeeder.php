@@ -37,6 +37,8 @@ class PermissionRoleSeeder extends Seeder
             'can.edit.permission',
             'can.create.user',
             'can.delete.user',
+            'can.view.claim-request',
+            'can.manage.claim-request',
         ];
 
         foreach ($permissions as $permission) {
@@ -46,6 +48,7 @@ class PermissionRoleSeeder extends Seeder
         // Create roles
         $systemAdminRole = Role::firstOrCreate(['name' => 'system-admin', 'guard_name' => 'web']);
         $fadApproverRole = Role::firstOrCreate(['name' => 'fad-approver', 'guard_name' => 'web']);
+        $hodApproverRole = Role::firstOrCreate(['name' => 'hod-approver', 'guard_name' => 'web']);
         $staffRole = Role::firstOrCreate(['name' => 'artb-staff', 'guard_name' => 'web']);
 
         // Assign all permissions to system-admin
@@ -66,13 +69,24 @@ class PermissionRoleSeeder extends Seeder
             'can.approve.request',
             'can.reject.request',
             'can.create.user',
+            'can.view.claim-request',
+            'can.manage.claim-request',
         ];
 
         $fadApproverRole->givePermissionTo($fadApproverPermissions);
 
+        $hodApproverPermissions = [
+            'can.view.request',
+            'can.view.claim-request',
+            'can.manage.claim-request',
+        ];
+
+        $hodApproverRole->givePermissionTo($hodApproverPermissions);
+
         // Assign basic permissions to staff role
         $staffPermissions = [
             'can.view.request',
+            'can.view.claim-request',
         ];
 
         $staffRole->givePermissionTo($staffPermissions);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CronJobController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LicensesController;
+use App\Http\Controllers\Admin\ManageClaimRequestController;
 use App\Http\Controllers\Admin\ManageRequestItemController;
 use App\Http\Controllers\Admin\ManageUserController;
 use App\Http\Controllers\Admin\ModelController;
@@ -14,7 +15,9 @@ use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\StationaryItemController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\User\CartController;
+use App\Http\Controllers\User\ClaimRequestController;
 use App\Http\Controllers\User\RequestItemController;
+use App\Http\Controllers\User\TravelClaimController;
 use App\Http\Controllers\User\UserDashboardController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -171,6 +174,8 @@ Route::group([
     Route::get('/cron', [CronJobController::class, 'index'])->name('cron.index');
     Route::post('/cron/run-command', [CronJobController::class, 'runCommand'])->name('cron.run-command');
     Route::post('/cron/test-notifications', [CronJobController::class, 'testNotifications'])->name('cron.test-notifications');
+
+    Route::resource('manage/claim-request', ManageClaimRequestController::class);
 });
 
 Route::group([
@@ -195,6 +200,32 @@ Route::group([
     Route::get('cart-list/create', [CartController::class, 'create'])->name('cart-list.create');
     Route::get('cart-list/{cart}', [CartController::class, 'show'])->name('cart-list.show');
     Route::get('cart-list/{cart}/edit', [CartController::class, 'edit'])->name('cart-list.edit');
+
+    Route::resource('request-claim', ClaimRequestController::class);
+
+    // Separate routes for each claim type
+    Route::prefix('claims')->group(function () {
+        // Travel Claims
+        Route::get('travel/create', [TravelClaimController::class, 'create'])->name('travel-claims.create');
+        Route::post('travel', [TravelClaimController::class, 'store'])->name('travel-claims.store');
+        Route::get('travel/{travelClaim}', [TravelClaimController::class, 'show'])->name('travel-claims.show');
+        Route::get('travel/{travelClaim}/edit', [TravelClaimController::class, 'edit'])->name('travel-claims.edit');
+        Route::put('travel/{travelClaim}', [TravelClaimController::class, 'update'])->name('travel-claims.update');
+        Route::delete('travel/{travelClaim}', [TravelClaimController::class, 'destroy'])->name('travel-claims.destroy');
+        Route::post('travel/{travelClaim}/submit', [TravelClaimController::class, 'submit'])->name('travel-claims.submit');
+
+        // Daily Allowance
+        // Route::get('daily-allowance/create', [DailyAllowanceController::class, 'create'])->name('daily-allowances.create');
+        // Route::post('daily-allowance', [DailyAllowanceController::class, 'store'])->name('daily-allowances.store');
+
+        // // Accommodation Claims
+        // Route::get('accommodation/create', [AccommodationClaimController::class, 'create'])->name('accommodation-claims.create');
+        // Route::post('accommodation', [AccommodationClaimController::class, 'store'])->name('accommodation-claims.store');
+
+        // // Transportation Claims
+        // Route::get('transportation/create', [TransportationClaimController::class, 'create'])->name('transportation-claims.create');
+        // Route::post('transportation', [TransportationClaimController::class, 'store'])->name('transportation-claims.store');
+    });
 });
 
 require __DIR__.'/auth.php';
