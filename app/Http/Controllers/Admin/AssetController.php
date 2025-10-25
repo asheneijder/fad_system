@@ -376,10 +376,7 @@ class AssetController extends Controller
             $asset = $this->asset->findOrFail($validated['asset_id']);
 
             if (! $asset->canBeAssigned()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Asset is not available for assignment.',
-                ], 422);
+                return back()->with('error', 'Asset is not available for assignment.');
             }
 
             $assignment = $asset->assignToUser(
@@ -397,20 +394,12 @@ class AssetController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Asset assigned successfully.',
-                'assignment' => $assignment->load('user'),
-                'asset' => $asset->fresh(['model', 'user']),
-            ]);
+            return back()->with('success', 'Asset assigned successfully.');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to assign asset: '.$e->getMessage(),
-            ], 500);
+            return back()->with('error', 'Failed to assign asset: '.$e->getMessage());
         }
     }
 
@@ -425,10 +414,7 @@ class AssetController extends Controller
             DB::beginTransaction();
 
             if (! $asset->canBeReturned()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Asset is not currently assigned.',
-                ], 422);
+                return back()->with('error', 'Asset is not currently assigned.');
             }
 
             $success = $asset->returnFromAssignment(
@@ -437,10 +423,7 @@ class AssetController extends Controller
             );
 
             if (! $success) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No active assignment found for this asset.',
-                ], 422);
+                return back()->with('error', 'No active assignment found for this asset.');
             }
 
             activity()
@@ -450,19 +433,12 @@ class AssetController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Asset returned successfully.',
-                'asset' => $asset->fresh(['model', 'user', 'currentAssignment']),
-            ]);
+            return back()->with('success', 'Asset returned successfully.');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to return asset: '.$e->getMessage(),
-            ], 500);
+            return back()->with('error', 'Failed to return asset: '.$e->getMessage());
         }
     }
 

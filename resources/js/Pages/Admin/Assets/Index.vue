@@ -188,11 +188,6 @@ const actionItems = ref([
                 command: () => bulkUpdateStatus('retired')
             },
             {
-                label: 'Update Sighting',
-                icon: 'pi pi-eye',
-                command: () => openBulkSightingDialog()
-            },
-            {
                 label: 'Export Selected',
                 icon: 'pi pi-download',
                 command: () => exportSelected()
@@ -222,7 +217,7 @@ watch([search, statusFilter, categoryFilter, locationFilter], ([newSearch, newSt
             preserveScroll: true
         });
     }
-});
+}, 300);
 
 watch(showCreateEditDialog, (val) => {
     if (!val) resetForm();
@@ -316,13 +311,6 @@ const openReturnDialog = (asset) => {
     showReturnDialog.value = true;
 };
 
-const openSightingDialog = (asset) => {
-    sightingForm.reset();
-    sightingForm.asset_id = asset.id;
-    sightingForm.last_sighting_date = new Date();
-    showSightingDialog.value = true;
-};
-
 const viewAsset = (asset) => {
     viewAssetData.value = asset;
     showViewDialog.value = true;
@@ -331,6 +319,7 @@ const viewAsset = (asset) => {
 const openAssignDialog = (asset) => {
     assignForm.reset();
     assignForm.asset_id = asset.id;
+    selectedAssetId.value = asset.id;
     showAssignDialog.value = true;
 };
 
@@ -361,7 +350,6 @@ const openBulkSightingDialog = () => {
         return;
     }
     
-    // Update sighting for all selected assets
     selectedAssets.value.forEach(asset => {
         router.post(route('admin.assets.update-sighting', asset.id), {
             last_sighting_date: new Date().toISOString().split('T')[0],
@@ -418,6 +406,8 @@ const submitAssignment = () => {
         onSuccess: () => {
             showAssignDialog.value = false;
             toast.add({ severity: 'success', summary: 'Success', detail: 'Asset assigned successfully', life: 3000 });
+            assignForm.reset();
+            selectedAssetId.value = null;
         },
         onError: () => {
             toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to assign asset', life: 3000 });
@@ -439,29 +429,6 @@ const submitBulkAssignment = () => {
         },
         onError: () => {
             toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to assign assets', life: 3000 });
-        }
-    });
-};
-
-const submitSighting = () => {
-    sightingForm.post(route('admin.assets.update-sighting', sightingForm.asset_id), {
-        preserveScroll: true,
-        onSuccess: () => {
-            showSightingDialog.value = false;
-            toast.add({ 
-                severity: 'success', 
-                summary: 'Success', 
-                detail: 'Asset sighting updated successfully', 
-                life: 3000 
-            });
-        },
-        onError: () => {
-            toast.add({ 
-                severity: 'error', 
-                summary: 'Error', 
-                detail: 'Failed to update asset sighting', 
-                life: 3000 
-            });
         }
     });
 };
@@ -569,13 +536,13 @@ const getStatusSeverity = (status) => {
         active: 'success', 
         available: 'success', 
         assigned: 'info', 
-        maintenance: 'warning', 
+        maintenance: 'warn', 
         retired: 'danger' 
     };
     return map[status] || 'secondary';
 };
 
-const getStatusText = (status) => status.charAt(0).toUpperCase() + status.slice(1);
+const getStatusText = (status) => status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown';
 
 const formatDate = (date) => {
     if (!date) return '—';
@@ -587,7 +554,7 @@ const formatDate = (date) => {
 };
 
 const formatCurrency = (amount) => {
-    if (!amount) return '—';
+    if (!amount) return 'RM 0.00';
     return new Intl.NumberFormat('ms-MY', { style: 'currency', currency: 'MYR' }).format(amount);
 };
 
@@ -607,7 +574,7 @@ const getWarrantyStatus = (asset) => {
     const daysUntilExpiry = Math.ceil((warrantyExpiry - today) / (1000 * 60 * 60 * 24));
     
     if (daysUntilExpiry < 0) return { text: 'Expired', severity: 'danger' };
-    if (daysUntilExpiry <= 30) return { text: 'Expiring Soon', severity: 'warning' };
+    if (daysUntilExpiry <= 30) return { text: 'Expiring Soon', severity: 'warn' };
     return { text: 'Active', severity: 'success' };
 };
 
@@ -621,28 +588,23 @@ const getSightingStatus = (asset) => {
     const daysSinceSighting = Math.ceil((today - lastSighting) / (1000 * 60 * 60 * 24));
     
     if (daysSinceSighting > 365) return { text: 'Overdue', severity: 'danger' };
-    if (daysSinceSighting > 180) return { text: 'Due Soon', severity: 'warning' };
+    if (daysSinceSighting > 180) return { text: 'Due Soon', severity: 'warn' };
     return { text: 'Current', severity: 'success' };
-};
-
-const getDepreciationStatus = (asset) => {
-    if (!asset.fully_depreciated_date) {
-        return { text: 'Not Set', severity: 'secondary' };
-    }
-    
-    const fullyDepreciatedDate = new Date(asset.fully_depreciated_date);
-    const today = new Date();
-    
-    if (fullyDepreciatedDate < today) return { text: 'Fully Depreciated', severity: 'info' };
-    
-    const daysUntilDepreciated = Math.ceil((fullyDepreciatedDate - today) / (1000 * 60 * 60 * 24));
-    if (daysUntilDepreciated <= 180) return { text: 'Depreciating Soon', severity: 'warning' };
-    return { text: 'Active', severity: 'success' };
 };
 
 const toggleActionMenu = (event) => actionMenu.value.toggle(event);
 
 const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assignment-history', asset.id));
+
+// Check if asset can be assigned
+const canAssign = (asset) => {
+    return asset && (asset.status === 'available' || asset.status === 'active');
+};
+
+// Check if asset can be returned
+const canReturn = (asset) => {
+    return asset && asset.status === 'assigned';
+};
 </script>
 
 <template>
@@ -675,88 +637,88 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
             </div>
 
             <!-- Statistics Cards -->
-            <div class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
-                <Card class="border-l-4 border-blue-500 shadow-md">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+                <Card class="border-l-4 border-blue-500 shadow-md hover:shadow-lg transition-shadow">
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="text-xs font-medium text-gray-500 truncate">Total Assets</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.total || 0 }}</p>
+                                <p class="text-xs font-medium text-gray-500 truncate">Total</p>
+                                <p class="mt-1 text-lg sm:text-xl font-bold text-gray-900">{{ statistics.total || 0 }}</p>
                             </div>
-                            <div class="p-2 sm:p-3 bg-blue-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-blue-600 pi pi-box"></i>
+                            <div class="p-2 bg-blue-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg text-blue-600 pi pi-box"></i>
                             </div>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-green-500 shadow-md">
+                <Card class="border-l-4 border-green-500 shadow-md hover:shadow-lg transition-shadow">
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
                                 <p class="text-xs font-medium text-gray-500 truncate">Active</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.active || 0 }}</p>
+                                <p class="mt-1 text-lg sm:text-xl font-bold text-gray-900">{{ statistics.active || 0 }}</p>
                             </div>
-                            <div class="p-2 sm:p-3 bg-green-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-green-600 pi pi-check-circle"></i>
+                            <div class="p-2 bg-green-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg text-green-600 pi pi-check-circle"></i>
                             </div>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-orange-500 shadow-md">
+                <Card class="border-l-4 border-orange-500 shadow-md hover:shadow-lg transition-shadow">
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
                                 <p class="text-xs font-medium text-gray-500 truncate">Assigned</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.assigned || 0 }}</p>
+                                <p class="mt-1 text-lg sm:text-xl font-bold text-gray-900">{{ statistics.assigned || 0 }}</p>
                             </div>
-                            <div class="p-2 sm:p-3 bg-orange-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-orange-600 pi pi-user"></i>
+                            <div class="p-2 bg-orange-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg text-orange-600 pi pi-user"></i>
                             </div>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-yellow-500 shadow-md">
+                <Card class="border-l-4 border-yellow-500 shadow-md hover:shadow-lg transition-shadow">
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
                                 <p class="text-xs font-medium text-gray-500 truncate">Maintenance</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.maintenance || 0 }}</p>
+                                <p class="mt-1 text-lg sm:text-xl font-bold text-gray-900">{{ statistics.maintenance || 0 }}</p>
                             </div>
-                            <div class="p-2 sm:p-3 bg-yellow-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-yellow-600 pi pi-wrench"></i>
+                            <div class="p-2 bg-yellow-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg text-yellow-600 pi pi-wrench"></i>
                             </div>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-red-500 shadow-md">
+                <Card class="border-l-4 border-red-500 shadow-md hover:shadow-lg transition-shadow">
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
                                 <p class="text-xs font-medium text-gray-500 truncate">Retired</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.retired || 0 }}</p>
+                                <p class="mt-1 text-lg sm:text-xl font-bold text-gray-900">{{ statistics.retired || 0 }}</p>
                             </div>
-                            <div class="p-2 sm:p-3 bg-red-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-red-600 pi pi-times-circle"></i>
+                            <div class="p-2 bg-red-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg text-red-600 pi pi-times-circle"></i>
                             </div>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-purple-500 shadow-md">
+                <Card class="border-l-4 border-purple-500 shadow-md hover:shadow-lg transition-shadow">
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="text-xs font-medium text-gray-500 truncate">Total Value</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
+                                <p class="text-xs font-medium text-gray-500 truncate">Value</p>
+                                <p class="mt-1 text-base sm:text-lg font-bold text-gray-900">
                                     {{ formatCurrency(statistics.total_value) }}
                                 </p>
                             </div>
-                            <div class="p-2 sm:p-3 bg-purple-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-purple-600 pi pi-dollar"></i>
+                            <div class="p-2 bg-purple-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg text-purple-600 pi pi-dollar"></i>
                             </div>
                         </div>
                     </template>
@@ -768,24 +730,24 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                 <template #content>
                     <!-- Toolbar -->
                     <div class="flex flex-col gap-3 sm:gap-4">
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3">
-                            <div class="flex flex-wrap gap-1 sm:gap-2 w-full sm:w-auto">
+                        <div class="flex flex-col lg:flex-row justify-between items-start gap-3">
+                            <div class="flex flex-wrap gap-2 w-full lg:w-auto">
                                 <Button label="Create" icon="pi pi-plus" severity="success"
                                     @click="openCreateDialog" class="flex-1 sm:flex-none text-xs sm:text-sm" />
                                 <Button label="Actions" icon="pi pi-cog" severity="secondary" outlined
                                     @click="toggleActionMenu" class="flex-1 sm:flex-none text-xs sm:text-sm" />
                             </div>
 
-                            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                            <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
                                 <Select v-model="statusFilter" :options="statusOptions" optionLabel="label" 
                                     optionValue="value" placeholder="All Status" 
-                                    class="w-full sm:w-36 text-xs sm:text-sm" />
+                                    class="w-full sm:w-40 text-xs sm:text-sm" />
                                 <Select v-model="categoryFilter" :options="categoryOptions" optionLabel="name" 
                                     optionValue="id" placeholder="All Categories" 
-                                    class="w-full sm:w-36 text-xs sm:text-sm" />
+                                    class="w-full sm:w-40 text-xs sm:text-sm" />
                                 <Select v-model="locationFilter" :options="locationOptions" optionLabel="name" 
                                     optionValue="id" placeholder="All Locations" 
-                                    class="w-full sm:w-36 text-xs sm:text-sm" />
+                                    class="w-full sm:w-40 text-xs sm:text-sm" />
                                 <IconField iconPosition="left" class="w-full sm:w-64">
                                     <InputIcon class="pi pi-search" />
                                     <InputText v-model="search" placeholder="Search..." 
@@ -807,12 +769,12 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                     </div>
 
                     <!-- Data Table -->
-                    <div class="mt-4 sm:mt-6 overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+                    <div class="mt-4 sm:mt-6 overflow-x-auto">
                         <DataTable :value="assets.data" showGridlines stripedRows :rowHover="true" paginator 
                             :rows="assets.per_page" :totalRecords="assets.total"
                             :first="(assets.current_page - 1) * assets.per_page" @page="onPageChange"
                             v-model:selection="selectedAssets" dataKey="id"
-                            :rowsPerPageOptions="[5, 10, 20, 50, 100, 500, 1000, 2000]"
+                            :rowsPerPageOptions="[5, 10, 20, 50, 100, 500, 1000]"
                             paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                             currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
                             responsiveLayout="scroll" class="p-datatable-custom">
@@ -831,29 +793,29 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             </template>
 
                             <!-- Selection Column -->
-                            <Column selectionMode="multiple" headerStyle="width: 2.5rem" />
+                            <Column selectionMode="multiple" headerStyle="width: 3rem" class="select-column" />
 
                             <!-- Columns -->
-                            <Column header="#" style="min-width: 50px;">
+                            <Column header="#" style="min-width: 60px;">
                                 <template #body="slotProps">
                                     <Badge :value="(assets.current_page - 1) * assets.per_page + slotProps.index + 1"
                                         severity="secondary" class="text-xs" />
                                 </template>
                             </Column>
 
-                            <Column field="asset_name" header="Asset Details" sortable style="min-width: 200px;">
+                            <Column field="asset_name" header="Asset Details" sortable style="min-width: 220px;">
                                 <template #body="slotProps">
-                                    <div class="font-semibold text-gray-900 text-xs sm:text-sm break-words">{{ slotProps.data.asset_name }}</div>
-                                    <div class="text-xs text-gray-500 truncate">
-                                        {{ slotProps.data.asset_tag_no }} • {{ slotProps.data.model?.brand }} {{ slotProps.data.model?.name }}
+                                    <div class="font-semibold text-gray-900 text-xs sm:text-sm">{{ slotProps.data.asset_name }}</div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        {{ slotProps.data.asset_tag_no }}
                                     </div>
                                     <div class="text-xs text-gray-400 mt-1">
-                                        Qty: {{ slotProps.data.qty }}
+                                        {{ slotProps.data.model?.brand }} {{ slotProps.data.model?.name }}
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column header="Category" sortable style="min-width: 120px;">
+                            <Column header="Category" sortable style="min-width: 130px;">
                                 <template #body="slotProps">
                                     <div class="text-xs sm:text-sm font-medium text-gray-900">
                                         {{ slotProps.data.category?.name || '—' }}
@@ -861,15 +823,7 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                                 </template>
                             </Column>
 
-                            <Column field="serial_no" header="Serial No" sortable style="min-width: 120px;">
-                                <template #body="slotProps">
-                                    <Badge v-if="slotProps.data.serial_no" :value="slotProps.data.serial_no.substring(0, 10)" 
-                                        severity="info" class="text-xs" />
-                                    <Badge v-else value="—" severity="secondary" class="text-xs" />
-                                </template>
-                            </Column>
-
-                            <Column header="Status" sortable field="status" style="min-width: 100px;">
+                            <Column header="Status" sortable field="status" style="min-width: 110px;">
                                 <template #body="slotProps">
                                     <Badge :value="getStatusText(slotProps.data.status)"
                                         :severity="getStatusSeverity(slotProps.data.status)"
@@ -877,89 +831,62 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                                 </template>
                             </Column>
 
-                            <Column header="Location" sortable style="min-width: 120px;">
+                            <Column header="Location" sortable style="min-width: 140px;">
                                 <template #body="slotProps">
                                     <div class="text-xs">
-                                        <div class="font-medium text-gray-900 truncate">{{ slotProps.data.location }}</div>
-                                        <div v-if="slotProps.data.location_2" class="text-gray-500 truncate">{{ slotProps.data.location_2 }}</div>
+                                        <div class="font-medium text-gray-900">{{ slotProps.data.location }}</div>
+                                        <div v-if="slotProps.data.location_2" class="text-gray-500 mt-1">{{ slotProps.data.location_2 }}</div>
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column header="Assigned To" sortable style="min-width: 130px;">
+                            <Column header="Assigned To" sortable style="min-width: 150px;">
                                 <template #body="slotProps">
                                     <div v-if="slotProps.data.user" class="text-xs">
-                                        <div class="font-medium text-gray-900 truncate">{{ slotProps.data.user.name }}</div>
-                                        <div class="text-gray-500">{{ formatDate(slotProps.data.assigned_at) }}</div>
+                                        <div class="font-medium text-gray-900">{{ slotProps.data.user.name }}</div>
+                                        <div class="text-gray-500 mt-1">{{ formatDate(slotProps.data.assigned_at) }}</div>
                                     </div>
                                     <Badge v-else value="Not Assigned" severity="secondary" class="text-xs" />
                                 </template>
                             </Column>
 
-                            <Column header="Value" sortable style="min-width: 100px;">
+                            <Column header="Value" sortable style="min-width: 120px;">
                                 <template #body="slotProps">
                                     <div class="text-xs">
                                         <div class="font-medium text-gray-900">{{ formatCurrency(slotProps.data.current_value) }}</div>
-                                        <div class="text-gray-500 text-xs">Cost: {{ formatCurrency(slotProps.data.purchase_cost) }}</div>
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column header="Warranty" sortable style="min-width: 100px;">
-                                <template #body="slotProps">
-                                    <Badge :value="getWarrantyStatus(slotProps.data).text"
-                                        :severity="getWarrantyStatus(slotProps.data).severity"
-                                        class="text-xs" />
-                                </template>
-                            </Column>
-
-                            <Column header="Sighting" sortable style="min-width: 100px;">
-                                <template #body="slotProps">
-                                    <Badge :value="getSightingStatus(slotProps.data).text"
-                                        :severity="getSightingStatus(slotProps.data).severity"
-                                        class="text-xs" />
-                                </template>
-                            </Column>
-
                             <!-- Actions -->
-                            <Column header="Actions" style="min-width: 200px">
+                            <Column header="Actions" :frozen="true" alignFrozen="right" style="min-width: 280px;">
                                 <template #body="slotProps">
-                                    <div class="flex gap-1 flex-wrap">
+                                    <div class="flex gap-1 flex-wrap justify-end">
                                         <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
                                             v-tooltip.top="'View'" @click="viewAsset(slotProps.data)" 
-                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
+                                            class="action-btn" />
 
                                         <Button icon="pi pi-history" outlined rounded severity="help" size="small"
                                             v-tooltip.top="'History'" 
                                             @click="viewAssignmentHistory(slotProps.data)" 
-                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
+                                            class="action-btn" />
 
-                                        <Button icon="pi pi-eye" outlined rounded severity="success" size="small"
-                                            v-tooltip.top="'Sighting'" 
-                                            @click="openSightingDialog(slotProps.data)" 
-                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
-
-                                        <Button v-if="slotProps.data.status === 'available' || slotProps.data.status === 'active'" 
+                                        <Button v-if="canAssign(slotProps.data)" 
                                             icon="pi pi-user-plus" outlined rounded severity="success" size="small"
                                             v-tooltip.top="'Assign'" 
                                             @click="openAssignDialog(slotProps.data)" 
-                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
+                                            class="action-btn" />
 
-                                        <Button v-else-if="slotProps.data.status === 'assigned'"
-                                            icon="pi pi-arrow-left" outlined rounded severity="warning" size="small"
+                                        <Button v-if="canReturn(slotProps.data)"
+                                            icon="pi pi-arrow-left" outlined rounded severity="warn" size="small"
                                             v-tooltip.top="'Return'" 
                                             @click="openReturnDialog(slotProps.data)" 
-                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
-
-                                        <Button icon="pi pi-pencil" outlined rounded severity="warning" size="small"
-                                            v-tooltip.top="'Edit'" 
-                                            @click="openEditDialog(slotProps.data)" 
-                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
+                                            class="action-btn" />
 
                                         <Button icon="pi pi-trash" outlined rounded severity="danger" size="small"
                                             v-tooltip.top="'Delete'" 
                                             @click="deleteAsset(slotProps.data.id)" 
-                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
+                                            class="action-btn" />
                                     </div>
                                 </template>
                             </Column>
@@ -973,13 +900,200 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                 </template>
             </Card>
 
+            <!-- Assign Asset Dialog -->
+            <Dialog v-model:visible="showAssignDialog" modal header="Assign Asset" 
+                :style="{ width: '95vw', maxWidth: '600px' }"
+                :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
+                
+                <div class="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-xs sm:text-sm text-blue-800">
+                            Assign asset to a user
+                        </p>
+                    </div>
+
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                            User <span class="text-red-500">*</span>
+                        </label>
+                        <Select v-model="assignForm.user_id" 
+                            :options="users" 
+                            optionLabel="name" 
+                            optionValue="id" 
+                            filter
+                            :filterFields="['name', 'email']"
+                            placeholder="Select or search user..." 
+                            class="w-full text-xs sm:text-sm"
+                            :class="{ 'p-invalid': assignForm.errors.user_id }">
+                            <template #option="slotProps">
+                                <div class="flex flex-col">
+                                    <span class="font-medium text-sm">{{ slotProps.option.name }}</span>
+                                    <span class="text-xs text-gray-500">{{ slotProps.option.email }}</span>
+                                </div>
+                            </template>
+                            <template #value="slotProps">
+                                <div v-if="slotProps.value" class="flex items-center">
+                                    <span class="text-sm">{{ users.find(u => u.id === slotProps.value)?.name }}</span>
+                                </div>
+                                <span v-else class="text-gray-400">{{ slotProps.placeholder }}</span>
+                            </template>
+                        </Select>
+                        <small class="text-red-500 text-xs" v-if="assignForm.errors.user_id">
+                            {{ assignForm.errors.user_id }}
+                        </small>
+                    </div>
+
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Condition Assigned</label>
+                        <InputText v-model="assignForm.condition_assigned" 
+                            placeholder="Describe the condition"
+                            class="w-full text-xs sm:text-sm"
+                            :class="{ 'p-invalid': assignForm.errors.condition_assigned }" />
+                        <small class="text-red-500 text-xs" v-if="assignForm.errors.condition_assigned">
+                            {{ assignForm.errors.condition_assigned }}
+                        </small>
+                    </div>
+
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Notes</label>
+                        <Textarea v-model="assignForm.notes" 
+                            placeholder="Additional notes (optional)"
+                            rows="3"
+                            class="w-full text-xs sm:text-sm" />
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
+                        <Button label="Cancel" severity="secondary" outlined @click="showAssignDialog = false"
+                            :disabled="assignForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button label="Assign Asset" icon="pi pi-user-plus" severity="success" 
+                            @click="submitAssignment" :loading="assignForm.processing"
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                    </div>
+                </div>
+            </Dialog>
+
+            <!-- View Dialog - Keeping original implementation -->
+            <Dialog v-model:visible="showViewDialog" modal header="Asset Details" 
+                :style="{ width: '95vw', maxWidth: '700px' }"
+                :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
+                <div v-if="viewAssetData" class="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Asset Name</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900 break-words">{{ viewAssetData.asset_name }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Asset Tag</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.asset_tag_no }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Serial Number</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900 break-all">
+                                {{ viewAssetData.serial_no || '—' }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Model</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
+                                {{ viewAssetData.model?.brand }} {{ viewAssetData.model?.name }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Category</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
+                                {{ viewAssetData.category?.name || '—' }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Status</p>
+                            <Badge :value="getStatusText(viewAssetData.status)"
+                                :severity="getStatusSeverity(viewAssetData.status)"
+                                class="mt-1 capitalize text-xs" />
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Quantity</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.qty }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Location</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.location }}</p>
+                            <p v-if="viewAssetData.location_2" class="text-xs text-gray-500">{{ viewAssetData.location_2 }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Assigned To</p>
+                            <div v-if="viewAssetData.user" class="mt-1">
+                                <p class="text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.user.name }}</p>
+                                <p class="text-xs text-gray-500 break-all">{{ viewAssetData.user.email }}</p>
+                                <p class="text-xs text-gray-400">Since {{ formatDate(viewAssetData.assigned_at) }}</p>
+                            </div>
+                            <Badge v-else value="Not Assigned" severity="secondary" class="mt-1 text-xs" />
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Warranty Status</p>
+                            <Badge :value="getWarrantyStatus(viewAssetData).text"
+                                :severity="getWarrantyStatus(viewAssetData).severity"
+                                class="mt-1 text-xs" />
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Purchase Date</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
+                                {{ formatDate(viewAssetData.purchase_date) }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Purchase Cost</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
+                                {{ formatCurrency(viewAssetData.purchase_cost) }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Current Value</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
+                                {{ formatCurrency(viewAssetData.current_value) }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Last Sighting</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
+                                {{ formatDate(viewAssetData.last_sighting_date) }}
+                            </p>
+                            <Badge :value="getSightingStatus(viewAssetData).text"
+                                :severity="getSightingStatus(viewAssetData).severity"
+                                class="mt-1 text-xs" />
+                        </div>
+                    </div>
+
+                    <div v-if="viewAssetData.notes">
+                        <p class="text-xs sm:text-sm font-medium text-gray-500">Notes</p>
+                        <p class="mt-1 text-xs sm:text-base text-gray-900">{{ viewAssetData.notes }}</p>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
+                        <Button label="Close" severity="secondary" outlined @click="showViewDialog = false" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button label="Edit" icon="pi pi-pencil" severity="warn" 
+                            @click="showViewDialog = false; openEditDialog(viewAssetData)" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button v-if="canAssign(viewAssetData)" 
+                            label="Assign" icon="pi pi-user-plus" severity="success" 
+                            @click="showViewDialog = false; openAssignDialog(viewAssetData)" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                        <Button v-if="canReturn(viewAssetData)"
+                            label="Return" icon="pi pi-arrow-left" severity="warn" 
+                            @click="showViewDialog = false; openReturnDialog(viewAssetData)" 
+                            class="w-full sm:w-auto text-xs sm:text-sm" />
+                    </div>
+                </div>
+            </Dialog>
+
             <!-- Create/Edit Asset Dialog -->
             <Dialog v-model:visible="showCreateEditDialog" modal 
                 :header="isEditMode ? 'Edit Asset' : 'Create New Asset'" 
                 :style="{ width: '95vw', maxWidth: '800px' }"
                 :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
                 
-                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                <div class="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                         <!-- Asset Name -->
                         <div class="space-y-1 sm:space-y-2">
@@ -1117,8 +1231,8 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             <InputNumber v-model="assetForm.purchase_cost" 
                                 :min="0" 
                                 mode="currency" 
-                                currency="USD" 
-                                locale="en-US"
+                                currency="MYR" 
+                                locale="ms-MY"
                                 class="w-full text-xs sm:text-sm" />
                         </div>
 
@@ -1128,8 +1242,8 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             <InputNumber v-model="assetForm.current_value" 
                                 :min="0" 
                                 mode="currency" 
-                                currency="USD" 
-                                locale="en-US"
+                                currency="MYR" 
+                                locale="ms-MY"
                                 class="w-full text-xs sm:text-sm" />
                         </div>
 
@@ -1165,8 +1279,8 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             <InputNumber v-model="assetForm.depreciation_cost" 
                                 :min="0" 
                                 mode="currency" 
-                                currency="USD" 
-                                locale="en-US"
+                                currency="MYR" 
+                                locale="ms-MY"
                                 class="w-full text-xs sm:text-sm" />
                         </div>
 
@@ -1216,173 +1330,12 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                 </div>
             </Dialog>
 
-            <!-- View Asset Dialog -->
-            <Dialog v-model:visible="showViewDialog" modal header="Asset Details" 
-                :style="{ width: '95vw', maxWidth: '700px' }"
-                :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
-                <div v-if="viewAssetData" class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Asset Name</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900 break-words">{{ viewAssetData.asset_name }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Asset Tag</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.asset_tag_no }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Serial Number</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900 break-all">
-                                {{ viewAssetData.serial_no || '—' }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Model</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
-                                {{ viewAssetData.model?.brand }} {{ viewAssetData.model?.name }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Category</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
-                                {{ viewAssetData.category?.name || '—' }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Status</p>
-                            <Badge :value="getStatusText(viewAssetData.status)"
-                                :severity="getStatusSeverity(viewAssetData.status)"
-                                class="mt-1 capitalize text-xs" />
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Quantity</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.qty }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Location</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.location }}</p>
-                            <p v-if="viewAssetData.location_2" class="text-xs text-gray-500">{{ viewAssetData.location_2 }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Assigned To</p>
-                            <div v-if="viewAssetData.user" class="mt-1">
-                                <p class="text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.user.name }}</p>
-                                <p class="text-xs text-gray-500 break-all">{{ viewAssetData.user.email }}</p>
-                                <p class="text-xs text-gray-400">Since {{ formatDate(viewAssetData.assigned_at) }}</p>
-                            </div>
-                            <Badge v-else value="Not Assigned" severity="secondary" class="mt-1 text-xs" />
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Warranty Status</p>
-                            <Badge :value="getWarrantyStatus(viewAssetData).text"
-                                :severity="getWarrantyStatus(viewAssetData).severity"
-                                class="mt-1 text-xs" />
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Purchase Date</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
-                                {{ formatDate(viewAssetData.purchase_date) }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Purchase Cost</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
-                                {{ formatCurrency(viewAssetData.purchase_cost) }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Current Value</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
-                                {{ formatCurrency(viewAssetData.current_value) }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Depreciation</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
-                                {{ formatCurrency(viewAssetData.depreciation_cost) }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Last Sighting</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
-                                {{ formatDate(viewAssetData.last_sighting_date) }}
-                            </p>
-                            <Badge :value="getSightingStatus(viewAssetData).text"
-                                :severity="getSightingStatus(viewAssetData).severity"
-                                class="mt-1 text-xs" />
-                        </div>
-                        <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Created Date</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
-                                {{ formatDate(viewAssetData.created_at) }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div v-if="viewAssetData.notes" class="md:col-span-2">
-                        <p class="text-xs sm:text-sm font-medium text-gray-500">Notes</p>
-                        <p class="mt-1 text-xs sm:text-base text-gray-900">{{ viewAssetData.notes }}</p>
-                    </div>
-
-                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
-                        <Button label="Close" severity="secondary" outlined @click="showViewDialog = false" 
-                            class="w-full sm:w-auto text-xs sm:text-sm" />
-                        <Button label="Edit" icon="pi pi-pencil" severity="warning" 
-                            @click="showViewDialog = false; openEditDialog(viewAssetData)" 
-                            class="w-full sm:w-auto text-xs sm:text-sm" />
-                        <Button v-if="viewAssetData.status === 'available' || viewAssetData.status === 'active'" 
-                            label="Assign" icon="pi pi-user-plus" severity="success" 
-                            @click="showViewDialog = false; openAssignDialog(viewAssetData)" 
-                            class="w-full sm:w-auto text-xs sm:text-sm" />
-                        <Button v-else-if="viewAssetData.status === 'assigned'"
-                            label="Return" icon="pi pi-arrow-left" severity="warning" 
-                            @click="showViewDialog = false; openReturnDialog(viewAssetData)" 
-                            class="w-full sm:w-auto text-xs sm:text-sm" />
-                    </div>
-                </div>
-            </Dialog>
-
-            <!-- Sighting Dialog -->
-            <Dialog v-model:visible="showSightingDialog" modal header="Update Asset Sighting" 
-                :style="{ width: '95vw', maxWidth: '500px' }"
-                :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
-                
-                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
-                    <div class="space-y-1 sm:space-y-2">
-                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                            Sighting Date <span class="text-red-500">*</span>
-                        </label>
-                        <DatePicker v-model="sightingForm.last_sighting_date" 
-                            dateFormat="yy-mm-dd" 
-                            class="w-full text-xs sm:text-sm"
-                            showIcon />
-                    </div>
-
-                    <div class="space-y-1 sm:space-y-2">
-                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Sighting Notes</label>
-                        <Textarea v-model="sightingForm.notes" 
-                            placeholder="Enter sighting notes..."
-                            rows="3"
-                            class="w-full text-xs sm:text-sm" />
-                    </div>
-
-                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
-                        <Button label="Cancel" severity="secondary" outlined @click="showSightingDialog = false"
-                            :disabled="sightingForm.processing"
-                            class="w-full sm:w-auto text-xs sm:text-sm" />
-                        <Button label="Update Sighting" icon="pi pi-check" severity="success" 
-                            @click="submitSighting" :loading="sightingForm.processing"
-                            class="w-full sm:w-auto text-xs sm:text-sm" />
-                    </div>
-                </div>
-            </Dialog>
-
             <!-- Bulk Assign Dialog -->
             <Dialog v-model:visible="showBulkAssignDialog" modal header="Bulk Assign Assets" 
                 :style="{ width: '95vw', maxWidth: '600px' }"
                 :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
                 
-                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                <div class="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto">
                     <div class="p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p class="text-xs sm:text-sm text-blue-800">
                             Assigning {{ selectedAssets.length }} asset(s) to user
@@ -1393,9 +1346,28 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                         <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                             User <span class="text-red-500">*</span>
                         </label>
-                        <Select v-model="bulkAssignForm.user_id" :options="users" optionLabel="name" 
-                            optionValue="id" placeholder="Select user" class="w-full text-xs sm:text-sm"
-                            :class="{ 'p-invalid': bulkAssignForm.errors.user_id }" />
+                        <Select v-model="bulkAssignForm.user_id" 
+                            :options="users" 
+                            optionLabel="name" 
+                            optionValue="id" 
+                            filter
+                            :filterFields="['name', 'email']"
+                            placeholder="Select or search user..." 
+                            class="w-full text-xs sm:text-sm"
+                            :class="{ 'p-invalid': bulkAssignForm.errors.user_id }">
+                            <template #option="slotProps">
+                                <div class="flex flex-col">
+                                    <span class="font-medium text-sm">{{ slotProps.option.name }}</span>
+                                    <span class="text-xs text-gray-500">{{ slotProps.option.email }}</span>
+                                </div>
+                            </template>
+                            <template #value="slotProps">
+                                <div v-if="slotProps.value" class="flex items-center">
+                                    <span class="text-sm">{{ users.find(u => u.id === slotProps.value)?.name }}</span>
+                                </div>
+                                <span v-else class="text-gray-400">{{ slotProps.placeholder }}</span>
+                            </template>
+                        </Select>
                         <small class="text-red-500 text-xs" v-if="bulkAssignForm.errors.user_id">
                             {{ bulkAssignForm.errors.user_id }}
                         </small>
@@ -1436,7 +1408,7 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                 :style="{ width: '95vw', maxWidth: '600px' }"
                 :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
         
-                <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
+                <div class="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto">
                     <!-- Asset Information -->
                     <div v-if="returnForm.asset_id" class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <div class="flex items-center gap-3">
@@ -1445,10 +1417,10 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             </div>
                             <div class="min-w-0 flex-1">
                                 <div class="font-semibold text-gray-900 text-sm truncate">
-                                    {{ assets.data.find(a => a.id === returnForm.asset_id)?.name || 'Asset' }}
+                                    {{ assets.data.find(a => a.id === returnForm.asset_id)?.asset_name || 'Asset' }}
                                 </div>
                                 <div class="text-xs text-gray-600 truncate">
-                                    {{ assets.data.find(a => a.id === returnForm.asset_id)?.asset_tag || '' }}
+                                    {{ assets.data.find(a => a.id === returnForm.asset_id)?.asset_tag_no || '' }}
                                 </div>
                                 <div class="text-xs text-gray-500 mt-1">
                                     Currently assigned to: 
@@ -1519,7 +1491,7 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             class="w-full sm:w-auto text-xs sm:text-sm" />
                         <Button label="Return Asset" 
                             icon="pi pi-arrow-left" 
-                            severity="warning" 
+                            severity="warn" 
                             @click="submitReturn" 
                             :loading="returnForm.processing"
                             class="w-full sm:w-auto text-xs sm:text-sm" />
@@ -1531,6 +1503,19 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
 </template>
 
 <style scoped>
+.action-btn {
+    width: 2rem !important;
+    height: 2rem !important;
+    padding: 0 !important;
+}
+
+@media (min-width: 640px) {
+    .action-btn {
+        width: 2.25rem !important;
+        height: 2.25rem !important;
+    }
+}
+
 :deep(.p-card-body) {
     padding: 0.75rem;
 }
@@ -1557,11 +1542,23 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
     color: #495057;
     border-color: #dee2e6;
     font-size: 0.75rem;
+    padding: 0.75rem 0.5rem;
 }
 
 @media (min-width: 640px) {
     :deep(.p-datatable .p-datatable-thead > tr > th) {
         font-size: 0.875rem;
+        padding: 1rem;
+    }
+}
+
+:deep(.p-datatable .p-datatable-tbody > tr > td) {
+    padding: 0.75rem 0.5rem;
+}
+
+@media (min-width: 640px) {
+    :deep(.p-datatable .p-datatable-tbody > tr > td) {
+        padding: 1rem;
     }
 }
 
@@ -1569,20 +1566,8 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
     background-color: #f8f9fa;
 }
 
-:deep(.p-datatable .p-datatable-tbody > tr.p-row-odd) {
-    background-color: #ffffff;
-}
-
-:deep(.p-datatable .p-datatable-tbody > tr.p-row-even) {
-    background-color: #f8f9fa;
-}
-
-:deep(.p-inputtext),
-:deep(.p-button),
-:deep(.p-dropdown),
-:deep(.p-calendar),
-:deep(.p-inputnumber-input) {
-    border-radius: 0.375rem;
+:deep(.p-datatable .p-datatable-tbody > tr.p-highlight) {
+    background: #e3f2fd !important;
 }
 
 :deep(.p-dialog .p-dialog-header) {
@@ -1608,26 +1593,6 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
     color: white;
 }
 
-:deep(.p-dialog .p-dialog-header .p-dialog-header-icon:hover) {
-    color: #e2e8f0;
-}
-
-:deep(.p-dialog .p-dialog-content) {
-    padding: 0.75rem;
-}
-
-@media (min-width: 640px) {
-    :deep(.p-dialog .p-dialog-content) {
-        padding: 1rem;
-    }
-}
-
-@media (min-width: 768px) {
-    :deep(.p-dialog .p-dialog-content) {
-        padding: 1.5rem;
-    }
-}
-
 :deep(.p-paginator) {
     flex-wrap: wrap;
     gap: 0.5rem;
@@ -1635,7 +1600,6 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
     border-top: 1px solid #dee2e6;
     margin-top: 1rem;
     padding: 0.75rem;
-    border-radius: 0 0 0.375rem 0.375rem;
 }
 
 @media (min-width: 640px) {
@@ -1644,47 +1608,10 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
     }
 }
 
-:deep(.p-paginator .p-paginator-pages) {
-    flex-wrap: wrap;
-}
-
-:deep(.p-paginator-current) {
-    font-size: 0.75rem;
-    align-self: center;
-}
-
-@media (min-width: 640px) {
-    :deep(.p-paginator-current) {
-        font-size: 0.875rem;
-    }
-}
-
-/* Responsive button sizing */
-:deep(.p-button.p-button-sm) {
-    padding: 0.375rem 0.5rem;
-    font-size: 0.75rem;
-}
-
-@media (min-width: 640px) {
-    :deep(.p-button.p-button-sm) {
-        font-size: 0.875rem;
-    }
-}
-
-/* Mobile table fixes */
 @media (max-width: 640px) {
     :deep(.p-datatable .p-datatable-wrapper) {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-    }
-    
-    :deep(.p-button.p-button-icon-only) {
-        width: 1.75rem;
-        height: 1.75rem;
-    }
-    
-    :deep(.p-paginator .p-paginator-pages) {
-        width: 100%;
     }
 }
 </style>

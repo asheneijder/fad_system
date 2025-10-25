@@ -128,7 +128,7 @@ watch([search, statusFilter, categoryFilter], ([newSearch, newStatus, newCategor
         replace: true,
         preserveScroll: true
     });
-});
+}, 300);
 
 watch(showCreateEditDialog, (val) => {
     if (!val) {
