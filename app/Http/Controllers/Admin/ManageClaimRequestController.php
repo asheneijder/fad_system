@@ -9,6 +9,7 @@ use App\Models\TransportationClaim;
 use App\Models\TravelClaim;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ManageClaimRequestController extends Controller
@@ -999,5 +1000,297 @@ class ManageClaimRequestController extends Controller
             'processed_count' => $processedCount,
             'error_count' => count($errors),
         ]);
+    }
+
+    /**
+     * Approve a travel claim
+     */
+    public function approveTravel(Request $request, $id)
+    {
+        $user = Auth::user();
+        $claim = TravelClaim::find($id);
+
+        if (! $claim) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Travel claim not found.',
+            ], 404);
+        }
+
+        // Authorization
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to approve this claim.',
+            ], 403);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $claim->update([
+                'status' => 'approved',
+                'approver_id' => $user->id,
+                'approved_at' => now(),
+                'approval_date' => now(),
+            ]);
+
+            // Log activity
+            activity()
+                ->causedBy($user)
+                ->performedOn($claim)
+                ->log('approved travel claim');
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Travel claim approved successfully.',
+                'claim' => $this->transformTravelClaimForShow($claim->fresh(['user', 'approver'])),
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to approve travel claim: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Reject a travel claim
+     */
+    public function rejectTravel(Request $request, $id)
+    {
+        $user = Auth::user();
+        $claim = TravelClaim::find($id);
+
+        if (! $claim) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Travel claim not found.',
+            ], 404);
+        }
+
+        // Authorization
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to reject this claim.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'notes' => 'required|string|max:500',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $claim->update([
+                'status' => 'rejected',
+                'approver_id' => $user->id,
+                'rejection_reason' => $validated['notes'],
+                'rejected_at' => now(),
+                'approval_date' => now(),
+            ]);
+
+            // Log activity
+            activity()
+                ->causedBy($user)
+                ->performedOn($claim)
+                ->withProperties(['rejection_reason' => $validated['notes']])
+                ->log('rejected travel claim');
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Travel claim rejected successfully.',
+                'claim' => $this->transformTravelClaimForShow($claim->fresh(['user', 'approver'])),
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reject travel claim: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Generic approve method for any claim type
+     */
+    public function approve(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        // Try to find the claim in each model
+        $claim = TravelClaim::find($id);
+        $claimType = 'travel';
+
+        if (! $claim) {
+            $claim = DailyAllowance::find($id);
+            $claimType = 'daily';
+        }
+
+        if (! $claim) {
+            $claim = AccommodationClaim::find($id);
+            $claimType = 'accommodation';
+        }
+
+        if (! $claim) {
+            $claim = TransportationClaim::find($id);
+            $claimType = 'transportation';
+        }
+
+        if (! $claim) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Claim not found.',
+            ], 404);
+        }
+
+        // Authorization
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to approve this claim.',
+            ], 403);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $claim->update([
+                'status' => 'approved',
+                'approver_id' => $user->id,
+                'approved_at' => now(),
+                'approval_date' => now(),
+            ]);
+
+            // Log activity
+            activity()
+                ->causedBy($user)
+                ->performedOn($claim)
+                ->log("approved {$claimType} claim");
+
+            DB::commit();
+
+            // Return appropriate transformed data based on claim type
+            $transformedClaim = match ($claimType) {
+                'travel' => $this->transformTravelClaimForShow($claim->fresh(['user', 'approver'])),
+                'daily' => $this->transformDailyClaimForShow($claim->fresh(['user', 'approver'])),
+                'accommodation' => $this->transformAccommodationClaimForShow($claim->fresh(['user', 'approver'])),
+                'transportation' => $this->transformTransportationClaimForShow($claim->fresh(['user', 'approver'])),
+            };
+
+            return response()->json([
+                'success' => true,
+                'message' => ucfirst($claimType).' claim approved successfully.',
+                'claim' => $transformedClaim,
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to approve claim: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Generic reject method for any claim type
+     */
+    public function reject(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        // Try to find the claim in each model
+        $claim = TravelClaim::find($id);
+        $claimType = 'travel';
+
+        if (! $claim) {
+            $claim = DailyAllowance::find($id);
+            $claimType = 'daily';
+        }
+
+        if (! $claim) {
+            $claim = AccommodationClaim::find($id);
+            $claimType = 'accommodation';
+        }
+
+        if (! $claim) {
+            $claim = TransportationClaim::find($id);
+            $claimType = 'transportation';
+        }
+
+        if (! $claim) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Claim not found.',
+            ], 404);
+        }
+
+        // Authorization
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to reject this claim.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'notes' => 'required|string|max:500',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $claim->update([
+                'status' => 'rejected',
+                'approver_id' => $user->id,
+                'rejection_reason' => $validated['notes'],
+                'rejected_at' => now(),
+                'approval_date' => now(),
+            ]);
+
+            // Log activity
+            activity()
+                ->causedBy($user)
+                ->performedOn($claim)
+                ->withProperties(['rejection_reason' => $validated['notes']])
+                ->log("rejected {$claimType} claim");
+
+            DB::commit();
+
+            // Return appropriate transformed data based on claim type
+            $transformedClaim = match ($claimType) {
+                'travel' => $this->transformTravelClaimForShow($claim->fresh(['user', 'approver'])),
+                'daily' => $this->transformDailyClaimForShow($claim->fresh(['user', 'approver'])),
+                'accommodation' => $this->transformAccommodationClaimForShow($claim->fresh(['user', 'approver'])),
+                'transportation' => $this->transformTransportationClaimForShow($claim->fresh(['user', 'approver'])),
+            };
+
+            return response()->json([
+                'success' => true,
+                'message' => ucfirst($claimType).' claim rejected successfully.',
+                'claim' => $transformedClaim,
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reject claim: '.$e->getMessage(),
+            ], 500);
+        }
     }
 }

@@ -141,25 +141,32 @@ const openRejectDialog = () => {
 
 const approveClaim = () => {
     loading.value = true;
-    router.put(route('manage.claim-request.update', props.claim.id), {
-        action: 'approve'
-    }, {
+    
+    // Use the specific travel claim approve route
+    router.put(route('admin.manage.claim-request.approve', props.claim.id), {}, {
         preserveScroll: true,
         onSuccess: () => {
             toast.add({
                 severity: "success",
                 summary: "Approved",
-                detail: "Accommodation claim approved successfully",
+                detail: "Travel claim approved successfully",
                 life: 3000,
             });
             showApproveDialog.value = false;
             loading.value = false;
+            
+            // Refresh the page to show updated status
+            router.reload();
         },
-        onError: () => {
+        onError: (errors) => {
+            let errorMessage = "Failed to approve claim";
+            if (errors.message) {
+                errorMessage = errors.message;
+            }
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "Failed to approve claim",
+                detail: errorMessage,
                 life: 3000,
             });
             loading.value = false;
@@ -179,8 +186,9 @@ const rejectClaim = () => {
     }
 
     loading.value = true;
-    router.put(route('manage.claim-request.update', props.claim.id), {
-        action: 'reject',
+    
+    // Use the specific travel claim reject route
+    router.put(route('admin.manage.claim-request.reject', props.claim.id), {
         notes: rejectionReason.value
     }, {
         preserveScroll: true,
@@ -188,18 +196,27 @@ const rejectClaim = () => {
             toast.add({
                 severity: "success",
                 summary: "Rejected",
-                detail: "Accommodation claim rejected successfully",
+                detail: "Travel claim rejected successfully",
                 life: 3000,
             });
             showRejectDialog.value = false;
             rejectionReason.value = '';
             loading.value = false;
+            
+            // Refresh the page to show updated status
+            router.reload();
         },
-        onError: () => {
+        onError: (errors) => {
+            let errorMessage = "Failed to reject claim";
+            if (errors.message) {
+                errorMessage = errors.message;
+            } else if (errors.notes) {
+                errorMessage = errors.notes[0];
+            }
             toast.add({
                 severity: "error",
                 summary: "Error",
-                detail: "Failed to reject claim",
+                detail: errorMessage,
                 life: 3000,
             });
             loading.value = false;
