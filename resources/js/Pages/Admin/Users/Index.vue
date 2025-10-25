@@ -848,11 +848,12 @@ const isFormValid = computed(() => {
 
                             <Column field="office_location" header="Location" sortable style="min-width: 120px;">
                                 <template #body="slotProps">
-                                    <Badge v-if="slotProps.data.office_location" 
-                                        :value="slotProps.data.office_location" 
-                                        severity="info" 
-                                        class="text-xs" />
-                                    <Badge v-else value="—" severity="secondary" class="text-xs" />
+                                    <span v-if="slotProps.data.office_location" 
+                                          class="inline-block px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-md truncate max-w-full"
+                                          :title="slotProps.data.office_location">
+                                        {{ slotProps.data.office_location }}
+                                    </span>
+                                    <span v-else class="text-gray-400 text-xs">—</span>
                                 </template>
                             </Column>
 

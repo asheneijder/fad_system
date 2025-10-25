@@ -34,13 +34,13 @@ class DailyAllowance extends Model implements HasMedia
         'approver_id',
         'approval_date',
         'rejection_reason',
-        'submitted_at',
+        'updated_at',
     ];
 
     protected $casts = [
         'claim_date' => 'date',
         'approval_date' => 'datetime',
-        'submitted_at' => 'datetime',
+        'updated_at' => 'datetime',
         'daily_rate' => 'decimal:2',
         'claim_percentage' => 'decimal:2',
         'claim_amount' => 'decimal:2',

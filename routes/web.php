@@ -181,6 +181,12 @@ Route::group([
 
     Route::resource('manage/claim-request', ManageClaimRequestController::class);
     Route::post('/manage/claim-request/bulk-action', [ManageClaimRequestController::class, 'bulkAction'])->name('manage.claim-request.bulk-action');
+
+    // Separate show routes for each claim type
+    Route::get('/manage/claim-request/travel/{id}', [ManageClaimRequestController::class, 'showTravel'])->name('manage.claim-request.travel.show');
+    Route::get('/manage/claim-request/daily/{id}', [ManageClaimRequestController::class, 'showDaily'])->name('manage.claim-request.daily.show');
+    Route::get('/manage/claim-request/accommodation/{id}', [ManageClaimRequestController::class, 'showAccommodation'])->name('manage.claim-request.accommodation.show');
+    Route::get('/manage/claim-request/transportation/{id}', [ManageClaimRequestController::class, 'showTransportation'])->name('manage.claim-request.transportation.show');
 });
 
 Route::group([
