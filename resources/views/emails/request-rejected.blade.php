@@ -17,7 +17,7 @@ Your stationary request has been reviewed and we're unable to approve it at this
 | Item | Quantity | Unit Price |
 | :--- | :------- | :--------- |
 @foreach($requestItem->items as $item)
-| {{ $item->stationaryItem->name }} | {{ $item->quantity }} {{ $item->stationaryItem->unit }} | ${{ number_format($item->unit_price, 2) }} |
+| {{ $item->stationaryItem->name }} | {{ $item->quantity }} {{ $item->stationaryItem->unit }} | RM{{ number_format($item->unit_price, 2) }} |
 @endforeach
 </x-mail::table>
 

@@ -62,7 +62,11 @@ class ManageClaimRequestController extends Controller
             'claimTypes' => $claimTypes,
             'statusOptions' => $statusOptions,
             'typeOptions' => $typeOptions,
-            'userRole' => $user->hasRole('system-admin') ? 'system-admin' : 'approver',
+            'userRole' => match (true) {
+                $user->hasRole('system-admin') => 'system-admin',
+                $user->hasRole('fad-approver') => 'fad-approver',
+                default => 'approver'
+            },
         ]);
     }
 
@@ -110,7 +114,7 @@ class ManageClaimRequestController extends Controller
 
         $query = TravelClaim::with(['user', 'approver']);
 
-        if (! $user->hasRole('system-admin')) {
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver')) {
             $query->where('approver_id', $user->id);
         }
 
@@ -143,7 +147,7 @@ class ManageClaimRequestController extends Controller
 
         $query = DailyAllowance::with(['user', 'approver']);
 
-        if (! $user->hasRole('system-admin')) {
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver')) {
             $query->where('approver_id', $user->id);
         }
 
@@ -176,7 +180,7 @@ class ManageClaimRequestController extends Controller
 
         $query = AccommodationClaim::with(['user', 'approver']);
 
-        if (! $user->hasRole('system-admin')) {
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver')) {
             $query->where('approver_id', $user->id);
         }
 
@@ -209,7 +213,7 @@ class ManageClaimRequestController extends Controller
 
         $query = TransportationClaim::with(['user', 'approver']);
 
-        if (! $user->hasRole('system-admin')) {
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver')) {
             $query->where('approver_id', $user->id);
         }
 
@@ -342,7 +346,7 @@ class ManageClaimRequestController extends Controller
         $accommodationQuery = AccommodationClaim::query();
         $transportationQuery = TransportationClaim::query();
 
-        if (! $user->hasRole('system-admin')) {
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver')) {
             $travelQuery->where('approver_id', $user->id);
             $dailyQuery->where('approver_id', $user->id);
             $accommodationQuery->where('approver_id', $user->id);
@@ -403,7 +407,7 @@ class ManageClaimRequestController extends Controller
         $accommodationQuery = AccommodationClaim::query();
         $transportationQuery = TransportationClaim::query();
 
-        if (! $user->hasRole('system-admin')) {
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver')) {
             $travelQuery->where('approver_id', $user->id);
             $dailyQuery->where('approver_id', $user->id);
             $accommodationQuery->where('approver_id', $user->id);
@@ -496,8 +500,8 @@ class ManageClaimRequestController extends Controller
             abort(404, 'Travel claim not found.');
         }
 
-        // Authorization
-        if (! $user->hasRole('system-admin') && $claim->approver_id !== $user->id) {
+        // Authorization - Allow system-admin and fad-approver to view any claim
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
             abort(403, 'You are not authorized to view this claim.');
         }
 
@@ -505,7 +509,7 @@ class ManageClaimRequestController extends Controller
 
         return Inertia::render('Admin/ManageClaimRequest/TravelShow', [
             'claim' => $claimData,
-            'userRole' => $user->hasRole('system-admin') ? 'system-admin' : 'approver',
+            'userRole' => $user->hasRole('system-admin') ? 'system-admin' : ($user->hasRole('fad-approver') ? 'fad-approver' : 'approver'),
         ]);
     }
 
@@ -522,7 +526,7 @@ class ManageClaimRequestController extends Controller
         }
 
         // Authorization
-        if (! $user->hasRole('system-admin') && $claim->approver_id !== $user->id) {
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
             abort(403, 'You are not authorized to view this claim.');
         }
 
@@ -530,7 +534,7 @@ class ManageClaimRequestController extends Controller
 
         return Inertia::render('Admin/ManageClaimRequest/DailyShow', [
             'claim' => $claimData,
-            'userRole' => $user->hasRole('system-admin') ? 'system-admin' : 'approver',
+            'userRole' => $user->hasRole('system-admin') ? 'system-admin' : ($user->hasRole('fad-approver') ? 'fad-approver' : 'approver'),
         ]);
     }
 
@@ -547,7 +551,7 @@ class ManageClaimRequestController extends Controller
         }
 
         // Authorization
-        if (! $user->hasRole('system-admin') && $claim->approver_id !== $user->id) {
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
             abort(403, 'You are not authorized to view this claim.');
         }
 
@@ -555,7 +559,7 @@ class ManageClaimRequestController extends Controller
 
         return Inertia::render('Admin/ManageClaimRequest/AccommodationShow', [
             'claim' => $claimData,
-            'userRole' => $user->hasRole('system-admin') ? 'system-admin' : 'approver',
+            'userRole' => $user->hasRole('system-admin') ? 'system-admin' : ($user->hasRole('fad-approver') ? 'fad-approver' : 'approver'),
         ]);
     }
 
@@ -572,7 +576,7 @@ class ManageClaimRequestController extends Controller
         }
 
         // Authorization
-        if (! $user->hasRole('system-admin') && $claim->approver_id !== $user->id) {
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
             abort(403, 'You are not authorized to view this claim.');
         }
 
@@ -580,7 +584,7 @@ class ManageClaimRequestController extends Controller
 
         return Inertia::render('Admin/ManageClaimRequest/TransportationShow', [
             'claim' => $claimData,
-            'userRole' => $user->hasRole('system-admin') ? 'system-admin' : 'approver',
+            'userRole' => $user->hasRole('system-admin') ? 'system-admin' : ($user->hasRole('fad-approver') ? 'fad-approver' : 'approver'),
         ]);
     }
 
@@ -867,7 +871,7 @@ class ManageClaimRequestController extends Controller
         }
 
         // Authorization
-        if (! $user->hasRole('system-admin') && $claim->approver_id !== $user->id) {
+        if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
             abort(403, 'You are not authorized to process this claim.');
         }
 
@@ -945,7 +949,7 @@ class ManageClaimRequestController extends Controller
             }
 
             // Authorization check
-            if (! $user->hasRole('system-admin') && $claim->approver_id !== $user->id) {
+            if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
                 $errors[] = "You are not authorized to process claim ID {$claimId}.";
 
                 continue;

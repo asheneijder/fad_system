@@ -16,7 +16,7 @@ A new stationary item request has been submitted and requires your attention.
 | Item | Quantity | Unit Price | Notes |
 | :--- | :------- | :--------- | :---- |
 @foreach ($requestItem->items as $item)
-| {{ $item->stationaryItem->name }} | {{ $item->quantity }} {{ $item->stationaryItem->unit }} | ${{ number_format($item->unit_price, 2) }} | {{ $item->notes ?? 'N/A' }} |
+| {{ $item->stationaryItem->name }} | {{ $item->quantity }} {{ $item->stationaryItem->unit }} | RM{{ number_format($item->unit_price, 2) }} | {{ $item->notes ?? 'N/A' }} |
 @endforeach
 </x-mail::table>
 
