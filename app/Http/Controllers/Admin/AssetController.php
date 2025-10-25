@@ -1,7 +1,5 @@
 <?php
 
-// app/Http/Controllers/Admin/AssetController.php
-
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -29,13 +27,15 @@ class AssetController extends Controller
         $search = $request->query('search');
         $status = $request->query('status');
         $category = $request->query('category');
+        $location = $request->query('location');
+        $perPage = $request->query('per_page', 10); // Default to 10 items per page
 
-        $assets = $this->asset->with(['model.category', 'user', 'currentAssignment'])
+        $assets = $this->asset->with(['model', 'category', 'user', 'currentAssignment'])
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('asset_tag', 'like', "%{$search}%")
-                        ->orWhere('serial_number', 'like', "%{$search}%")
+                    $q->where('asset_name', 'like', "%{$search}%")
+                        ->orWhere('asset_tag_no', 'like', "%{$search}%")
+                        ->orWhere('serial_no', 'like', "%{$search}%")
                         ->orWhereHas('model', function ($q) use ($search) {
                             $q->where('name', 'like', "%{$search}%")
                                 ->orWhere('brand', 'like', "%{$search}%");
@@ -46,73 +46,87 @@ class AssetController extends Controller
                         });
                 });
             })
-            ->when($status && $status !== 'all', function ($query) use ($status) {
+            ->when($status && $status !== '', function ($query) use ($status) {
                 $query->where('status', $status);
             })
-            ->when($category && $category !== 'all', function ($query) use ($category) {
-                $query->whereHas('model.category', function ($q) use ($category) {
-                    $q->where('id', $category);
-                });
+            ->when($category && $category !== '', function ($query) use ($category) {
+                $query->where('category_type_id', $category);
+            })
+            ->when($location && $location !== '', function ($query) use ($location) {
+                $query->where('location', 'like', "%{$location}%");
             })
             ->orderBy('created_at', 'desc')
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString();
 
-        $categories = Category::where('type', 'product')->get();
+        $categories = Category::where('status', true)->get();
         $users = $this->user->where('status', true)->get(['id', 'name', 'email']);
-        $models = $this->modelType->with('category')->where('status', true)->get();
+        $models = $this->modelType->where('status', true)->get();
+        $locations = $this->asset->distinct()->pluck('location')->filter();
 
         $statistics = [
             'total' => $this->asset->count(),
+            'active' => $this->asset->active()->count(),
             'available' => $this->asset->available()->count(),
             'assigned' => $this->asset->assigned()->count(),
             'maintenance' => $this->asset->maintenance()->count(),
             'retired' => $this->asset->retired()->count(),
-            'with_warranty' => $this->asset->withWarranty()->count(),
+            'total_value' => $this->asset->sum('current_value'),
+            'needs_sighting' => $this->asset->needsSighting()->count(),
         ];
 
         return Inertia::render('Admin/Assets/Index', [
             'assets' => $assets,
-            'filters' => $request->only(['search', 'status', 'category']),
+            'filters' => $request->only(['search', 'status', 'category', 'location']),
             'categories' => $categories,
             'users' => $users,
             'models' => $models,
+            'locations' => $locations,
             'statistics' => $statistics,
         ]);
     }
 
-    // Remove create method since we're using modals
-    // public function create()
-    // {
-    //     $models = $this->modelType->with('category')->where('status', true)->get();
-    //     $categories = Category::where('type', 'product')->get();
-    //
-    //     return Inertia::render('Admin/Assets/Create', [
-    //         'models' => $models,
-    //         'categories' => $categories,
-    //     ]);
-    // }
-
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'asset_tag' => 'required|string|max:100|unique:assets,asset_tag',
-            'serial_number' => 'nullable|string|max:100|unique:assets,serial_number',
-            'model_id' => 'required|exists:model_types,id',
-            'status' => 'required|in:available,assigned,maintenance,retired',
+            'asset_name' => 'required|string|max:255',
+            'asset_tag_no' => 'required|string|max:100|unique:assets,asset_tag_no',
+            'serial_no' => 'nullable|string|max:100|unique:assets,serial_no',
+            'model_type_id' => 'required|exists:model_types,id',
+            'category_type_id' => 'required|exists:categories,id',
+            'status' => 'required|in:active,available,assigned,maintenance,retired',
+            'qty' => 'required|integer|min:1',
+            'location' => 'required|string|max:255',
+            'location_2' => 'nullable|string|max:255',
             'purchase_date' => 'nullable|date',
             'purchase_cost' => 'nullable|numeric|min:0',
-            'warranty_months' => 'nullable|integer|min:0',
+            'current_value' => 'nullable|numeric|min:0',
+            'estimated_life' => 'nullable|integer|min:0',
+            'estimated_life_days' => 'nullable|integer|min:0',
+            'fully_depreciated_date' => 'nullable|date|after_or_equal:purchase_date',
+            'depreciation_cost' => 'nullable|numeric|min:0',
+            'last_sighting_date' => 'nullable|date|before_or_equal:today',
             'notes' => 'nullable|string',
             'image' => 'nullable|string|max:500',
-            'location' => 'nullable|string|max:255',
         ]);
 
         try {
             DB::beginTransaction();
 
-            $asset = $this->asset->create($validated);
+            $asset = new Asset($validated);
+            $asset->updated_by = Auth::id();
+
+            // Calculate initial values if not provided
+            if ($asset->purchase_cost && ! $asset->current_value) {
+                $asset->current_value = $asset->purchase_cost;
+            }
+
+            // Auto-calculate estimated_life_days if not provided but estimated_life is
+            if ($asset->estimated_life && ! $asset->estimated_life_days) {
+                $asset->estimated_life_days = $asset->estimated_life * 365;
+            }
+
+            $asset->save();
 
             activity()
                 ->causedBy(Auth::user())
@@ -135,11 +149,13 @@ class AssetController extends Controller
     public function show(Asset $asset)
     {
         $asset->load([
-            'model.category',
+            'model',
+            'category',
             'user',
+            'updatedBy',
             'assignments.user',
             'assignments.assignedBy',
-            // 'maintenanceRecords', // Remove this line to fix the error
+            'maintenanceRecords',
         ]);
 
         return Inertia::render('Admin/Assets/Show', [
@@ -147,49 +163,52 @@ class AssetController extends Controller
         ]);
     }
 
-    // Remove edit method since we're using modals
-    // public function edit(Asset $asset)
-    // {
-    //     $models = $this->modelType->with('category')->where('status', true)->get();
-    //     $categories = Category::where('type', 'product')->get();
-    //     $users = $this->user->where('status', true)->get(['id', 'name', 'email']);
-    //
-    //     $asset->load(['model', 'user']);
-    //
-    //     return Inertia::render('Admin/Assets/Edit', [
-    //         'asset' => $asset,
-    //         'models' => $models,
-    //         'categories' => $categories,
-    //         'users' => $users,
-    //     ]);
-    // }
-
     public function update(Request $request, Asset $asset)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'asset_tag' => 'required|string|max:100|unique:assets,asset_tag,'.$asset->id,
-            'serial_number' => 'nullable|string|max:100|unique:assets,serial_number,'.$asset->id,
-            'model_id' => 'required|exists:model_types,id',
-            'status' => 'required|in:available,assigned,maintenance,retired',
+            'asset_name' => 'required|string|max:255',
+            'asset_tag_no' => 'required|string|max:100|unique:assets,asset_tag_no,'.$asset->id,
+            'serial_no' => 'nullable|string|max:100|unique:assets,serial_no,'.$asset->id,
+            'model_type_id' => 'required|exists:model_types,id',
+            'category_type_id' => 'required|exists:categories,id',
+            'status' => 'required|in:active,available,assigned,maintenance,retired',
+            'qty' => 'required|integer|min:1',
+            'location' => 'required|string|max:255',
+            'location_2' => 'nullable|string|max:255',
             'purchase_date' => 'nullable|date',
             'purchase_cost' => 'nullable|numeric|min:0',
-            'warranty_months' => 'nullable|integer|min:0',
+            'current_value' => 'nullable|numeric|min:0',
+            'estimated_life' => 'nullable|integer|min:0',
+            'estimated_life_days' => 'nullable|integer|min:0',
+            'fully_depreciated_date' => 'nullable|date|after_or_equal:purchase_date',
+            'depreciation_cost' => 'nullable|numeric|min:0',
+            'last_sighting_date' => 'nullable|date|before_or_equal:today',
+            'assigned_to' => 'nullable|exists:users,id',
             'notes' => 'nullable|string',
             'image' => 'nullable|string|max:500',
-            'location' => 'nullable|string|max:255',
-            'assigned_to' => 'nullable|exists:users,id',
         ]);
 
         try {
             DB::beginTransaction();
 
             $oldStatus = $asset->status;
-            $asset->update($validated);
+            $asset->fill($validated);
+            $asset->updated_by = Auth::id();
+
+            // Auto-calculate estimated_life_days if not provided but estimated_life is
+            if ($asset->estimated_life && ! $asset->estimated_life_days) {
+                $asset->estimated_life_days = $asset->estimated_life * 365;
+            }
+
+            $asset->save();
 
             // Handle status change from assigned to available
             if ($oldStatus === 'assigned' && $validated['status'] === 'available') {
-                $asset->update(['assigned_to' => null, 'assigned_at' => null]);
+                $asset->update([
+                    'assigned_to' => null,
+                    'assigned_at' => null,
+                    'updated_by' => Auth::id(),
+                ]);
 
                 // Mark current assignment as returned
                 $assignment = $asset->assignments()->active()->first();
@@ -229,7 +248,7 @@ class AssetController extends Controller
                     ->with('error', 'Cannot delete asset with active assignments.');
             }
 
-            $assetName = $asset->name;
+            $assetName = $asset->asset_name;
             $asset->delete();
 
             activity()
@@ -252,17 +271,24 @@ class AssetController extends Controller
     public function updateStatus(Request $request, Asset $asset)
     {
         $validated = $request->validate([
-            'status' => 'required|in:available,assigned,maintenance,retired',
+            'status' => 'required|in:active,available,assigned,maintenance,retired',
         ]);
 
         try {
             DB::beginTransaction();
 
             $oldStatus = $asset->status;
-            $asset->update($validated);
+            $asset->update([
+                'status' => $validated['status'],
+                'updated_by' => Auth::id(),
+            ]);
 
             if ($oldStatus === 'assigned' && $validated['status'] === 'available') {
-                $asset->update(['assigned_to' => null, 'assigned_at' => null]);
+                $asset->update([
+                    'assigned_to' => null,
+                    'assigned_at' => null,
+                    'updated_by' => Auth::id(),
+                ]);
 
                 $assignment = $asset->assignments()->active()->first();
                 if ($assignment) {
@@ -292,6 +318,45 @@ class AssetController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update asset status: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function updateSighting(Request $request, Asset $asset)
+    {
+        $validated = $request->validate([
+            'last_sighting_date' => 'required|date|before_or_equal:today',
+            'notes' => 'nullable|string',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $asset->update([
+                'last_sighting_date' => $validated['last_sighting_date'],
+                'updated_by' => Auth::id(),
+                'notes' => $asset->notes.($validated['notes'] ? "\nSighting: ".$validated['notes'] : ''),
+            ]);
+
+            activity()
+                ->causedBy(Auth::user())
+                ->performedOn($asset)
+                ->log('updated asset sighting');
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Asset sighting updated successfully.',
+                'asset' => $asset->fresh(),
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update asset sighting: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -409,73 +474,9 @@ class AssetController extends Controller
             ->paginate(10);
 
         return Inertia::render('Admin/Assets/AssignmentHistory', [
-            'asset' => $asset->load(['model', 'user']),
+            'asset' => $asset->load(['model', 'category']),
             'assignments' => $assignments,
         ]);
-    }
-
-    public function exportAssignmentHistory(Asset $asset)
-    {
-        $assignments = $asset->assignments()
-            ->with(['user', 'assignedBy'])
-            ->orderBy('assigned_at', 'desc')
-            ->get();
-
-        $filename = 'assignment_history_'.$asset->asset_tag.'_'.now()->format('Y-m-d').'.csv';
-
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-        ];
-
-        $callback = function () use ($assignments, $asset) {
-            $file = fopen('php://output', 'w');
-
-            // Add headers
-            fputcsv($file, [
-                'Asset Name',
-                'Asset Tag',
-                'Assigned To',
-                'User Email',
-                'Assigned By',
-                'Assignment Date',
-                'Return Date',
-                'Status',
-                'Duration (Days)',
-                'Condition Assigned',
-                'Condition Returned',
-                'Notes',
-            ]);
-
-            // Add data
-            foreach ($assignments as $assignment) {
-                $duration = '—';
-                if ($assignment->assigned_at) {
-                    $startDate = new \Carbon\Carbon($assignment->assigned_at);
-                    $endDate = $assignment->returned_at ? new \Carbon\Carbon($assignment->returned_at) : now();
-                    $duration = $startDate->diffInDays($endDate);
-                }
-
-                fputcsv($file, [
-                    $asset->name,
-                    $asset->asset_tag,
-                    $assignment->user?->name ?? 'Unknown User',
-                    $assignment->user?->email ?? '—',
-                    $assignment->assignedBy?->name ?? 'Unknown',
-                    $assignment->assigned_at ? $assignment->assigned_at->format('Y-m-d H:i:s') : '—',
-                    $assignment->returned_at ? $assignment->returned_at->format('Y-m-d H:i:s') : '—',
-                    $assignment->returned_at ? 'Returned' : 'Active',
-                    $duration,
-                    $assignment->condition_assigned ?? '—',
-                    $assignment->condition_returned ?? '—',
-                    $assignment->notes ?? '—',
-                ]);
-            }
-
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
     }
 
     public function bulkAssign(Request $request)
@@ -506,7 +507,7 @@ class AssetController extends Controller
                     );
                     $successCount++;
                 } else {
-                    $failedAssets[] = $asset->name;
+                    $failedAssets[] = $asset->asset_name;
                 }
             }
 
@@ -539,7 +540,7 @@ class AssetController extends Controller
         $validated = $request->validate([
             'asset_ids' => 'required|array|min:1',
             'asset_ids.*' => 'exists:assets,id',
-            'status' => 'required|in:available,assigned,maintenance,retired',
+            'status' => 'required|in:active,available,assigned,maintenance,retired',
         ]);
 
         try {
@@ -551,10 +552,17 @@ class AssetController extends Controller
                 $asset = $this->asset->find($assetId);
                 $oldStatus = $asset->status;
 
-                $asset->update(['status' => $validated['status']]);
+                $asset->update([
+                    'status' => $validated['status'],
+                    'updated_by' => Auth::id(),
+                ]);
 
                 if ($oldStatus === 'assigned' && $validated['status'] === 'available') {
-                    $asset->update(['assigned_to' => null, 'assigned_at' => null]);
+                    $asset->update([
+                        'assigned_to' => null,
+                        'assigned_at' => null,
+                        'updated_by' => Auth::id(),
+                    ]);
 
                     $assignment = $asset->assignments()->active()->first();
                     if ($assignment) {
@@ -590,7 +598,7 @@ class AssetController extends Controller
     {
         $assetIds = $request->input('asset_ids', []);
 
-        $assets = $this->asset->with(['model.category', 'user'])
+        $assets = $this->asset->with(['model', 'category', 'user'])
             ->when(! empty($assetIds), function ($query) use ($assetIds) {
                 $query->whereIn('id', $assetIds);
             })
@@ -614,29 +622,109 @@ class AssetController extends Controller
                 'Model',
                 'Category',
                 'Status',
+                'Quantity',
+                'Location',
+                'Secondary Location',
                 'Assigned To',
                 'Purchase Date',
                 'Purchase Cost',
-                'Warranty Months',
-                'Location',
+                'Current Value',
+                'Depreciation Cost',
+                'Estimated Life (Years)',
+                'Estimated Life (Days)',
+                'Fully Depreciated Date',
+                'Last Sighting Date',
+                'Notes',
                 'Created At',
             ]);
 
             // Add data
             foreach ($assets as $asset) {
                 fputcsv($file, [
-                    $asset->name,
-                    $asset->asset_tag,
-                    $asset->serial_number ?? 'N/A',
+                    $asset->asset_name,
+                    $asset->asset_tag_no,
+                    $asset->serial_no ?? 'N/A',
                     $asset->model ? $asset->model->name : 'N/A',
-                    $asset->model->category->name ?? 'N/A',
+                    $asset->category ? $asset->category->name : 'N/A',
                     $asset->status,
+                    $asset->qty,
+                    $asset->location,
+                    $asset->location_2 ?? 'N/A',
                     $asset->user ? $asset->user->name : 'Not Assigned',
                     $asset->purchase_date ? $asset->purchase_date->format('Y-m-d') : 'N/A',
                     $asset->purchase_cost,
-                    $asset->warranty_months,
-                    $asset->location ?? 'N/A',
+                    $asset->current_value,
+                    $asset->depreciation_cost,
+                    $asset->estimated_life,
+                    $asset->estimated_life_days,
+                    $asset->fully_depreciated_date ? $asset->fully_depreciated_date->format('Y-m-d') : 'N/A',
+                    $asset->last_sighting_date ? $asset->last_sighting_date->format('Y-m-d') : 'N/A',
+                    $asset->notes ?? 'N/A',
                     $asset->created_at->format('Y-m-d H:i:s'),
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function exportAssignmentHistory(Asset $asset)
+    {
+        $assignments = $asset->assignments()
+            ->with(['user', 'assignedBy'])
+            ->orderBy('assigned_at', 'desc')
+            ->get();
+
+        $filename = 'assignment_history_'.$asset->asset_tag_no.'_'.now()->format('Y-m-d').'.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ];
+
+        $callback = function () use ($assignments, $asset) {
+            $file = fopen('php://output', 'w');
+
+            // Add headers
+            fputcsv($file, [
+                'Asset Name',
+                'Asset Tag',
+                'Assigned To',
+                'User Email',
+                'Assigned By',
+                'Assignment Date',
+                'Return Date',
+                'Status',
+                'Duration (Days)',
+                'Condition Assigned',
+                'Condition Returned',
+                'Notes',
+            ]);
+
+            // Add data
+            foreach ($assignments as $assignment) {
+                $duration = '—';
+                if ($assignment->assigned_at) {
+                    $startDate = new \Carbon\Carbon($assignment->assigned_at);
+                    $endDate = $assignment->returned_at ? new \Carbon\Carbon($assignment->returned_at) : now();
+                    $duration = $startDate->diffInDays($endDate);
+                }
+
+                fputcsv($file, [
+                    $asset->asset_name,
+                    $asset->asset_tag_no,
+                    $assignment->user?->name ?? 'Unknown User',
+                    $assignment->user?->email ?? '—',
+                    $assignment->assignedBy?->name ?? 'Unknown',
+                    $assignment->assigned_at ? $assignment->assigned_at->format('Y-m-d H:i:s') : '—',
+                    $assignment->returned_at ? $assignment->returned_at->format('Y-m-d H:i:s') : '—',
+                    $assignment->returned_at ? 'Returned' : 'Active',
+                    $duration,
+                    $assignment->condition_assigned ?? '—',
+                    $assignment->condition_returned ?? '—',
+                    $assignment->notes ?? '—',
                 ]);
             }
 

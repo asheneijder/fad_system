@@ -14,9 +14,9 @@ import Card from "primevue/card";
 import DatePicker from 'primevue/datepicker';
 import InputNumber from 'primevue/inputnumber';
 import Textarea from 'primevue/textarea';
-import Menu from 'primevue/menu';
-import IconField from 'primevue/iconfield';
-import InputIcon from 'primevue/inputicon';
+import Menu from "primevue/menu";
+import IconField from "primevue/iconfield";
+import InputIcon from "primevue/inputicon";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { router, Head, useForm } from "@inertiajs/vue3";
@@ -32,7 +32,7 @@ const props = defineProps({
     },
     filters: {
         type: Object,
-        default: () => ({ search: '', status: '', category: '' })
+        default: () => ({ search: '', status: '', category: '', location: '' })
     },
     categories: {
         type: Array,
@@ -43,6 +43,10 @@ const props = defineProps({
         default: () => []
     },
     models: {
+        type: Array,
+        default: () => []
+    },
+    locations: {
         type: Array,
         default: () => []
     },
@@ -58,12 +62,14 @@ const items = [{ label: 'Asset Management' }];
 const search = ref(props.filters?.search || "");
 const statusFilter = ref(props.filters?.status || "");
 const categoryFilter = ref(props.filters?.category || "");
+const locationFilter = ref(props.filters?.location || "");
 const assets = ref(props.assets);
 const showCreateEditDialog = ref(false);
 const showViewDialog = ref(false);
 const showAssignDialog = ref(false);
 const showBulkAssignDialog = ref(false);
 const showReturnDialog = ref(false);
+const showSightingDialog = ref(false);
 const isEditMode = ref(false);
 const selectedAssetId = ref(null);
 const viewAssetData = ref(null);
@@ -73,17 +79,25 @@ const currentPerPage = ref(props.assets?.per_page || 10);
 
 // Forms
 const assetForm = useForm({
-    name: '',
-    asset_tag: '',
-    serial_number: '',
-    model_id: null,
-    status: 'available',
+    asset_name: '',
+    asset_tag_no: '',
+    serial_no: '',
+    model_type_id: null,
+    category_type_id: null,
+    status: 'active',
+    qty: 1,
+    location: '',
+    location_2: '',
     purchase_date: null,
     purchase_cost: 0,
-    warranty_months: 0,
+    current_value: 0,
+    estimated_life: 0,
+    estimated_life_days: 0,
+    fully_depreciated_date: null,
+    depreciation_cost: 0,
+    last_sighting_date: null,
     notes: '',
     image: '',
-    location: '',
 });
 
 const assignForm = useForm({
@@ -102,7 +116,7 @@ const bulkAssignForm = useForm({
 
 const bulkStatusForm = useForm({
     asset_ids: [],
-    status: 'available',
+    status: 'active',
 });
 
 const returnForm = useForm({
@@ -111,9 +125,16 @@ const returnForm = useForm({
     notes: '',
 });
 
+const sightingForm = useForm({
+    asset_id: null,
+    last_sighting_date: new Date(),
+    notes: '',
+});
+
 // Status options
 const statusOptions = ref([
     { label: 'All Status', value: '' },
+    { label: 'Active', value: 'active' },
     { label: 'Available', value: 'available' },
     { label: 'Assigned', value: 'assigned' },
     { label: 'Maintenance', value: 'maintenance' },
@@ -128,6 +149,14 @@ const categoryOptions = computed(() => {
     ];
 });
 
+// Location options
+const locationOptions = computed(() => {
+    return [
+        { name: 'All Locations', id: '' },
+        ...props.locations.map(loc => ({ name: loc, id: loc }))
+    ];
+});
+
 // Action menu items
 const actionItems = ref([
     {
@@ -139,8 +168,13 @@ const actionItems = ref([
                 command: () => openBulkAssignDialog()
             },
             {
-                label: 'Set Available',
+                label: 'Set Active',
                 icon: 'pi pi-check',
+                command: () => bulkUpdateStatus('active')
+            },
+            {
+                label: 'Set Available',
+                icon: 'pi pi-check-circle',
                 command: () => bulkUpdateStatus('available')
             },
             {
@@ -152,6 +186,11 @@ const actionItems = ref([
                 label: 'Set Retired',
                 icon: 'pi pi-times',
                 command: () => bulkUpdateStatus('retired')
+            },
+            {
+                label: 'Update Sighting',
+                icon: 'pi pi-eye',
+                command: () => openBulkSightingDialog()
             },
             {
                 label: 'Export Selected',
@@ -168,12 +207,13 @@ watch(() => props.assets, (newAssets) => {
     currentPerPage.value = newAssets?.per_page || 10;
 }, { immediate: true });
 
-watch([search, statusFilter, categoryFilter], ([newSearch, newStatus, newCategory], [oldSearch, oldStatus, oldCategory]) => {
-    if (newSearch !== oldSearch || newStatus !== oldStatus || newCategory !== oldCategory) {
+watch([search, statusFilter, categoryFilter, locationFilter], ([newSearch, newStatus, newCategory, newLocation], [oldSearch, oldStatus, oldCategory, oldLocation]) => {
+    if (newSearch !== oldSearch || newStatus !== oldStatus || newCategory !== oldCategory || newLocation !== oldLocation) {
         router.get(route("admin.assets.index"), {
             search: newSearch,
             status: newStatus,
             category: newCategory,
+            location: newLocation,
             page: 1,
             per_page: currentPerPage.value
         }, {
@@ -203,6 +243,10 @@ watch(showReturnDialog, (val) => {
     if (!val) returnForm.reset();
 });
 
+watch(showSightingDialog, (val) => {
+    if (!val) sightingForm.reset();
+});
+
 // Methods
 const onPageChange = (event) => {
     const page = event.page + 1;
@@ -213,6 +257,7 @@ const onPageChange = (event) => {
         search: search.value,
         status: statusFilter.value,
         category: categoryFilter.value,
+        location: locationFilter.value,
         page: page,
         per_page: perPage
     }, {
@@ -231,9 +276,10 @@ const resetForm = () => {
 const openCreateDialog = () => {
     resetForm();
     isEditMode.value = false;
-    assetForm.status = 'available';
+    assetForm.status = 'active';
+    assetForm.qty = 1;
     assetForm.purchase_cost = 0;
-    assetForm.warranty_months = 0;
+    assetForm.current_value = 0;
     showCreateEditDialog.value = true;
 };
 
@@ -241,17 +287,25 @@ const openEditDialog = (asset) => {
     isEditMode.value = true;
     selectedAssetId.value = asset.id;
     
-    assetForm.name = asset.name;
-    assetForm.asset_tag = asset.asset_tag;
-    assetForm.serial_number = asset.serial_number || '';
-    assetForm.model_id = asset.model_id;
+    assetForm.asset_name = asset.asset_name;
+    assetForm.asset_tag_no = asset.asset_tag_no;
+    assetForm.serial_no = asset.serial_no || '';
+    assetForm.model_type_id = asset.model_type_id;
+    assetForm.category_type_id = asset.category_type_id;
     assetForm.status = asset.status;
+    assetForm.qty = asset.qty;
+    assetForm.location = asset.location || '';
+    assetForm.location_2 = asset.location_2 || '';
     assetForm.purchase_date = asset.purchase_date ? new Date(asset.purchase_date) : null;
     assetForm.purchase_cost = asset.purchase_cost || 0;
-    assetForm.warranty_months = asset.warranty_months || 0;
+    assetForm.current_value = asset.current_value || 0;
+    assetForm.estimated_life = asset.estimated_life || 0;
+    assetForm.estimated_life_days = asset.estimated_life_days || 0;
+    assetForm.fully_depreciated_date = asset.fully_depreciated_date ? new Date(asset.fully_depreciated_date) : null;
+    assetForm.depreciation_cost = asset.depreciation_cost || 0;
+    assetForm.last_sighting_date = asset.last_sighting_date ? new Date(asset.last_sighting_date) : null;
     assetForm.notes = asset.notes || '';
     assetForm.image = asset.image || '';
-    assetForm.location = asset.location || '';
     
     showCreateEditDialog.value = true;
 };
@@ -260,6 +314,13 @@ const openReturnDialog = (asset) => {
     returnForm.reset();
     returnForm.asset_id = asset.id;
     showReturnDialog.value = true;
+};
+
+const openSightingDialog = (asset) => {
+    sightingForm.reset();
+    sightingForm.asset_id = asset.id;
+    sightingForm.last_sighting_date = new Date();
+    showSightingDialog.value = true;
 };
 
 const viewAsset = (asset) => {
@@ -289,6 +350,36 @@ const openBulkAssignDialog = () => {
     showBulkAssignDialog.value = true;
 };
 
+const openBulkSightingDialog = () => {
+    if (selectedAssets.value.length === 0) {
+        toast.add({
+            severity: 'warn',
+            summary: 'No Selection',
+            detail: 'Please select assets first',
+            life: 3000
+        });
+        return;
+    }
+    
+    // Update sighting for all selected assets
+    selectedAssets.value.forEach(asset => {
+        router.post(route('admin.assets.update-sighting', asset.id), {
+            last_sighting_date: new Date().toISOString().split('T')[0],
+            notes: 'Bulk sighting update'
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.add({ 
+                    severity: 'success', 
+                    summary: 'Success', 
+                    detail: 'Sighting updated for selected assets', 
+                    life: 3000 
+                });
+            }
+        });
+    });
+};
+
 const saveAsset = () => {
     if (isEditMode.value) {
         assetForm.put(route('admin.assets.update', selectedAssetId.value), {
@@ -299,8 +390,8 @@ const saveAsset = () => {
             },
             onError: (errors) => {
                 let errorMessage = 'Please check all required fields';
-                if (errors.asset_tag) errorMessage = 'Asset tag already exists';
-                else if (errors.serial_number) errorMessage = 'Serial number already exists';
+                if (errors.asset_tag_no) errorMessage = 'Asset tag already exists';
+                else if (errors.serial_no) errorMessage = 'Serial number already exists';
                 toast.add({ severity: 'error', summary: 'Error', detail: errorMessage, life: 3000 });
             }
         });
@@ -313,8 +404,8 @@ const saveAsset = () => {
             },
             onError: (errors) => {
                 let errorMessage = 'Please check all required fields';
-                if (errors.asset_tag) errorMessage = 'Asset tag already exists';
-                else if (errors.serial_number) errorMessage = 'Serial number already exists';
+                if (errors.asset_tag_no) errorMessage = 'Asset tag already exists';
+                else if (errors.serial_no) errorMessage = 'Serial number already exists';
                 toast.add({ severity: 'error', summary: 'Error', detail: errorMessage, life: 3000 });
             }
         });
@@ -348,6 +439,29 @@ const submitBulkAssignment = () => {
         },
         onError: () => {
             toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to assign assets', life: 3000 });
+        }
+    });
+};
+
+const submitSighting = () => {
+    sightingForm.post(route('admin.assets.update-sighting', sightingForm.asset_id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showSightingDialog.value = false;
+            toast.add({ 
+                severity: 'success', 
+                summary: 'Success', 
+                detail: 'Asset sighting updated successfully', 
+                life: 3000 
+            });
+        },
+        onError: () => {
+            toast.add({ 
+                severity: 'error', 
+                summary: 'Error', 
+                detail: 'Failed to update asset sighting', 
+                life: 3000 
+            });
         }
     });
 };
@@ -451,7 +565,13 @@ const exportSelected = () => {
 };
 
 const getStatusSeverity = (status) => {
-    const map = { available: 'success', assigned: 'info', maintenance: 'warning', retired: 'danger' };
+    const map = { 
+        active: 'success', 
+        available: 'success', 
+        assigned: 'info', 
+        maintenance: 'warning', 
+        retired: 'danger' 
+    };
     return map[status] || 'secondary';
 };
 
@@ -468,28 +588,55 @@ const formatDate = (date) => {
 
 const formatCurrency = (amount) => {
     if (!amount) return '—';
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+    return new Intl.NumberFormat('ms-MY', { style: 'currency', currency: 'MYR' }).format(amount);
 };
 
-const daysUntilWarrantyExpiry = (asset) => {
-    if (!asset.purchase_date || !asset.warranty_months) return null;
+const getWarrantyStatus = (asset) => {
+    if (!asset.model?.warranty_period || !asset.purchase_date) {
+        return { text: 'No Warranty', severity: 'secondary' };
+    }
     
     const purchaseDate = new Date(asset.purchase_date);
     const warrantyExpiry = new Date(purchaseDate);
-    warrantyExpiry.setMonth(purchaseDate.getMonth() + asset.warranty_months);
+    warrantyExpiry.setMonth(purchaseDate.getMonth() + asset.model.warranty_period);
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     warrantyExpiry.setHours(0, 0, 0, 0);
     
-    return Math.ceil((warrantyExpiry - today) / (1000 * 60 * 60 * 24));
+    const daysUntilExpiry = Math.ceil((warrantyExpiry - today) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntilExpiry < 0) return { text: 'Expired', severity: 'danger' };
+    if (daysUntilExpiry <= 30) return { text: 'Expiring Soon', severity: 'warning' };
+    return { text: 'Active', severity: 'success' };
 };
 
-const getWarrantyStatus = (asset) => {
-    const days = daysUntilWarrantyExpiry(asset);
-    if (days === null) return { text: 'No Warranty', severity: 'secondary' };
-    if (days < 0) return { text: 'Expired', severity: 'danger' };
-    if (days <= 30) return { text: 'Expiring Soon', severity: 'warning' };
+const getSightingStatus = (asset) => {
+    if (!asset.last_sighting_date) {
+        return { text: 'Never Sighted', severity: 'danger' };
+    }
+    
+    const lastSighting = new Date(asset.last_sighting_date);
+    const today = new Date();
+    const daysSinceSighting = Math.ceil((today - lastSighting) / (1000 * 60 * 60 * 24));
+    
+    if (daysSinceSighting > 365) return { text: 'Overdue', severity: 'danger' };
+    if (daysSinceSighting > 180) return { text: 'Due Soon', severity: 'warning' };
+    return { text: 'Current', severity: 'success' };
+};
+
+const getDepreciationStatus = (asset) => {
+    if (!asset.fully_depreciated_date) {
+        return { text: 'Not Set', severity: 'secondary' };
+    }
+    
+    const fullyDepreciatedDate = new Date(asset.fully_depreciated_date);
+    const today = new Date();
+    
+    if (fullyDepreciatedDate < today) return { text: 'Fully Depreciated', severity: 'info' };
+    
+    const daysUntilDepreciated = Math.ceil((fullyDepreciatedDate - today) / (1000 * 60 * 60 * 24));
+    if (daysUntilDepreciated <= 180) return { text: 'Depreciating Soon', severity: 'warning' };
     return { text: 'Active', severity: 'success' };
 };
 
@@ -547,8 +694,8 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="text-xs font-medium text-gray-500 truncate">Available</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.available || 0 }}</p>
+                                <p class="text-xs font-medium text-gray-500 truncate">Active</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.active || 0 }}</p>
                             </div>
                             <div class="p-2 sm:p-3 bg-green-100 rounded-full flex-shrink-0">
                                 <i class="text-base sm:text-lg md:text-xl text-green-600 pi pi-check-circle"></i>
@@ -603,13 +750,13 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="text-xs font-medium text-gray-500 truncate">With Warranty</p>
+                                <p class="text-xs font-medium text-gray-500 truncate">Total Value</p>
                                 <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
-                                    {{ assets.data.filter(a => a.warranty_months > 0).length }}
+                                    {{ formatCurrency(statistics.total_value) }}
                                 </p>
                             </div>
                             <div class="p-2 sm:p-3 bg-purple-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-purple-600 pi pi-shield"></i>
+                                <i class="text-base sm:text-lg md:text-xl text-purple-600 pi pi-dollar"></i>
                             </div>
                         </div>
                     </template>
@@ -635,6 +782,9 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                                     class="w-full sm:w-36 text-xs sm:text-sm" />
                                 <Select v-model="categoryFilter" :options="categoryOptions" optionLabel="name" 
                                     optionValue="id" placeholder="All Categories" 
+                                    class="w-full sm:w-36 text-xs sm:text-sm" />
+                                <Select v-model="locationFilter" :options="locationOptions" optionLabel="name" 
+                                    optionValue="id" placeholder="All Locations" 
                                     class="w-full sm:w-36 text-xs sm:text-sm" />
                                 <IconField iconPosition="left" class="w-full sm:w-64">
                                     <InputIcon class="pi pi-search" />
@@ -662,7 +812,7 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             :rows="assets.per_page" :totalRecords="assets.total"
                             :first="(assets.current_page - 1) * assets.per_page" @page="onPageChange"
                             v-model:selection="selectedAssets" dataKey="id"
-                            :rowsPerPageOptions="[5, 10, 20, 50]"
+                            :rowsPerPageOptions="[5, 10, 20, 50, 100, 500, 1000, 2000]"
                             paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                             currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
                             responsiveLayout="scroll" class="p-datatable-custom">
@@ -691,26 +841,29 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                                 </template>
                             </Column>
 
-                            <Column field="name" header="Asset Details" sortable style="min-width: 180px;">
+                            <Column field="asset_name" header="Asset Details" sortable style="min-width: 200px;">
                                 <template #body="slotProps">
-                                    <div class="font-semibold text-gray-900 text-xs sm:text-sm break-words">{{ slotProps.data.name }}</div>
+                                    <div class="font-semibold text-gray-900 text-xs sm:text-sm break-words">{{ slotProps.data.asset_name }}</div>
                                     <div class="text-xs text-gray-500 truncate">
-                                        {{ slotProps.data.asset_tag }} • {{ slotProps.data.model?.brand }} {{ slotProps.data.model?.name }}
+                                        {{ slotProps.data.asset_tag_no }} • {{ slotProps.data.model?.brand }} {{ slotProps.data.model?.name }}
+                                    </div>
+                                    <div class="text-xs text-gray-400 mt-1">
+                                        Qty: {{ slotProps.data.qty }}
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column header="Category" sortable style="min-width: 100px;">
+                            <Column header="Category" sortable style="min-width: 120px;">
                                 <template #body="slotProps">
                                     <div class="text-xs sm:text-sm font-medium text-gray-900">
-                                        {{ slotProps.data.model?.category?.name || '—' }}
+                                        {{ slotProps.data.category?.name || '—' }}
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column field="serial_number" header="Serial No" sortable style="min-width: 110px;">
+                            <Column field="serial_no" header="Serial No" sortable style="min-width: 120px;">
                                 <template #body="slotProps">
-                                    <Badge v-if="slotProps.data.serial_number" :value="slotProps.data.serial_number.substring(0, 10)" 
+                                    <Badge v-if="slotProps.data.serial_no" :value="slotProps.data.serial_no.substring(0, 10)" 
                                         severity="info" class="text-xs" />
                                     <Badge v-else value="—" severity="secondary" class="text-xs" />
                                 </template>
@@ -724,6 +877,15 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                                 </template>
                             </Column>
 
+                            <Column header="Location" sortable style="min-width: 120px;">
+                                <template #body="slotProps">
+                                    <div class="text-xs">
+                                        <div class="font-medium text-gray-900 truncate">{{ slotProps.data.location }}</div>
+                                        <div v-if="slotProps.data.location_2" class="text-gray-500 truncate">{{ slotProps.data.location_2 }}</div>
+                                    </div>
+                                </template>
+                            </Column>
+
                             <Column header="Assigned To" sortable style="min-width: 130px;">
                                 <template #body="slotProps">
                                     <div v-if="slotProps.data.user" class="text-xs">
@@ -731,6 +893,15 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                                         <div class="text-gray-500">{{ formatDate(slotProps.data.assigned_at) }}</div>
                                     </div>
                                     <Badge v-else value="Not Assigned" severity="secondary" class="text-xs" />
+                                </template>
+                            </Column>
+
+                            <Column header="Value" sortable style="min-width: 100px;">
+                                <template #body="slotProps">
+                                    <div class="text-xs">
+                                        <div class="font-medium text-gray-900">{{ formatCurrency(slotProps.data.current_value) }}</div>
+                                        <div class="text-gray-500 text-xs">Cost: {{ formatCurrency(slotProps.data.purchase_cost) }}</div>
+                                    </div>
                                 </template>
                             </Column>
 
@@ -742,8 +913,16 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                                 </template>
                             </Column>
 
+                            <Column header="Sighting" sortable style="min-width: 100px;">
+                                <template #body="slotProps">
+                                    <Badge :value="getSightingStatus(slotProps.data).text"
+                                        :severity="getSightingStatus(slotProps.data).severity"
+                                        class="text-xs" />
+                                </template>
+                            </Column>
+
                             <!-- Actions -->
-                            <Column header="Actions" style="min-width: 180px">
+                            <Column header="Actions" style="min-width: 200px">
                                 <template #body="slotProps">
                                     <div class="flex gap-1 flex-wrap">
                                         <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
@@ -755,7 +934,12 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                                             @click="viewAssignmentHistory(slotProps.data)" 
                                             class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
-                                        <Button v-if="slotProps.data.status === 'available'" 
+                                        <Button icon="pi pi-eye" outlined rounded severity="success" size="small"
+                                            v-tooltip.top="'Sighting'" 
+                                            @click="openSightingDialog(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
+
+                                        <Button v-if="slotProps.data.status === 'available' || slotProps.data.status === 'active'" 
                                             icon="pi pi-user-plus" outlined rounded severity="success" size="small"
                                             v-tooltip.top="'Assign'" 
                                             @click="openAssignDialog(slotProps.data)" 
@@ -792,7 +976,7 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
             <!-- Create/Edit Asset Dialog -->
             <Dialog v-model:visible="showCreateEditDialog" modal 
                 :header="isEditMode ? 'Edit Asset' : 'Create New Asset'" 
-                :style="{ width: '95vw', maxWidth: '750px' }"
+                :style="{ width: '95vw', maxWidth: '800px' }"
                 :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
                 
                 <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
@@ -802,12 +986,12 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Asset Name <span class="text-red-500">*</span>
                             </label>
-                            <InputText v-model="assetForm.name" 
+                            <InputText v-model="assetForm.asset_name" 
                                 placeholder="Enter asset name" 
                                 class="w-full text-xs sm:text-sm"
-                                :class="{ 'p-invalid': assetForm.errors.name }" />
-                            <small class="text-red-500 text-xs" v-if="assetForm.errors.name">
-                                {{ assetForm.errors.name }}
+                                :class="{ 'p-invalid': assetForm.errors.asset_name }" />
+                            <small class="text-red-500 text-xs" v-if="assetForm.errors.asset_name">
+                                {{ assetForm.errors.asset_name }}
                             </small>
                         </div>
 
@@ -816,24 +1000,24 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Asset Tag <span class="text-red-500">*</span>
                             </label>
-                            <InputText v-model="assetForm.asset_tag" 
+                            <InputText v-model="assetForm.asset_tag_no" 
                                 placeholder="Enter asset tag" 
                                 class="w-full text-xs sm:text-sm"
-                                :class="{ 'p-invalid': assetForm.errors.asset_tag }" />
-                            <small class="text-red-500 text-xs" v-if="assetForm.errors.asset_tag">
-                                {{ assetForm.errors.asset_tag }}
+                                :class="{ 'p-invalid': assetForm.errors.asset_tag_no }" />
+                            <small class="text-red-500 text-xs" v-if="assetForm.errors.asset_tag_no">
+                                {{ assetForm.errors.asset_tag_no }}
                             </small>
                         </div>
 
                         <!-- Serial Number -->
                         <div class="space-y-1 sm:space-y-2">
                             <label class="block text-xs sm:text-sm font-semibold text-gray-700">Serial Number</label>
-                            <InputText v-model="assetForm.serial_number" 
+                            <InputText v-model="assetForm.serial_no" 
                                 placeholder="Enter serial number" 
                                 class="w-full text-xs sm:text-sm"
-                                :class="{ 'p-invalid': assetForm.errors.serial_number }" />
-                            <small class="text-red-500 text-xs" v-if="assetForm.errors.serial_number">
-                                {{ assetForm.errors.serial_number }}
+                                :class="{ 'p-invalid': assetForm.errors.serial_no }" />
+                            <small class="text-red-500 text-xs" v-if="assetForm.errors.serial_no">
+                                {{ assetForm.errors.serial_no }}
                             </small>
                         </div>
 
@@ -842,11 +1026,24 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Model <span class="text-red-500">*</span>
                             </label>
-                            <Select v-model="assetForm.model_id" :options="models" optionLabel="name" 
+                            <Select v-model="assetForm.model_type_id" :options="models" optionLabel="name" 
                                 optionValue="id" placeholder="Select model" class="w-full text-xs sm:text-sm"
-                                :class="{ 'p-invalid': assetForm.errors.model_id }" />
-                            <small class="text-red-500 text-xs" v-if="assetForm.errors.model_id">
-                                {{ assetForm.errors.model_id }}
+                                :class="{ 'p-invalid': assetForm.errors.model_type_id }" />
+                            <small class="text-red-500 text-xs" v-if="assetForm.errors.model_type_id">
+                                {{ assetForm.errors.model_type_id }}
+                            </small>
+                        </div>
+
+                        <!-- Category -->
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
+                                Category <span class="text-red-500">*</span>
+                            </label>
+                            <Select v-model="assetForm.category_type_id" :options="categories" optionLabel="name" 
+                                optionValue="id" placeholder="Select category" class="w-full text-xs sm:text-sm"
+                                :class="{ 'p-invalid': assetForm.errors.category_type_id }" />
+                            <small class="text-red-500 text-xs" v-if="assetForm.errors.category_type_id">
+                                {{ assetForm.errors.category_type_id }}
                             </small>
                         </div>
 
@@ -856,6 +1053,7 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                                 Status <span class="text-red-500">*</span>
                             </label>
                             <Select v-model="assetForm.status" :options="[
+                                { label: 'Active', value: 'active' },
                                 { label: 'Available', value: 'available' },
                                 { label: 'Assigned', value: 'assigned' },
                                 { label: 'Maintenance', value: 'maintenance' },
@@ -865,6 +1063,42 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             <small class="text-red-500 text-xs" v-if="assetForm.errors.status">
                                 {{ assetForm.errors.status }}
                             </small>
+                        </div>
+
+                        <!-- Quantity -->
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
+                                Quantity <span class="text-red-500">*</span>
+                            </label>
+                            <InputNumber v-model="assetForm.qty" 
+                                :min="1" 
+                                class="w-full text-xs sm:text-sm"
+                                :class="{ 'p-invalid': assetForm.errors.qty }" />
+                            <small class="text-red-500 text-xs" v-if="assetForm.errors.qty">
+                                {{ assetForm.errors.qty }}
+                            </small>
+                        </div>
+
+                        <!-- Location -->
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
+                                Location <span class="text-red-500">*</span>
+                            </label>
+                            <InputText v-model="assetForm.location" 
+                                placeholder="Enter location" 
+                                class="w-full text-xs sm:text-sm"
+                                :class="{ 'p-invalid': assetForm.errors.location }" />
+                            <small class="text-red-500 text-xs" v-if="assetForm.errors.location">
+                                {{ assetForm.errors.location }}
+                            </small>
+                        </div>
+
+                        <!-- Secondary Location -->
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Secondary Location</label>
+                            <InputText v-model="assetForm.location_2" 
+                                placeholder="Enter secondary location" 
+                                class="w-full text-xs sm:text-sm" />
                         </div>
 
                         <!-- Purchase Date -->
@@ -888,20 +1122,62 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                                 class="w-full text-xs sm:text-sm" />
                         </div>
 
-                        <!-- Warranty Months -->
+                        <!-- Current Value -->
                         <div class="space-y-1 sm:space-y-2">
-                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Warranty (Months)</label>
-                            <InputNumber v-model="assetForm.warranty_months" 
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Current Value</label>
+                            <InputNumber v-model="assetForm.current_value" 
+                                :min="0" 
+                                mode="currency" 
+                                currency="USD" 
+                                locale="en-US"
+                                class="w-full text-xs sm:text-sm" />
+                        </div>
+
+                        <!-- Estimated Life (Years) -->
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Estimated Life (Years)</label>
+                            <InputNumber v-model="assetForm.estimated_life" 
                                 :min="0" 
                                 class="w-full text-xs sm:text-sm" />
                         </div>
 
-                        <!-- Location -->
+                        <!-- Estimated Life (Days) -->
                         <div class="space-y-1 sm:space-y-2">
-                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Location</label>
-                            <InputText v-model="assetForm.location" 
-                                placeholder="Enter location" 
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Estimated Life (Days)</label>
+                            <InputNumber v-model="assetForm.estimated_life_days" 
+                                :min="0" 
                                 class="w-full text-xs sm:text-sm" />
+                        </div>
+
+                        <!-- Fully Depreciated Date -->
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Fully Depreciated Date</label>
+                            <DatePicker v-model="assetForm.fully_depreciated_date" 
+                                dateFormat="yy-mm-dd" 
+                                placeholder="Select date"
+                                class="w-full text-xs sm:text-sm"
+                                showIcon />
+                        </div>
+
+                        <!-- Depreciation Cost -->
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Depreciation Cost</label>
+                            <InputNumber v-model="assetForm.depreciation_cost" 
+                                :min="0" 
+                                mode="currency" 
+                                currency="USD" 
+                                locale="en-US"
+                                class="w-full text-xs sm:text-sm" />
+                        </div>
+
+                        <!-- Last Sighting Date -->
+                        <div class="space-y-1 sm:space-y-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Last Sighting Date</label>
+                            <DatePicker v-model="assetForm.last_sighting_date" 
+                                dateFormat="yy-mm-dd" 
+                                placeholder="Select date"
+                                class="w-full text-xs sm:text-sm"
+                                showIcon />
                         </div>
 
                         <!-- Image URL -->
@@ -948,16 +1224,16 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
                             <p class="text-xs sm:text-sm font-medium text-gray-500">Asset Name</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900 break-words">{{ viewAssetData.name }}</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900 break-words">{{ viewAssetData.asset_name }}</p>
                         </div>
                         <div>
                             <p class="text-xs sm:text-sm font-medium text-gray-500">Asset Tag</p>
-                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.asset_tag }}</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.asset_tag_no }}</p>
                         </div>
                         <div>
                             <p class="text-xs sm:text-sm font-medium text-gray-500">Serial Number</p>
                             <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900 break-all">
-                                {{ viewAssetData.serial_number || '—' }}
+                                {{ viewAssetData.serial_no || '—' }}
                             </p>
                         </div>
                         <div>
@@ -969,7 +1245,7 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                         <div>
                             <p class="text-xs sm:text-sm font-medium text-gray-500">Category</p>
                             <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
-                                {{ viewAssetData.model?.category?.name || '—' }}
+                                {{ viewAssetData.category?.name || '—' }}
                             </p>
                         </div>
                         <div>
@@ -977,6 +1253,15 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             <Badge :value="getStatusText(viewAssetData.status)"
                                 :severity="getStatusSeverity(viewAssetData.status)"
                                 class="mt-1 capitalize text-xs" />
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Quantity</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.qty }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Location</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">{{ viewAssetData.location }}</p>
+                            <p v-if="viewAssetData.location_2" class="text-xs text-gray-500">{{ viewAssetData.location_2 }}</p>
                         </div>
                         <div>
                             <p class="text-xs sm:text-sm font-medium text-gray-500">Assigned To</p>
@@ -1006,10 +1291,25 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                             </p>
                         </div>
                         <div>
-                            <p class="text-xs sm:text-sm font-medium text-gray-500">Location</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Current Value</p>
                             <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
-                                {{ viewAssetData.location || '—' }}
+                                {{ formatCurrency(viewAssetData.current_value) }}
                             </p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Depreciation</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
+                                {{ formatCurrency(viewAssetData.depreciation_cost) }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-medium text-gray-500">Last Sighting</p>
+                            <p class="mt-1 text-xs sm:text-base font-semibold text-gray-900">
+                                {{ formatDate(viewAssetData.last_sighting_date) }}
+                            </p>
+                            <Badge :value="getSightingStatus(viewAssetData).text"
+                                :severity="getSightingStatus(viewAssetData).severity"
+                                class="mt-1 text-xs" />
                         </div>
                         <div>
                             <p class="text-xs sm:text-sm font-medium text-gray-500">Created Date</p>
@@ -1030,7 +1330,7 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                         <Button label="Edit" icon="pi pi-pencil" severity="warning" 
                             @click="showViewDialog = false; openEditDialog(viewAssetData)" 
                             class="w-full sm:w-auto text-xs sm:text-sm" />
-                        <Button v-if="viewAssetData.status === 'available'" 
+                        <Button v-if="viewAssetData.status === 'available' || viewAssetData.status === 'active'" 
                             label="Assign" icon="pi pi-user-plus" severity="success" 
                             @click="showViewDialog = false; openAssignDialog(viewAssetData)" 
                             class="w-full sm:w-auto text-xs sm:text-sm" />
@@ -1042,68 +1342,36 @@ const viewAssignmentHistory = (asset) => router.visit(route('admin.assets.assign
                 </div>
             </Dialog>
 
-           <!-- Alternative using Select with filter -->
-            <Dialog v-model:visible="showAssignDialog" modal header="Assign Asset to User" 
-                :style="{ width: '95vw', maxWidth: '600px' }"
+            <!-- Sighting Dialog -->
+            <Dialog v-model:visible="showSightingDialog" modal header="Update Asset Sighting" 
+                :style="{ width: '95vw', maxWidth: '500px' }"
                 :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
                 
                 <div class="space-y-3 sm:space-y-4 max-h-[80vh] overflow-y-auto">
                     <div class="space-y-1 sm:space-y-2">
                         <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                            User <span class="text-red-500">*</span>
+                            Sighting Date <span class="text-red-500">*</span>
                         </label>
-                        <Select v-model="assignForm.user_id" 
-                            :options="users" 
-                            optionLabel="name" 
-                            optionValue="id" 
-                            placeholder="Select user" 
-                            :filter="true"
-                            filterPlaceholder="Search users..."
-                            :showClear="true"
+                        <DatePicker v-model="sightingForm.last_sighting_date" 
+                            dateFormat="yy-mm-dd" 
                             class="w-full text-xs sm:text-sm"
-                            :class="{ 'p-invalid': assignForm.errors.user_id }">
-                            <template #option="slotProps">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <i class="pi pi-user text-blue-600 text-xs"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="font-medium text-gray-900 truncate">{{ slotProps.option.name }}</div>
-                                        <div class="text-xs text-gray-500 truncate">{{ slotProps.option.email }}</div>
-                                    </div>
-                                </div>
-                            </template>
-                        </Select>
-                        <small class="text-red-500 text-xs" v-if="assignForm.errors.user_id">
-                            {{ assignForm.errors.user_id }}
-                        </small>
+                            showIcon />
                     </div>
 
                     <div class="space-y-1 sm:space-y-2">
-                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Condition Assigned</label>
-                        <InputText v-model="assignForm.condition_assigned" 
-                            placeholder="Describe the condition"
-                            class="w-full text-xs sm:text-sm"
-                            :class="{ 'p-invalid': assignForm.errors.condition_assigned }" />
-                        <small class="text-red-500 text-xs" v-if="assignForm.errors.condition_assigned">
-                            {{ assignForm.errors.condition_assigned }}
-                        </small>
-                    </div>
-
-                    <div class="space-y-1 sm:space-y-2">
-                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Notes</label>
-                        <Textarea v-model="assignForm.notes" 
-                            placeholder="Additional notes (optional)"
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Sighting Notes</label>
+                        <Textarea v-model="sightingForm.notes" 
+                            placeholder="Enter sighting notes..."
                             rows="3"
                             class="w-full text-xs sm:text-sm" />
                     </div>
 
                     <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
-                        <Button label="Cancel" severity="secondary" outlined @click="showAssignDialog = false"
-                            :disabled="assignForm.processing"
+                        <Button label="Cancel" severity="secondary" outlined @click="showSightingDialog = false"
+                            :disabled="sightingForm.processing"
                             class="w-full sm:w-auto text-xs sm:text-sm" />
-                        <Button label="Assign" icon="pi pi-user-plus" severity="success" 
-                            @click="submitAssignment" :loading="assignForm.processing"
+                        <Button label="Update Sighting" icon="pi pi-check" severity="success" 
+                            @click="submitSighting" :loading="sightingForm.processing"
                             class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
