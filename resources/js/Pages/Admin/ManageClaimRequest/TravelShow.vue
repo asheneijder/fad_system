@@ -218,8 +218,10 @@ const rejectClaim = () => {
 
     loading.value = true;
 
-    // Use the specific travel claim reject route
-    router.put(route('admin.manage.claim-request.reject', props.claim.id), {
+    router.put(route('admin.manage.claim-request.reject', {
+        id: props.claim.id,
+        type: 'travel'  // Add this
+    }), {
         notes: rejectionReason.value
     }, {
         preserveScroll: true,
@@ -233,8 +235,6 @@ const rejectClaim = () => {
             showRejectDialog.value = false;
             rejectionReason.value = '';
             loading.value = false;
-
-            // Refresh the page to show updated status
             router.reload();
         },
         onError: (errors) => {

@@ -190,8 +190,10 @@ const rejectClaim = () => {
 
     loading.value = true;
 
-    // Use the specific travel claim reject route
-    router.put(route('admin.manage.claim-request.reject', props.claim.id), {
+    router.put(route('admin.manage.claim-request.reject', {
+        id: props.claim.id,
+        type: 'transportation'  // Add this
+    }), {
         notes: rejectionReason.value
     }, {
         preserveScroll: true,
@@ -199,14 +201,12 @@ const rejectClaim = () => {
             toast.add({
                 severity: "success",
                 summary: "Rejected",
-                detail: "Travel claim rejected successfully",
+                detail: "Transportation claim rejected successfully",  // Fixed message
                 life: 3000,
             });
             showRejectDialog.value = false;
             rejectionReason.value = '';
             loading.value = false;
-
-            // Refresh the page to show updated status
             router.reload();
         },
         onError: (errors) => {

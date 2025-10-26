@@ -212,8 +212,10 @@ const rejectClaim = () => {
 
     loading.value = true;
 
-    // Use the specific travel claim reject route
-    router.put(route('admin.manage.claim-request.reject', props.claim.id), {
+    router.put(route('admin.manage.claim-request.reject', {
+        id: props.claim.id,
+        type: 'daily'  // Add this
+    }), {
         notes: rejectionReason.value
     }, {
         preserveScroll: true,
@@ -221,14 +223,12 @@ const rejectClaim = () => {
             toast.add({
                 severity: "success",
                 summary: "Rejected",
-                detail: "Travel claim rejected successfully",
+                detail: "Daily allowance claim rejected successfully",  // Fixed message
                 life: 3000,
             });
             showRejectDialog.value = false;
             rejectionReason.value = '';
             loading.value = false;
-
-            // Refresh the page to show updated status
             router.reload();
         },
         onError: (errors) => {
@@ -374,7 +374,7 @@ const rejectClaim = () => {
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Claim Date</label>
                                         <p class="text-lg font-semibold text-gray-800">{{ formatDate(claim.claim_date)
-                                        }}</p>
+                                            }}</p>
                                     </div>
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Allowance Type</label>
@@ -485,7 +485,7 @@ const rejectClaim = () => {
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Approver Email</label>
                                         <p class="text-lg font-semibold text-gray-800">{{ claim.approver?.email || '—'
-                                        }}</p>
+                                            }}</p>
                                     </div>
                                 </div>
 
@@ -533,7 +533,7 @@ const rejectClaim = () => {
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Department</label>
                                         <p class="text-lg font-semibold text-gray-800">{{ claim.user?.department || '—'
-                                        }}</p>
+                                            }}</p>
                                     </div>
                                 </div>
 
@@ -647,7 +647,7 @@ const rejectClaim = () => {
                                 <div class="flex justify-between">
                                     <span class="text-sm text-gray-600">Allowance Type:</span>
                                     <span class="text-sm font-medium">{{ getAllowanceTypeDisplay(claim.allowance_type)
-                                    }}</span>
+                                        }}</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-sm text-gray-600">Currency:</span>
@@ -706,7 +706,7 @@ const rejectClaim = () => {
                                 <div class="flex justify-between text-sm">
                                     <span class="text-gray-600">Daily Rate:</span>
                                     <span class="font-medium">{{ formatCurrency(claim.daily_rate, claim.currency)
-                                    }}</span>
+                                        }}</span>
                                 </div>
                                 <div class="flex justify-between text-sm">
                                     <span class="text-gray-600">Percentage:</span>
@@ -715,13 +715,13 @@ const rejectClaim = () => {
                                 <div class="flex justify-between text-sm">
                                     <span class="text-gray-600">Calculation:</span>
                                     <span class="font-medium">{{ claim.daily_rate }} × {{ claim.claim_percentage
-                                    }}%</span>
+                                        }}%</span>
                                 </div>
                                 <hr class="my-1">
                                 <div class="flex justify-between text-sm font-semibold">
                                     <span class="text-gray-800">Claim Amount:</span>
                                     <span class="text-blue-600">{{ formatCurrency(claim.claim_amount, claim.currency)
-                                    }}</span>
+                                        }}</span>
                                 </div>
                             </div>
                         </template>

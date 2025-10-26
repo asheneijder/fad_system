@@ -199,7 +199,7 @@ Route::group([
 
     // Generic approve/reject routes (for all claim types)
     Route::put('/manage/claim-request/{type}/{id}/approve', [ManageClaimRequestController::class, 'approve'])->name('manage.claim-request.approve');
-    Route::put('/manage/claim-request/{id}/reject', [ManageClaimRequestController::class, 'reject'])->name('manage.claim-request.reject');
+    Route::put('/claim-request/{type}/{id}/reject', [ManageClaimRequestController::class, 'reject'])->name('manage.claim-request.reject');
 });
 
 Route::group([

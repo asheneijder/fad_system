@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\SendClaimApprovalNotification;
+use App\Jobs\SendClaimRejectionNotification;
 use App\Models\AccommodationClaim;
 use App\Models\DailyAllowance;
 use App\Models\TransportationClaim;
@@ -1003,126 +1004,6 @@ class ManageClaimRequestController extends Controller
         ]);
     }
 
-    // /**
-    //  * Approve a travel claim
-    //  */
-    // public function approveTravel(Request $request, $id)
-    // {
-    //     $user = Auth::user();
-    //     $claim = TravelClaim::find($id);
-
-    //     if (! $claim) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Travel claim not found.',
-    //         ], 404);
-    //     }
-
-    //     // Authorization
-    //     if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'You are not authorized to approve this claim.',
-    //         ], 403);
-    //     }
-
-    //     try {
-    //         DB::beginTransaction();
-
-    //         $claim->update([
-    //             'status' => 'approved',
-    //             'approver_id' => $user->id,
-    //             'approved_at' => now(),
-    //             'approval_date' => now(),
-    //         ]);
-
-    //         // Log activity
-    //         activity()
-    //             ->causedBy($user)
-    //             ->performedOn($claim)
-    //             ->log('approved travel claim');
-
-    //         DB::commit();
-
-    //         return response()->json([
-    //             'success' => true,
-    //             'message' => 'Travel claim approved successfully.',
-    //             'claim' => $this->transformTravelClaimForShow($claim->fresh(['user', 'approver'])),
-    //         ]);
-
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Failed to approve travel claim: '.$e->getMessage(),
-    //         ], 500);
-    //     }
-    // }
-
-    // /**
-    //  * Reject a travel claim
-    //  */
-    // public function rejectTravel(Request $request, $id)
-    // {
-    //     $user = Auth::user();
-    //     $claim = TravelClaim::find($id);
-
-    //     if (! $claim) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Travel claim not found.',
-    //         ], 404);
-    //     }
-
-    //     // Authorization
-    //     if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'You are not authorized to reject this claim.',
-    //         ], 403);
-    //     }
-
-    //     $validated = $request->validate([
-    //         'notes' => 'required|string|max:500',
-    //     ]);
-
-    //     try {
-    //         DB::beginTransaction();
-
-    //         $claim->update([
-    //             'status' => 'rejected',
-    //             'approver_id' => $user->id,
-    //             'rejection_reason' => $validated['notes'],
-    //             'rejected_at' => now(),
-    //             'approval_date' => now(),
-    //         ]);
-
-    //         // Log activity
-    //         activity()
-    //             ->causedBy($user)
-    //             ->performedOn($claim)
-    //             ->withProperties(['rejection_reason' => $validated['notes']])
-    //             ->log('rejected travel claim');
-
-    //         DB::commit();
-
-    //         return response()->json([
-    //             'success' => true,
-    //             'message' => 'Travel claim rejected successfully.',
-    //             'claim' => $this->transformTravelClaimForShow($claim->fresh(['user', 'approver'])),
-    //         ]);
-
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Failed to reject travel claim: '.$e->getMessage(),
-    //         ], 500);
-    //     }
-    // }
-
     /**
      * Generic approve method for any claim type
      */
@@ -1190,42 +1071,26 @@ class ManageClaimRequestController extends Controller
     /**
      * Generic reject method for any claim type
      */
-    public function reject(Request $request, $id)
+    public function reject(Request $request, $type, $id)
     {
         $user = Auth::user();
 
-        // Try to find the claim in each model
-        $claim = TravelClaim::find($id);
-        $claimType = 'travel';
+        // Now get the claim based on the provided type
+        $claim = match ($type) {
+            'travel' => TravelClaim::find($id),
+            'daily' => DailyAllowance::find($id),
+            'accommodation' => AccommodationClaim::find($id),
+            'transportation' => TransportationClaim::find($id),
+            default => null,
+        };
 
         if (! $claim) {
-            $claim = DailyAllowance::find($id);
-            $claimType = 'daily';
-        }
-
-        if (! $claim) {
-            $claim = AccommodationClaim::find($id);
-            $claimType = 'accommodation';
-        }
-
-        if (! $claim) {
-            $claim = TransportationClaim::find($id);
-            $claimType = 'transportation';
-        }
-
-        if (! $claim) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Claim not found.',
-            ], 404);
+            return back()->with('error', 'Claim not found.');
         }
 
         // Authorization
         if (! $user->hasRole('system-admin') && ! $user->hasRole('fad-approver') && $claim->approver_id !== $user->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to reject this claim.',
-            ], 403);
+            return back()->with('error', 'You are not authorized to reject this claim.');
         }
 
         $validated = $request->validate([
@@ -1235,6 +1100,8 @@ class ManageClaimRequestController extends Controller
         try {
             DB::beginTransaction();
 
+            Log::info("Rejecting claim ID: {$claim->id}, Type: {$type}, Current status: {$claim->status}");
+
             $claim->update([
                 'status' => 'rejected',
                 'approver_id' => $user->id,
@@ -1243,36 +1110,27 @@ class ManageClaimRequestController extends Controller
                 'approval_date' => now(),
             ]);
 
+            Log::info("Claim rejected successfully. New status: {$claim->fresh()->status}");
+
             // Log activity
             activity()
                 ->causedBy($user)
                 ->performedOn($claim)
                 ->withProperties(['rejection_reason' => $validated['notes']])
-                ->log("rejected {$claimType} claim");
+                ->log("rejected {$type} claim");
+
+            // Send rejection notification email via job
+            dispatch(new SendClaimRejectionNotification($claim, $type, $user, $validated['notes']));
 
             DB::commit();
 
-            // Return appropriate transformed data based on claim type
-            $transformedClaim = match ($claimType) {
-                'travel' => $this->transformTravelClaimForShow($claim->fresh(['user', 'approver'])),
-                'daily' => $this->transformDailyClaimForShow($claim->fresh(['user', 'approver'])),
-                'accommodation' => $this->transformAccommodationClaimForShow($claim->fresh(['user', 'approver'])),
-                'transportation' => $this->transformTransportationClaimForShow($claim->fresh(['user', 'approver'])),
-            };
-
-            return response()->json([
-                'success' => true,
-                'message' => ucfirst($claimType).' claim rejected successfully.',
-                'claim' => $transformedClaim,
-            ]);
+            return back()->with('success', ucfirst($type).' claim rejected successfully.');
 
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Rejection failed: '.$e->getMessage());
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to reject claim: '.$e->getMessage(),
-            ], 500);
+            return back()->with('error', 'Failed to reject claim: '.$e->getMessage());
         }
     }
 }
