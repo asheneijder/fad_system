@@ -28,6 +28,15 @@ const selectedAssignment = ref(null);
 const activeAssignment = computed(() => props.assignments.data.find(a => !a.returned_at));
 const returnedAssignments = computed(() => props.assignments.data.filter(a => a.returned_at));
 
+// Add acknowledgment statistics
+const acknowledgedAssignments = computed(() => 
+    props.assignments.data.filter(a => a.acknowledged_at).length
+);
+
+const pendingAcknowledgment = computed(() => 
+    props.assignments.data.filter(a => !a.returned_at && !a.acknowledged_at).length
+);
+
 const averageAssignmentDuration = computed(() => {
     if (returnedAssignments.value.length === 0) return 0;
     
@@ -58,16 +67,16 @@ const assignmentStats = computed(() => [
         valueColor: 'text-green-600'
     },
     {
-        label: 'Completed Assignments',
-        value: returnedAssignments.value.length,
+        label: 'Acknowledged',
+        value: acknowledgedAssignments.value,
         icon: 'pi pi-check-circle',
-        bgColor: 'bg-purple-100',
-        textColor: 'text-purple-600',
-        valueColor: 'text-purple-600'
+        bgColor: 'bg-emerald-100',
+        textColor: 'text-emerald-600',
+        valueColor: 'text-emerald-600'
     },
     {
-        label: 'Average Duration',
-        value: `${averageAssignmentDuration.value} days`,
+        label: 'Pending Acknowledgment',
+        value: pendingAcknowledgment.value,
         icon: 'pi pi-clock',
         bgColor: 'bg-orange-100',
         textColor: 'text-orange-600',
@@ -117,6 +126,26 @@ const getAssignmentStatus = (assignment) => {
 
 const getStatusSeverity = (assignment) => {
     return assignment.returned_at ? 'success' : 'info';
+};
+
+// Add acknowledgment status method
+const getAcknowledgmentStatus = (assignment) => {
+    if (assignment.returned_at) {
+        return assignment.acknowledged_at ? 'Acknowledged' : 'Not Acknowledged';
+    }
+    return assignment.acknowledged_at ? 'Acknowledged' : 'Pending';
+};
+
+const getAcknowledgmentSeverity = (assignment) => {
+    if (assignment.returned_at) {
+        return assignment.acknowledged_at ? 'success' : 'warning';
+    }
+    return assignment.acknowledged_at ? 'success' : 'warning';
+};
+
+const getAcknowledgmentIcon = (assignment) => {
+    if (assignment.acknowledged_at) return 'pi pi-check';
+    return 'pi pi-clock';
 };
 
 const getAssetStatusSeverity = (status) => {
@@ -195,7 +224,7 @@ const visit = (url) => {
                     <p class="mt-1 text-gray-500">
                         Track all assignments for 
                         <span class="font-semibold text-blue-600">{{ asset.name }}</span>
-                        ({{ asset.asset_tag }})
+                        ({{ asset.asset_tag_no }})
                     </p>
                 </div>
                 <div class="flex flex-wrap gap-2">
@@ -232,31 +261,26 @@ const visit = (url) => {
                     </template>
                 </Card>
 
-                <Card class="bg-gradient-to-r from-orange-50 to-orange-100 border-0">
+                <Card class="bg-gradient-to-r from-emerald-50 to-emerald-100 border-0">
                     <template #content>
                         <div class="text-center">
-                            <div class="p-3 bg-orange-500 rounded-full inline-flex mb-3">
-                                <i class="pi pi-users text-white text-xl"></i>
+                            <div class="p-3 bg-emerald-500 rounded-full inline-flex mb-3">
+                                <i class="pi pi-check-circle text-white text-xl"></i>
                             </div>
-                            <p class="text-sm font-medium text-gray-600">Assigned To</p>
-                            <p v-if="asset.user" class="mt-1 text-lg font-semibold text-gray-900 truncate">
-                                {{ asset.user.name }}
-                            </p>
-                            <Badge v-else value="Not Assigned" severity="secondary" class="mt-1" />
+                            <p class="text-sm font-medium text-gray-600">Acknowledged</p>
+                            <p class="mt-1 text-2xl font-bold text-gray-900">{{ acknowledgedAssignments }}</p>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="bg-gradient-to-r from-purple-50 to-purple-100 border-0">
+                <Card class="bg-gradient-to-r from-orange-50 to-orange-100 border-0">
                     <template #content>
                         <div class="text-center">
-                            <div class="p-3 bg-purple-500 rounded-full inline-flex mb-3">
+                            <div class="p-3 bg-orange-500 rounded-full inline-flex mb-3">
                                 <i class="pi pi-clock text-white text-xl"></i>
                             </div>
-                            <p class="text-sm font-medium text-gray-600">Avg. Duration</p>
-                            <p class="mt-1 text-2xl font-bold text-gray-900">
-                                {{ averageAssignmentDuration }} days
-                            </p>
+                            <p class="text-sm font-medium text-gray-600">Pending Acknowledgment</p>
+                            <p class="mt-1 text-2xl font-bold text-gray-900">{{ pendingAcknowledgment }}</p>
                         </div>
                     </template>
                 </Card>
@@ -387,6 +411,19 @@ const visit = (url) => {
                             </template>
                         </Column>
 
+                        <!-- Add Acknowledgment Status Column -->
+                        <Column header="Acknowledgment" style="width: 140px;">
+                            <template #body="slotProps">
+                                <div class="flex items-center gap-2">
+                                    <i :class="[getAcknowledgmentIcon(slotProps.data), 'text-sm', 
+                                              slotProps.data.acknowledged_at ? 'text-green-500' : 'text-orange-500']"></i>
+                                    <Badge :value="getAcknowledgmentStatus(slotProps.data)"
+                                        :severity="getAcknowledgmentSeverity(slotProps.data)"
+                                        class="capitalize text-xs" />
+                                </div>
+                            </template>
+                        </Column>
+
                         <Column header="Status" style="width: 120px;">
                             <template #body="slotProps">
                                 <Badge :value="getAssignmentStatus(slotProps.data)"
@@ -431,7 +468,12 @@ const visit = (url) => {
                                         <div class="text-sm text-gray-500">{{ activeAssignment.user?.email }}</div>
                                     </div>
                                 </div>
-                                <Badge value="Active" severity="info" />
+                                <div class="flex flex-col items-end gap-1">
+                                    <Badge value="Active" severity="info" />
+                                    <Badge :value="getAcknowledgmentStatus(activeAssignment)"
+                                        :severity="getAcknowledgmentSeverity(activeAssignment)"
+                                        class="text-xs" />
+                                </div>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4 text-sm">
@@ -448,9 +490,16 @@ const visit = (url) => {
                                     <p class="font-semibold text-gray-900">{{ getAssignmentDuration(activeAssignment) }}</p>
                                 </div>
                                 <div>
-                                    <p class="font-medium text-gray-500">Condition</p>
-                                    <p class="font-semibold text-gray-900 truncate">{{ activeAssignment.condition_assigned }}</p>
+                                    <p class="font-medium text-gray-500">Acknowledged</p>
+                                    <p class="font-semibold text-gray-900">
+                                        {{ activeAssignment.acknowledged_at ? formatDate(activeAssignment.acknowledged_at) : 'Not Yet' }}
+                                    </p>
                                 </div>
+                            </div>
+
+                            <div v-if="activeAssignment.condition_assigned" class="p-3 bg-gray-50 rounded-lg">
+                                <p class="text-sm font-medium text-gray-500 mb-1">Condition</p>
+                                <p class="text-sm text-gray-700">{{ activeAssignment.condition_assigned }}</p>
                             </div>
 
                             <div v-if="activeAssignment.notes" class="p-3 bg-gray-50 rounded-lg">
@@ -501,6 +550,7 @@ const visit = (url) => {
                     <div>
                         <label class="block text-sm font-medium text-gray-500">Assigned By</label>
                         <p class="mt-1 font-semibold text-gray-900">{{ selectedAssignment.assignedBy?.name }}</p>
+                        <p class="text-sm text-gray-500">{{ selectedAssignment.assignedBy?.email }}</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-500">Assignment Date</label>
@@ -519,8 +569,17 @@ const visit = (url) => {
                                class="mt-1 capitalize" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-500">Duration</label>
-                        <p class="mt-1 font-semibold text-gray-900">{{ getAssignmentDuration(selectedAssignment) }}</p>
+                        <label class="block text-sm font-medium text-gray-500">Acknowledgment</label>
+                        <div class="mt-1 flex items-center gap-2">
+                            <i :class="[getAcknowledgmentIcon(selectedAssignment), 
+                                      selectedAssignment.acknowledged_at ? 'text-green-500' : 'text-orange-500']"></i>
+                            <Badge :value="getAcknowledgmentStatus(selectedAssignment)"
+                                   :severity="getAcknowledgmentSeverity(selectedAssignment)"
+                                   class="capitalize" />
+                        </div>
+                        <p v-if="selectedAssignment.acknowledged_at" class="text-xs text-gray-500 mt-1">
+                            Acknowledged on {{ formatDate(selectedAssignment.acknowledged_at) }}
+                        </p>
                     </div>
                 </div>
 

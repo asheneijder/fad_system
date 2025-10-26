@@ -480,7 +480,7 @@ const toggleActionMenu = (event) => {
                                 <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.total }}</p>
                             </div>
                             <div class="p-2 sm:p-3 bg-blue-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-blue-600 pi pi-cube"></i>
+                                <i class="text-base sm:text-lg md:text-xl text-blue-600 pi pi-briefcase"></i>
                             </div>
                         </div>
                     </template>

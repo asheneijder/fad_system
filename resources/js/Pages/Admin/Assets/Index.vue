@@ -859,34 +859,38 @@ const canReturn = (asset) => {
                             </Column>
 
                             <!-- Actions -->
-                            <Column header="Actions" :frozen="true" alignFrozen="right" style="min-width: 280px;">
+                            <Column header="Actions" style="min-width: 200px">
                                 <template #body="slotProps">
-                                    <div class="flex gap-1 flex-wrap justify-end">
+                                    <div class="flex gap-1 flex-wrap">
                                         <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
                                             v-tooltip.top="'View'" @click="viewAsset(slotProps.data)" 
-                                            class="action-btn" />
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
-                                        <Button icon="pi pi-history" outlined rounded severity="help" size="small"
-                                            v-tooltip.top="'History'" 
+                                        <Button icon="pi pi-history" outlined rounded severity="secondary" size="small"
+                                            v-tooltip.top="'Assignment History'" 
                                             @click="viewAssignmentHistory(slotProps.data)" 
-                                            class="action-btn" />
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button v-if="canAssign(slotProps.data)" 
                                             icon="pi pi-user-plus" outlined rounded severity="success" size="small"
-                                            v-tooltip.top="'Assign'" 
+                                            v-tooltip.top="'Assign to User'" 
                                             @click="openAssignDialog(slotProps.data)" 
-                                            class="action-btn" />
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button v-if="canReturn(slotProps.data)"
-                                            icon="pi pi-arrow-left" outlined rounded severity="warn" size="small"
-                                            v-tooltip.top="'Return'" 
+                                            icon="pi pi-arrow-left" outlined rounded severity="warning" size="small"
+                                            v-tooltip.top="'Return Asset'" 
                                             @click="openReturnDialog(slotProps.data)" 
-                                            class="action-btn" />
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
+
+                                        <Button icon="pi pi-pencil" outlined rounded severity="help" size="small"
+                                            v-tooltip.top="'Edit'" @click="openEditDialog(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button icon="pi pi-trash" outlined rounded severity="danger" size="small"
                                             v-tooltip.top="'Delete'" 
                                             @click="deleteAsset(slotProps.data.id)" 
-                                            class="action-btn" />
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
                                     </div>
                                 </template>
                             </Column>
@@ -900,18 +904,28 @@ const canReturn = (asset) => {
                 </template>
             </Card>
 
-            <!-- Assign Asset Dialog -->
+           <!-- Assign Asset Dialog -->
             <Dialog v-model:visible="showAssignDialog" modal header="Assign Asset" 
                 :style="{ width: '95vw', maxWidth: '600px' }"
                 :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
                 
                 <div class="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto">
+                    <!-- Information Section -->
                     <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p class="text-xs sm:text-sm text-blue-800">
-                            Assign asset to a user
-                        </p>
+                        <div class="flex items-start gap-2">
+                            <i class="pi pi-info-circle text-blue-600 mt-0.5"></i>
+                            <div>
+                                <p class="text-xs sm:text-sm text-blue-800 font-medium mb-1">
+                                    Assign asset to user
+                                </p>
+                                <p class="text-xs text-blue-700">
+                                    User will receive an email notification and must acknowledge the asset assignment terms.
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
+                    <!-- User Selection -->
                     <div class="space-y-1 sm:space-y-2">
                         <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                             User <span class="text-red-500">*</span>
@@ -943,10 +957,13 @@ const canReturn = (asset) => {
                         </small>
                     </div>
 
+                    <!-- Condition Assigned -->
                     <div class="space-y-1 sm:space-y-2">
-                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Condition Assigned</label>
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                            Condition Assigned <span class="text-red-500">*</span>
+                        </label>
                         <InputText v-model="assignForm.condition_assigned" 
-                            placeholder="Describe the condition"
+                            placeholder="Describe the current condition of the asset"
                             class="w-full text-xs sm:text-sm"
                             :class="{ 'p-invalid': assignForm.errors.condition_assigned }" />
                         <small class="text-red-500 text-xs" v-if="assignForm.errors.condition_assigned">
@@ -954,6 +971,7 @@ const canReturn = (asset) => {
                         </small>
                     </div>
 
+                    <!-- Notes -->
                     <div class="space-y-1 sm:space-y-2">
                         <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">Notes</label>
                         <Textarea v-model="assignForm.notes" 
@@ -962,6 +980,23 @@ const canReturn = (asset) => {
                             class="w-full text-xs sm:text-sm" />
                     </div>
 
+                    <!-- Acknowledgment Notice -->
+                    <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div class="flex items-start gap-2">
+                            <i class="pi pi-envelope text-green-600 mt-0.5"></i>
+                            <div>
+                                <p class="text-xs sm:text-sm text-green-800 font-medium mb-1">
+                                    User Acknowledgment Required
+                                </p>
+                                <p class="text-xs text-green-700">
+                                    Selected user will receive an email with assignment details and must acknowledge 
+                                    the terms and conditions before the assignment is complete.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
                     <div class="flex flex-col sm:flex-row justify-end gap-2 pt-3 sm:pt-4 border-t">
                         <Button label="Cancel" severity="secondary" outlined @click="showAssignDialog = false"
                             :disabled="assignForm.processing"

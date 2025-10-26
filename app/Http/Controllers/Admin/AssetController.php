@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendAssetAssignmentNotification;
 use App\Models\Asset;
 use App\Models\AssetAssignment;
 use App\Models\Category;
@@ -322,45 +323,6 @@ class AssetController extends Controller
         }
     }
 
-    public function updateSighting(Request $request, Asset $asset)
-    {
-        $validated = $request->validate([
-            'last_sighting_date' => 'required|date|before_or_equal:today',
-            'notes' => 'nullable|string',
-        ]);
-
-        try {
-            DB::beginTransaction();
-
-            $asset->update([
-                'last_sighting_date' => $validated['last_sighting_date'],
-                'updated_by' => Auth::id(),
-                'notes' => $asset->notes.($validated['notes'] ? "\nSighting: ".$validated['notes'] : ''),
-            ]);
-
-            activity()
-                ->causedBy(Auth::user())
-                ->performedOn($asset)
-                ->log('updated asset sighting');
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Asset sighting updated successfully.',
-                'asset' => $asset->fresh(),
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update asset sighting: '.$e->getMessage(),
-            ], 500);
-        }
-    }
-
     public function assignToUser(Request $request)
     {
         $validated = $request->validate([
@@ -373,7 +335,8 @@ class AssetController extends Controller
         try {
             DB::beginTransaction();
 
-            $asset = $this->asset->findOrFail($validated['asset_id']);
+            $asset = Asset::findOrFail($validated['asset_id']);
+            $user = User::findOrFail($validated['user_id']); // Get the user being assigned
 
             if (! $asset->canBeAssigned()) {
                 return back()->with('error', 'Asset is not available for assignment.');
@@ -386,6 +349,13 @@ class AssetController extends Controller
                 $validated['notes']
             );
 
+            $assignment->update([
+                'acknowledged_at' => null,
+            ]);
+
+            // Dispatch email job to notify the USER
+            SendAssetAssignmentNotification::dispatch($asset, $user, $assignment, Auth::user());
+
             activity()
                 ->causedBy(Auth::user())
                 ->performedOn($asset)
@@ -394,7 +364,7 @@ class AssetController extends Controller
 
             DB::commit();
 
-            return back()->with('success', 'Asset assigned successfully.');
+            return back()->with('success', 'Asset assigned successfully. User has been notified via email.');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -450,7 +420,7 @@ class AssetController extends Controller
             ->paginate(10);
 
         return Inertia::render('Admin/Assets/AssignmentHistory', [
-            'asset' => $asset->load(['model', 'category']),
+            'asset' => $asset->load(['model', 'category', 'user']),
             'assignments' => $assignments,
         ]);
     }

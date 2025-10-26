@@ -29,6 +29,14 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+Route::get('/asset-assignment/{assignment}/confirm', [\App\Http\Controllers\Guest\AssetAssignmentController::class, 'showConfirmation'])
+    ->name('asset-assignment.confirm')
+    ->middleware('signed');
+
+// Remove signed middleware from POST route
+Route::post('/asset-assignment/{assignment}/acknowledge', [\App\Http\Controllers\Guest\AssetAssignmentController::class, 'acknowledge'])
+    ->name('asset-assignment.acknowledge');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     // Main dashboard route that redirects based on role
     Route::get('/dashboard', function () {
