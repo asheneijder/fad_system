@@ -8,11 +8,12 @@ import Tag from "primevue/tag";
 import Divider from "primevue/divider";
 import Dialog from "primevue/dialog";
 import Textarea from "primevue/textarea";
+import Checkbox from "primevue/checkbox";
 import ConfirmDialog from "primevue/confirmdialog";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { Head, router } from "@inertiajs/vue3";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 
 const confirm = useConfirm();
 const toast = useToast();
@@ -33,6 +34,7 @@ const showApproveDialog = ref(false);
 const showRejectDialog = ref(false);
 const rejectionReason = ref('');
 const loading = ref(false);
+const confirmOfficialBusiness = ref(false);
 
 // Computed properties
 const home = { icon: 'pi pi-home', url: route('dashboard') };
@@ -40,6 +42,13 @@ const items = ref([
     { label: 'Claim Requests', url: route('admin.claim-request.index') },
     { label: `Travel Claim #${props.claim.id}` }
 ]);
+
+// Reset when dialog closes
+watch(showApproveDialog, (newVal) => {
+    if (!newVal) {
+        confirmOfficialBusiness.value = false;
+    }
+});
 
 const statusSeverity = computed(() => {
     const statusMap = {
@@ -253,7 +262,7 @@ const rejectClaim = () => {
         <Toast />
         <ConfirmDialog />
 
-        <!-- Approve Dialog -->
+        <!-- Approve Dialog with Checkbox Confirmation -->
         <Dialog v-model:visible="showApproveDialog" modal header="Approve Travel Claim" 
                 :style="{ width: '95vw', maxWidth: '500px' }" :closable="!loading">
             <div class="space-y-4">
@@ -266,6 +275,18 @@ const rejectClaim = () => {
                         Are you sure you want to approve this travel claim from {{ claim.user?.name }}?
                     </p>
                 </div>
+
+                <!-- Confirmation Checkbox -->
+                <div class="flex items-start gap-3 p-3 border rounded-lg">
+                    <Checkbox v-model="confirmOfficialBusiness" :binary="true" inputId="officialBusiness" />
+                    <label for="officialBusiness" class="text-sm cursor-pointer">
+                        <span class="font-medium">I confirm that this travel is for official business purposes.</span>
+                        <br>
+                        <span class="text-xs text-gray-600 italic">
+                            Saya mengesahkan bahawa perjalanan ini adalah atas urusan rasmi.
+                        </span>
+                    </label>
+                </div>
                 
                 <div class="flex justify-end gap-2 pt-4 border-t">
                     <Button label="Cancel" severity="secondary" outlined 
@@ -274,6 +295,7 @@ const rejectClaim = () => {
                             class="text-sm" />
                     <Button label="Approve Claim" icon="pi pi-check" severity="success" 
                             @click="approveClaim"
+                            :disabled="!confirmOfficialBusiness || loading"
                             :loading="loading"
                             class="text-sm" />
                 </div>
