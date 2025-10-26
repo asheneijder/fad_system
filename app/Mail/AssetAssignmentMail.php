@@ -50,7 +50,7 @@ class AssetAssignmentMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Asset Assignment - Please Confirm / Penyerahan Aset - Sila Sahkan',
+            subject: 'ARTB Asset Assignment - Please Confirm',
         );
     }
 

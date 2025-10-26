@@ -1,32 +1,36 @@
 <x-mail::message>
 # Asset Assignment - Action Required
-# Penyerahan Aset - Tindakan Diperlukan
 
-**To / Kepada:** {{ $user->name }}  
-**Assigned By / Diserahkan Oleh:** {{ $assignedBy->name }}
+**To:** {{ $user->name }}  
+**Assigned By:** {{ $assignedBy->name }}
 
-You have been assigned responsibility for the following asset:  
-Anda telah diberikan tanggungjawab untuk aset berikut:
+You have been assigned responsibility for the following asset. Please review the details and confirm your acceptance:
 
-## Asset Details / Butiran Aset
-- **Name / Nama:** {{ $asset->asset_name }}
-- **Tag No. / No. Tag:** {{ $asset->asset_tag_no }}
-- **Serial No. / No. Siri:** {{ $asset->serial_no }}
-- **Condition / Keadaan:** {{ $assignment->condition_assigned }}
+## Asset Details
+- **Asset Name:** {{ $asset->asset_name }}
+- **Asset Tag No:** {{ $asset->asset_tag_no }}
+- **Serial No:** {{ $asset->serial_no ?? 'N/A' }}
+- **Current Condition:** {{ $assignment->condition_assigned }}
+- **Assignment Date:** {{ $assignment->assigned_at->format('M j, Y') }}
 
-Please click the button below to confirm and accept responsibility:  
-Sila klik butang di bawah untuk mengesahkan dan menerima tanggungjawab:
+## Your Responsibilities
+By confirming this assignment, you agree to:
+- Use this asset for official business purposes only
+- Report any damage, loss, or malfunction immediately
+- Maintain the asset in good working condition
+- Return the asset when no longer required or upon request
+- Ensure proper care and security of the asset at all times
 
 <x-mail::button :url="$confirmationUrl">
-✅ Confirm & Accept Responsibility / Sahkan & Terima Tanggungjawab
+✅ Confirm & Accept Responsibility
 </x-mail::button>
 
-**This link will expire in 7 days**  
-**Pautan ini akan tamat dalam 7 hari**
+**Important:** This confirmation link will expire in 7 days for security purposes.
+
+If you have any questions or concerns about this assignment, please contact {{ $assignedBy->name }} or your department supervisor.
 
 <small>
-*This is an auto-generated email. Please do not reply.*  
-*Email ini dihasilkan secara automatik. Jangan balas email ini.*
+*This is an auto-generated email. Please do not reply to this message.*
 </small>
 
 </x-mail::message>

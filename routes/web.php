@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\ModelController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\StationaryItemController;
+use App\Http\Controllers\Guest\AssetAssignmentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\User\AccommodationClaimController;
 use App\Http\Controllers\User\CartController;
@@ -29,12 +30,12 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-Route::get('/asset-assignment/{assignment}/confirm', [\App\Http\Controllers\Guest\AssetAssignmentController::class, 'showConfirmation'])
+Route::get('/asset-assignment/{assignment}/confirm', [AssetAssignmentController::class, 'showConfirmation'])
     ->name('asset-assignment.confirm')
     ->middleware('signed');
 
 // Remove signed middleware from POST route
-Route::post('/asset-assignment/{assignment}/acknowledge', [\App\Http\Controllers\Guest\AssetAssignmentController::class, 'acknowledge'])
+Route::post('/asset-assignment/{assignment}/acknowledge', [AssetAssignmentController::class, 'acknowledge'])
     ->name('asset-assignment.acknowledge');
 
 Route::middleware(['auth', 'verified'])->group(function () {
