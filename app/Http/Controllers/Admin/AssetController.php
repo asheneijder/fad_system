@@ -29,7 +29,7 @@ class AssetController extends Controller
         $status = $request->query('status');
         $category = $request->query('category');
         $location = $request->query('location');
-        $perPage = $request->query('per_page', 10); // Default to 10 items per page
+        $perPage = $request->query('per_page', 10);
 
         $assets = $this->asset->with(['model', 'category', 'user', 'currentAssignment'])
             ->when($search, function ($query, $search) {
@@ -56,7 +56,8 @@ class AssetController extends Controller
             ->when($location && $location !== '', function ($query) use ($location) {
                 $query->where('location', 'like', "%{$location}%");
             })
-            ->orderBy('created_at', 'desc')
+            // Sort by asset_tag_no with natural sorting
+            ->orderByRaw('LENGTH(asset_tag_no) ASC, asset_tag_no ASC')
             ->paginate($perPage)
             ->withQueryString();
 

@@ -198,8 +198,8 @@ Route::group([
     Route::get('/manage/claim-request/transportation/{id}', [ManageClaimRequestController::class, 'showTransportation'])->name('manage.claim-request.transportation.show');
 
     // Generic approve/reject routes (for all claim types)
-    Route::put('/manage/claim-request/{id}/approve', [ManageClaimRequestController::class, 'approve'])->name('manage.claim-request.approve');
-    Route::put('/manage/claim-request/{id}/reject', [ManageClaimRequestController::class, 'reject'])->name('manage.claim-request.reject');
+    Route::put('/manage/claim-request/{type}/{id}/approve', [ManageClaimRequestController::class, 'approve'])->name('manage.claim-request.approve');
+    Route::put('/claim-request/{type}/{id}/reject', [ManageClaimRequestController::class, 'reject'])->name('manage.claim-request.reject');
 });
 
 Route::group([

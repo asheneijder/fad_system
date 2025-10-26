@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendClaimSubmittedNotification;
 use App\Models\TransportationClaim;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -55,8 +56,29 @@ class TransportationClaimController extends Controller
             'save_as_draft' => 'boolean',
         ]);
 
+        // Determine status and approver
+        $status = $request->boolean('save_as_draft') ? TransportationClaim::STATUS_DRAFT : TransportationClaim::STATUS_SUBMITTED;
+        $approverId = null;
+
+        // If submitting (not draft), get the approver
+        if ($status === TransportationClaim::STATUS_SUBMITTED) {
+            $user = Auth::user();
+            $approver = $user->approver;
+
+            // Check if user has an approver assigned
+            if (! $approver) {
+                return redirect()->back()
+                    ->with('error', 'No approver assigned to your account. Please contact administrator.')
+                    ->withInput();
+            }
+
+            $approverId = $approver->id;
+        }
+
+        // Create the transportation claim
         $transportationClaim = TransportationClaim::create([
             'user_id' => Auth::id(),
+            'approver_id' => $approverId, // Set approver_id if submitted
             'claim_date' => $validated['claim_date'],
             'transport_type' => $validated['transport_type'],
             'purpose' => $validated['purpose'],
@@ -70,7 +92,7 @@ class TransportationClaimController extends Controller
             'number_of_trips' => $validated['number_of_trips'],
             'receipt_number' => $validated['receipt_number'] ?? null,
             'remarks' => $validated['remarks'] ?? null,
-            'status' => $request->boolean('save_as_draft') ? TransportationClaim::STATUS_DRAFT : TransportationClaim::STATUS_SUBMITTED,
+            'status' => $status,
         ]);
 
         // Handle file uploads
@@ -84,6 +106,11 @@ class TransportationClaimController extends Controller
             foreach ($request->file('supporting_documents') as $file) {
                 $transportationClaim->addMedia($file)->toMediaCollection('supporting_documents');
             }
+        }
+
+        // Send notification to approver if submitted (not draft)
+        if ($status === TransportationClaim::STATUS_SUBMITTED) {
+            dispatch(new SendClaimSubmittedNotification($transportationClaim, 'transportation', Auth::user()));
         }
 
         $message = $transportationClaim->status === TransportationClaim::STATUS_DRAFT
@@ -294,9 +321,22 @@ class TransportationClaimController extends Controller
             abort(403);
         }
 
+        $user = Auth::user();
+        $approver = $user->approver;
+
+        // Check if user has an approver assigned
+        if (! $approver) {
+            return redirect()->back()
+                ->with('error', 'No approver assigned to your account. Please contact administrator.');
+        }
+
         $transportationClaim->update([
+            'approver_id' => $approver->id,
             'status' => TransportationClaim::STATUS_SUBMITTED,
         ]);
+
+        // Send notification to approver
+        dispatch(new SendClaimSubmittedNotification($transportationClaim, 'transportation', Auth::user()));
 
         return redirect()->route('user.transportation-claims.show', $transportationClaim)
             ->with('success', 'Transportation claim submitted for approval successfully!');

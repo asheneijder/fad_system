@@ -125,7 +125,7 @@ const onPageChange = (event) => {
     const page = event.page + 1;
     const perPage = event.rows;
     currentPerPage.value = perPage;
-    
+
     router.get(route("admin.claim-request.index"), {
         search: search.value,
         status: statusFilter.value === 'all' ? '' : statusFilter.value,
@@ -143,7 +143,6 @@ const getStatusSeverity = (status) => {
     const statusMap = {
         draft: 'secondary',
         submitted: 'warning',
-        pending: 'warning',
         approved: 'success',
         rejected: 'danger',
         paid: 'info'
@@ -155,7 +154,6 @@ const getStatusText = (status) => {
     const statusMap = {
         draft: 'Draft',
         submitted: 'Submitted',
-        pending: 'Pending',
         approved: 'Approved',
         rejected: 'Rejected',
         paid: 'Paid'
@@ -186,7 +184,7 @@ const viewClaim = (claim) => {
         'accommodation': 'admin.manage.claim-request.accommodation.show',
         'transportation': 'admin.manage.claim-request.transportation.show'
     };
-    
+
     const routeName = routeMap[claim.type];
     if (routeName) {
         router.get(route(routeName, claim.id));
@@ -206,7 +204,7 @@ const openBulkActionDialog = (action) => {
         });
         return;
     }
-    
+
     bulkAction.value = action;
     bulkNotes.value = '';
     showBulkActionDialog.value = true;
@@ -297,6 +295,7 @@ const clearFilters = () => {
 </script>
 
 <template>
+
     <Head title="Manage Claim Requests" />
     <AppLayout>
         <Toast />
@@ -316,7 +315,7 @@ const clearFilters = () => {
                 <div>
                     <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">Claim Requests Management</h1>
                     <p class="mt-1 text-xs sm:text-sm text-gray-500">
-                        Manage and approve user claim requests 
+                        Manage and approve user claim requests
                         <Badge :value="userRoleDisplay" severity="info" class="ml-2 text-xs" />
                     </p>
                     <div v-if="!canSeeAllClaims" class="mt-1">
@@ -328,21 +327,19 @@ const clearFilters = () => {
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
-                        @click="toggleActionMenu" 
-                        :disabled="!hasSelectedClaims"
+                        @click="toggleActionMenu" :disabled="!hasSelectedClaims"
                         class="flex-1 min-w-fit text-xs sm:text-sm" />
                     <Button label="Clear Filters" icon="pi pi-filter-slash" severity="secondary" text
-                        @click="clearFilters"
-                        class="flex-1 min-w-fit text-xs sm:text-sm" />
+                        @click="clearFilters" class="flex-1 min-w-fit text-xs sm:text-sm" />
                 </div>
             </div>
 
             <!-- Claim Type Overview Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <div v-for="claimType in claimTypes" :key="claimType.id" 
-                     class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                     :class="{ 'ring-2 ring-blue-500': typeFilter === claimType.id }"
-                     @click="typeFilter = claimType.id; statusFilter = 'all'">
+                <div v-for="claimType in claimTypes" :key="claimType.id"
+                    class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                    :class="{ 'ring-2 ring-blue-500': typeFilter === claimType.id }"
+                    @click="typeFilter = claimType.id; statusFilter = 'all'">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-3">
                             <div :class="`p-2 rounded-lg ${getClaimTypeBgColor(claimType.id)}`">
@@ -419,32 +416,33 @@ const clearFilters = () => {
                 <template #content>
                     <!-- Toolbar -->
                     <div class="flex flex-col gap-3 sm:gap-4">
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3">
+                        <div
+                            class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3">
                             <div class="flex flex-wrap gap-1 sm:gap-2 w-full sm:w-auto">
                                 <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
-                                    @click="toggleActionMenu" 
-                                    :disabled="!hasSelectedClaims"
+                                    @click="toggleActionMenu" :disabled="!hasSelectedClaims"
                                     class="flex-1 sm:flex-none text-xs sm:text-sm" />
-                                <span v-if="hasSelectedClaims" class="text-xs text-blue-600 font-medium flex items-center">
+                                <span v-if="hasSelectedClaims"
+                                    class="text-xs text-blue-600 font-medium flex items-center">
                                     {{ selectedClaims.length }} selected
                                 </span>
                             </div>
 
                             <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                                 <div class="w-full sm:w-48">
-                                    <Select v-model="statusFilter" :options="statusOptions" optionLabel="label" 
-                                        optionValue="value" placeholder="Filter by status" 
+                                    <Select v-model="statusFilter" :options="statusOptions" optionLabel="label"
+                                        optionValue="value" placeholder="Filter by status"
                                         class="w-full text-xs sm:text-sm" />
                                 </div>
                                 <div class="w-full sm:w-48">
-                                    <Select v-model="typeFilter" :options="typeOptions" optionLabel="label" 
-                                        optionValue="value" placeholder="Filter by type" 
+                                    <Select v-model="typeFilter" :options="typeOptions" optionLabel="label"
+                                        optionValue="value" placeholder="Filter by type"
                                         class="w-full text-xs sm:text-sm" />
                                 </div>
                                 <div class="w-full sm:w-64 md:w-80">
                                     <IconField iconPosition="left">
                                         <InputIcon class="pi pi-search" />
-                                        <InputText v-model="search" placeholder="Search claims..." 
+                                        <InputText v-model="search" placeholder="Search claims..."
                                             class="w-full text-xs sm:text-sm" />
                                     </IconField>
                                 </div>
@@ -452,39 +450,30 @@ const clearFilters = () => {
                         </div>
 
                         <!-- Active Filters -->
-                        <div v-if="search || statusFilter !== 'all' || typeFilter !== 'all'" 
-                             class="flex flex-wrap gap-2 items-center p-2 bg-gray-50 rounded-lg">
+                        <div v-if="search || statusFilter !== 'all' || typeFilter !== 'all'"
+                            class="flex flex-wrap gap-2 items-center p-2 bg-gray-50 rounded-lg">
                             <span class="text-xs font-medium text-gray-700">Active Filters:</span>
                             <Badge v-if="search" :value="`Search: ${search}`" severity="info" class="text-xs" />
-                            <Badge v-if="statusFilter !== 'all'" 
-                                   :value="`Status: ${statusOptions.find(s => s.value === statusFilter)?.label}`" 
-                                   severity="warning" class="text-xs" />
-                            <Badge v-if="typeFilter !== 'all'" 
-                                   :value="`Type: ${typeOptions.find(t => t.value === typeFilter)?.label}`" 
-                                   severity="success" class="text-xs" />
+                            <Badge v-if="statusFilter !== 'all'"
+                                :value="`Status: ${statusOptions.find(s => s.value === statusFilter)?.label}`"
+                                severity="warning" class="text-xs" />
+                            <Badge v-if="typeFilter !== 'all'"
+                                :value="`Type: ${typeOptions.find(t => t.value === typeFilter)?.label}`"
+                                severity="success" class="text-xs" />
                             <Button icon="pi pi-times" severity="secondary" text rounded size="small"
-                                @click="clearFilters"
-                                v-tooltip="'Clear all filters'" />
+                                @click="clearFilters" v-tooltip="'Clear all filters'" />
                         </div>
                     </div>
 
                     <!-- Data Table -->
                     <div class="mt-4 sm:mt-6 overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
-                        <DataTable :value="claims.data" showGridlines stripedRows
-                            :rowHover="true" 
-                            paginator 
-                            :rows="claims.per_page" 
-                            :totalRecords="claims.total"
-                            :first="(claims.current_page - 1) * claims.per_page" 
-                            @page="onPageChange"
-                            v-model:selection="selectedClaims" 
-                            dataKey="id"
-                            :rowsPerPageOptions="[5, 10, 20, 50, 100]"
+                        <DataTable :value="claims.data" showGridlines stripedRows :rowHover="true" paginator
+                            :rows="claims.per_page" :totalRecords="claims.total"
+                            :first="(claims.current_page - 1) * claims.per_page" @page="onPageChange"
+                            v-model:selection="selectedClaims" dataKey="id" :rowsPerPageOptions="[5, 10, 20, 50, 100]"
                             paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                             currentPageReportTemplate="Showing {first} to {last} of {totalRecords} claims"
-                            responsiveLayout="scroll" 
-                            class="p-datatable-custom"
-                            :loading="loading"
+                            responsiveLayout="scroll" class="p-datatable-custom" :loading="loading"
                             :globalFilterFields="['purpose', 'user.name', 'user.email']">
 
                             <!-- Empty State -->
@@ -493,13 +482,13 @@ const clearFilters = () => {
                                     <div class="p-3 sm:p-6 mb-4 bg-gray-100 rounded-full">
                                         <i class="text-4xl sm:text-6xl text-gray-400 pi pi-file"></i>
                                     </div>
-                                    <h3 class="mb-2 text-base sm:text-lg md:text-xl font-semibold text-gray-700">No Claims Found</h3>
+                                    <h3 class="mb-2 text-base sm:text-lg md:text-xl font-semibold text-gray-700">No
+                                        Claims Found</h3>
                                     <p class="mb-4 text-xs sm:text-sm text-gray-500 text-center px-2">
                                         No claim requests match your search criteria.
                                     </p>
-                                    <Button label="Clear Filters" icon="pi pi-filter-slash" severity="secondary" outlined
-                                        @click="clearFilters"
-                                        class="text-sm" />
+                                    <Button label="Clear Filters" icon="pi pi-filter-slash" severity="secondary"
+                                        outlined @click="clearFilters" class="text-sm" />
                                 </div>
                             </template>
 
@@ -542,7 +531,8 @@ const clearFilters = () => {
                             <Column header="Claim Type" sortable style="min-width: 140px;">
                                 <template #body="slotProps">
                                     <div class="flex items-center space-x-2">
-                                        <i :class="`${getClaimTypeIcon(slotProps.data.type)} ${getClaimTypeColor(slotProps.data.type)} text-sm`"></i>
+                                        <i
+                                            :class="`${getClaimTypeIcon(slotProps.data.type)} ${getClaimTypeColor(slotProps.data.type)} text-sm`"></i>
                                         <span class="text-xs sm:text-sm font-medium text-gray-900">
                                             {{ slotProps.data.type_display }}
                                         </span>
@@ -555,9 +545,10 @@ const clearFilters = () => {
                                     <div class="text-xs sm:text-sm text-gray-900 line-clamp-2">
                                         {{ slotProps.data.purpose || 'No purpose specified' }}
                                     </div>
-                                    <div v-if="slotProps.data.details" class="text-xs text-gray-500 mt-1 flex flex-wrap gap-1">
-                                        <Badge v-for="(value, key) in slotProps.data.details" :key="key" 
-                                               :value="value" severity="secondary" class="text-xs" />
+                                    <div v-if="slotProps.data.details"
+                                        class="text-xs text-gray-500 mt-1 flex flex-wrap gap-1">
+                                        <Badge v-for="(value, key) in slotProps.data.details" :key="key" :value="value"
+                                            severity="secondary" class="text-xs" />
                                     </div>
                                 </template>
                             </Column>
@@ -583,7 +574,7 @@ const clearFilters = () => {
                                 <template #body="slotProps">
                                     <div class="flex gap-1 flex-wrap">
                                         <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
-                                            v-tooltip.top="'View Details'" @click="viewClaim(slotProps.data)" 
+                                            v-tooltip.top="'View Details'" @click="viewClaim(slotProps.data)"
                                             class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
                                     </div>
                                 </template>
@@ -594,45 +585,36 @@ const clearFilters = () => {
             </Card>
 
             <!-- Bulk Action Dialog -->
-            <Dialog v-model:visible="showBulkActionDialog" modal 
-                :header="bulkAction === 'approve' ? 'Approve Selected Claims' : 'Reject Selected Claims'" 
-                :style="{ width: '95vw', maxWidth: '500px' }"
-                :closable="!loading">
-                
+            <Dialog v-model:visible="showBulkActionDialog" modal
+                :header="bulkAction === 'approve' ? 'Approve Selected Claims' : 'Reject Selected Claims'"
+                :style="{ width: '95vw', maxWidth: '500px' }" :closable="!loading">
+
                 <div class="space-y-4">
                     <div class="p-3 bg-blue-50 rounded-lg">
                         <div class="text-sm font-medium text-blue-800">Selected Claims:</div>
                         <div class="text-lg font-semibold">{{ selectedClaims.length }} claim(s)</div>
                         <div class="text-xs text-blue-600 mt-1">
-                            Total amount: {{ formatCurrency(selectedClaims.reduce((sum, claim) => sum + (claim.amount || 0), 0)) }}
+                            Total amount: {{formatCurrency(selectedClaims.reduce((sum, claim) => sum + (claim.amount ||
+                                0), 0))}}
                         </div>
                     </div>
 
                     <div v-if="bulkAction === 'reject'" class="space-y-2">
                         <label class="block text-sm font-semibold text-gray-700">Rejection Notes *</label>
-                        <Textarea v-model="bulkNotes" 
-                            placeholder="Enter reason for rejection..."
-                            rows="3"
-                            class="w-full" 
-                            :disabled="loading" />
+                        <Textarea v-model="bulkNotes" placeholder="Enter reason for rejection..." rows="3"
+                            class="w-full" :disabled="loading" />
                         <small class="text-gray-500 text-xs">
                             Required for rejection. This will be visible to the users.
                         </small>
                     </div>
 
                     <div class="flex justify-end gap-2 pt-4 border-t">
-                        <Button label="Cancel" 
-                            severity="secondary" 
-                            outlined 
-                            @click="showBulkActionDialog = false"
-                            :disabled="loading"
-                            class="text-sm" />
-                        <Button :label="bulkAction === 'approve' ? 'Approve All' : 'Reject All'" 
+                        <Button label="Cancel" severity="secondary" outlined @click="showBulkActionDialog = false"
+                            :disabled="loading" class="text-sm" />
+                        <Button :label="bulkAction === 'approve' ? 'Approve All' : 'Reject All'"
                             :icon="bulkAction === 'approve' ? 'pi pi-check' : 'pi pi-times'"
-                            :severity="bulkAction === 'approve' ? 'success' : 'danger'" 
-                            @click="submitBulkAction"
-                            :loading="loading"
-                            class="text-sm" />
+                            :severity="bulkAction === 'approve' ? 'success' : 'danger'" @click="submitBulkAction"
+                            :loading="loading" class="text-sm" />
                     </div>
                 </div>
             </Dialog>

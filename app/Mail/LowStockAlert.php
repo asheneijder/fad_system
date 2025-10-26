@@ -44,11 +44,10 @@ class LowStockAlert extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.low-stock',
+            markdown: 'emails.low-stock-alert',
             with: [
                 'items' => $this->items,
-                'subject' => $this->customSubject,
-                'message' => $this->customMessage,
+                'customMessage' => $this->customMessage,
             ],
         );
     }

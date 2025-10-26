@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendClaimSubmittedNotification;
 use App\Models\AccommodationClaim;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -66,9 +67,29 @@ class AccommodationClaimController extends Controller
             'save_as_draft' => 'boolean',
         ]);
 
+        // Determine status and approver
+        $status = $request->boolean('save_as_draft') ? AccommodationClaim::STATUS_DRAFT : AccommodationClaim::STATUS_SUBMITTED;
+        $approverId = null;
+
+        // If submitting (not draft), get the approver
+        if ($status === AccommodationClaim::STATUS_SUBMITTED) {
+            $user = Auth::user();
+            $approver = $user->approver;
+
+            // Check if user has an approver assigned
+            if (! $approver) {
+                return redirect()->back()
+                    ->with('error', 'No approver assigned to your account. Please contact administrator.')
+                    ->withInput();
+            }
+
+            $approverId = $approver->id;
+        }
+
         // Create the accommodation claim
         $accommodationClaim = AccommodationClaim::create([
             'user_id' => Auth::id(),
+            'approver_id' => $approverId, // Set approver_id if submitted
             'hotel_name' => $validated['hotel_name'],
             'check_in_date' => $validated['check_in_date'],
             'check_out_date' => $validated['check_out_date'],
@@ -85,7 +106,7 @@ class AccommodationClaimController extends Controller
             'destination_city' => $validated['destination_city'],
             'destination_country' => $validated['destination_country'],
             'remarks' => $validated['remarks'] ?? null,
-            'status' => $request->boolean('save_as_draft') ? AccommodationClaim::STATUS_DRAFT : AccommodationClaim::STATUS_SUBMITTED,
+            'status' => $status,
         ]);
 
         // Handle file uploads
@@ -99,6 +120,11 @@ class AccommodationClaimController extends Controller
             foreach ($request->file('supporting_documents') as $file) {
                 $accommodationClaim->addMedia($file)->toMediaCollection('supporting_documents');
             }
+        }
+
+        // Send notification to approver if submitted (not draft)
+        if ($status === AccommodationClaim::STATUS_SUBMITTED) {
+            dispatch(new SendClaimSubmittedNotification($accommodationClaim, 'accommodation', Auth::user()));
         }
 
         $message = $accommodationClaim->status === AccommodationClaim::STATUS_DRAFT
@@ -201,7 +227,7 @@ class AccommodationClaimController extends Controller
                 ['label' => 'MYR - Malaysian Ringgit', 'value' => 'MYR'],
                 ['label' => 'USD - US Dollar', 'value' => 'USD'],
                 ['label' => 'SGD - Singapore Dollar', 'value' => 'SGD'],
-        ],
+            ],
             'defaultRates' => [
                 'MYR' => [
                     'max_rate' => 300.00,
@@ -218,7 +244,7 @@ class AccommodationClaimController extends Controller
                     'tax_percentage' => 7.00,
                     'service_charge_percentage' => 10.00,
                 ],
-        ],
+            ],
         ]);
     }
 
@@ -349,8 +375,6 @@ class AccommodationClaimController extends Controller
         $user = Auth::user();
         $approver = $user->approver;
 
-        // dd($approver->id);
-
         // Check if user has an approver assigned
         if (! $approver) {
             return redirect()->back()
@@ -361,6 +385,9 @@ class AccommodationClaimController extends Controller
             'approver_id' => $approver->id,
             'status' => AccommodationClaim::STATUS_SUBMITTED,
         ]);
+
+        // Send notification to approver
+        dispatch(new SendClaimSubmittedNotification($accommodationClaim, 'accommodation', Auth::user()));
 
         return redirect()->route('user.accommodation-claims.show', $accommodationClaim)
             ->with('success', 'Accommodation claim submitted for approval successfully!');

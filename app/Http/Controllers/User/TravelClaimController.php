@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendClaimSubmittedNotification;
 use App\Models\TravelClaim;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -47,7 +48,7 @@ class TravelClaimController extends Controller
             'rate_per_km' => 'required|numeric|min:0',
             'attachments' => 'nullable|array',
             'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf|max:10240',
-            'save_as_draft' => 'boolean', // Add this field
+            'save_as_draft' => 'boolean',
         ]);
 
         // Calculate total cost
@@ -58,12 +59,29 @@ class TravelClaimController extends Controller
         $firstTravelDate = $travelDates->first();
         $lastTravelDate = $travelDates->last();
 
-        // Determine status
+        // Determine status and approver
         $status = $request->boolean('save_as_draft') ? 'draft' : 'submitted';
+        $approverId = null;
+
+        // If submitting (not draft), get the approver
+        if ($status === 'submitted') {
+            $user = Auth::user();
+            $approver = $user->approver;
+
+            // Check if user has an approver assigned
+            if (! $approver) {
+                return redirect()->back()
+                    ->with('error', 'No approver assigned to your account. Please contact administrator.')
+                    ->withInput();
+            }
+
+            $approverId = $approver->id;
+        }
 
         // Create the travel claim
         $travelClaim = TravelClaim::create([
             'user_id' => Auth::id(),
+            'approver_id' => $approverId, // Set approver_id if submitted
             'vehicle_type' => $validated['vehicle_type'],
             'registration_plate_number' => $validated['registration_plate_number'],
             'cubic_capacity' => $validated['cubic_capacity'],
@@ -86,6 +104,11 @@ class TravelClaimController extends Controller
             foreach ($request->file('attachments') as $file) {
                 $travelClaim->addMedia($file)->toMediaCollection('attachments');
             }
+        }
+
+        // Send notification to approver if submitted (not draft)
+        if ($status === 'submitted') {
+            dispatch(new SendClaimSubmittedNotification($travelClaim, 'travel', Auth::user()));
         }
 
         $message = $status === 'draft'
@@ -285,7 +308,6 @@ class TravelClaimController extends Controller
             abort(403);
         }
 
-        // Get the user's assigned approver
         $user = Auth::user();
         $approver = $user->approver;
 
@@ -298,8 +320,10 @@ class TravelClaimController extends Controller
         $travelClaim->update([
             'approver_id' => $approver->id, // Set the approver from user's approver_id
             'status' => 'submitted',
-            'submitted_at' => now(),
         ]);
+
+        // Send notification to approver
+        dispatch(new SendClaimSubmittedNotification($travelClaim, 'travel', Auth::user()));
 
         return redirect()->route('user.travel-claims.show', $travelClaim)
             ->with('success', 'Travel claim submitted for approval successfully!');

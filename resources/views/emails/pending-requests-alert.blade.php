@@ -44,5 +44,5 @@ Review Pending Requests
 This is an automated daily alert. You will receive this email only when there are pending requests.
 
 Thanks,<br>
-{{ config('app.name') }} System
+{{ config('app.name') }}
 </x-mail::message>

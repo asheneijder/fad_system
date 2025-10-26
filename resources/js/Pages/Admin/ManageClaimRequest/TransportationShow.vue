@@ -7,12 +7,13 @@ import Toast from "primevue/toast";
 import Tag from "primevue/tag";
 import Divider from "primevue/divider";
 import Dialog from "primevue/dialog";
+import Checkbox from "primevue/checkbox";
 import Textarea from "primevue/textarea";
 import ConfirmDialog from "primevue/confirmdialog";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { Head, router } from "@inertiajs/vue3";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 
 const confirm = useConfirm();
 const toast = useToast();
@@ -33,6 +34,14 @@ const showApproveDialog = ref(false);
 const showRejectDialog = ref(false);
 const rejectionReason = ref('');
 const loading = ref(false);
+const confirmOfficialBusiness = ref(false);
+
+// Reset when dialog closes
+watch(showApproveDialog, (newVal) => {
+    if (!newVal) {
+        confirmOfficialBusiness.value = false;
+    }
+});
 
 // Computed properties
 const home = { icon: 'pi pi-home', url: route('dashboard') };
@@ -66,8 +75,8 @@ const getStatusText = (status) => {
 };
 
 const canProcess = computed(() => {
-    return (props.userRole === 'system-admin' || props.userRole === 'approver') && 
-           (props.claim.status === 'submitted' || props.claim.status === 'pending');
+    return (props.userRole === 'system-admin' || props.userRole === 'approver') &&
+        (props.claim.status === 'submitted' || props.claim.status === 'pending');
 });
 
 // Format date for display
@@ -135,21 +144,21 @@ const openRejectDialog = () => {
 
 const approveClaim = () => {
     loading.value = true;
-    
-    // Use the specific travel claim approve route
-    router.put(route('admin.manage.claim-request.approve', props.claim.id), {}, {
+
+    router.put(route('admin.manage.claim-request.approve', {
+        id: props.claim.id,
+        type: 'transportation'  // Add this
+    }), {}, {
         preserveScroll: true,
         onSuccess: () => {
             toast.add({
                 severity: "success",
                 summary: "Approved",
-                detail: "Travel claim approved successfully",
+                detail: "Transportation claim approved successfully",  // Fixed message
                 life: 3000,
             });
             showApproveDialog.value = false;
             loading.value = false;
-            
-            // Refresh the page to show updated status
             router.reload();
         },
         onError: (errors) => {
@@ -180,9 +189,11 @@ const rejectClaim = () => {
     }
 
     loading.value = true;
-    
-    // Use the specific travel claim reject route
-    router.put(route('admin.manage.claim-request.reject', props.claim.id), {
+
+    router.put(route('admin.manage.claim-request.reject', {
+        id: props.claim.id,
+        type: 'transportation'  // Add this
+    }), {
         notes: rejectionReason.value
     }, {
         preserveScroll: true,
@@ -190,14 +201,12 @@ const rejectClaim = () => {
             toast.add({
                 severity: "success",
                 summary: "Rejected",
-                detail: "Travel claim rejected successfully",
+                detail: "Transportation claim rejected successfully",  // Fixed message
                 life: 3000,
             });
             showRejectDialog.value = false;
             rejectionReason.value = '';
             loading.value = false;
-            
-            // Refresh the page to show updated status
             router.reload();
         },
         onError: (errors) => {
@@ -220,14 +229,15 @@ const rejectClaim = () => {
 </script>
 
 <template>
+
     <Head :title="`Transportation Claim #${claim.id}`" />
     <AppLayout>
         <Toast />
         <ConfirmDialog />
 
-        <!-- Approve Dialog -->
-        <Dialog v-model:visible="showApproveDialog" modal header="Approve Transportation Claim" 
-                :style="{ width: '95vw', maxWidth: '500px' }" :closable="!loading">
+        <!-- Approve Dialog for Transportation Claim -->
+        <Dialog v-model:visible="showApproveDialog" modal header="Approve Transportation Claim"
+            :style="{ width: '95vw', maxWidth: '500px' }" :closable="!loading">
             <div class="space-y-4">
                 <div class="p-3 bg-blue-50 rounded-lg">
                     <div class="flex items-center gap-2">
@@ -238,23 +248,32 @@ const rejectClaim = () => {
                         Are you sure you want to approve this transportation claim from {{ claim.user?.name }}?
                     </p>
                 </div>
-                
+
+                <!-- Confirmation Checkbox -->
+                <div class="flex items-start gap-3 p-3 border rounded-lg">
+                    <Checkbox v-model="confirmOfficialBusiness" :binary="true" inputId="officialBusiness" />
+                    <label for="officialBusiness" class="text-sm cursor-pointer">
+                        <span class="font-medium">I confirm that this transportation is for official business
+                            purposes.</span>
+                        <br>
+                        <span class="text-xs text-gray-600 italic">
+                            Saya mengesahkan bahawa pengangkutan ini adalah atas urusan rasmi.
+                        </span>
+                    </label>
+                </div>
+
                 <div class="flex justify-end gap-2 pt-4 border-t">
-                    <Button label="Cancel" severity="secondary" outlined 
-                            @click="showApproveDialog = false"
-                            :disabled="loading"
-                            class="text-sm" />
-                    <Button label="Approve Claim" icon="pi pi-check" severity="success" 
-                            @click="approveClaim"
-                            :loading="loading"
-                            class="text-sm" />
+                    <Button label="Cancel" severity="secondary" outlined @click="showApproveDialog = false"
+                        :disabled="loading" class="text-sm" />
+                    <Button label="Approve Claim" icon="pi pi-check" severity="success" @click="approveClaim"
+                        :disabled="!confirmOfficialBusiness || loading" :loading="loading" class="text-sm" />
                 </div>
             </div>
         </Dialog>
 
         <!-- Reject Dialog -->
-        <Dialog v-model:visible="showRejectDialog" modal header="Reject Transportation Claim" 
-                :style="{ width: '95vw', maxWidth: '500px' }" :closable="!loading">
+        <Dialog v-model:visible="showRejectDialog" modal header="Reject Transportation Claim"
+            :style="{ width: '95vw', maxWidth: '500px' }" :closable="!loading">
             <div class="space-y-4">
                 <div class="p-3 bg-red-50 rounded-lg">
                     <div class="flex items-center gap-2">
@@ -268,25 +287,18 @@ const rejectClaim = () => {
 
                 <div class="space-y-2">
                     <label class="block text-sm font-semibold text-gray-700">Rejection Reason *</label>
-                    <Textarea v-model="rejectionReason" 
-                            placeholder="Enter reason for rejection..."
-                            rows="3"
-                            class="w-full" 
-                            :disabled="loading" />
+                    <Textarea v-model="rejectionReason" placeholder="Enter reason for rejection..." rows="3"
+                        class="w-full" :disabled="loading" />
                     <small class="text-gray-500 text-xs">
                         Required for rejection. This will be visible to the user.
                     </small>
                 </div>
-                
+
                 <div class="flex justify-end gap-2 pt-4 border-t">
-                    <Button label="Cancel" severity="secondary" outlined 
-                            @click="showRejectDialog = false"
-                            :disabled="loading"
-                            class="text-sm" />
-                    <Button label="Reject Claim" icon="pi pi-times" severity="danger" 
-                            @click="rejectClaim"
-                            :loading="loading"
-                            class="text-sm" />
+                    <Button label="Cancel" severity="secondary" outlined @click="showRejectDialog = false"
+                        :disabled="loading" class="text-sm" />
+                    <Button label="Reject Claim" icon="pi pi-times" severity="danger" @click="rejectClaim"
+                        :loading="loading" class="text-sm" />
                 </div>
             </div>
         </Dialog>
@@ -295,7 +307,8 @@ const rejectClaim = () => {
             <!-- Breadcrumb -->
             <Breadcrumb :home="home" :model="items" class="mb-4">
                 <template #item="{ item }">
-                    <span v-if="item.url" class="text-blue-600 hover:text-blue-800 cursor-pointer" @click="router.get(item.url)">
+                    <span v-if="item.url" class="text-blue-600 hover:text-blue-800 cursor-pointer"
+                        @click="router.get(item.url)">
                         {{ item.label }}
                     </span>
                     <span v-else class="font-semibold text-gray-700">
@@ -317,16 +330,13 @@ const rejectClaim = () => {
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <Button v-if="canProcess" label="Approve Claim" icon="pi pi-check" severity="success"
-                        @click="openApproveDialog"
-                        class="responsive-button" />
-                    
+                        @click="openApproveDialog" class="responsive-button" />
+
                     <Button v-if="canProcess" label="Reject Claim" icon="pi pi-times" severity="danger" outlined
-                        @click="openRejectDialog"
-                        class="responsive-button" />
-                    
+                        @click="openRejectDialog" class="responsive-button" />
+
                     <Button label="Back to Claims" icon="pi pi-arrow-left" severity="secondary" outlined
-                        @click="router.get(route('admin.claim-request.index'))"
-                        class="responsive-button" />
+                        @click="router.get(route('admin.claim-request.index'))" class="responsive-button" />
                 </div>
             </div>
 
@@ -341,11 +351,13 @@ const rejectClaim = () => {
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Transport Type</label>
-                                        <p class="text-lg font-semibold text-gray-800">{{ claim.transport_type_display }}</p>
+                                        <p class="text-lg font-semibold text-gray-800">{{ claim.transport_type_display
+                                        }}</p>
                                     </div>
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Trip Type</label>
-                                        <p class="text-lg font-semibold text-gray-800">{{ getTripTypeDisplay(claim.trip_type) }}</p>
+                                        <p class="text-lg font-semibold text-gray-800">{{
+                                            getTripTypeDisplay(claim.trip_type) }}</p>
                                     </div>
                                 </div>
 
@@ -363,11 +375,13 @@ const rejectClaim = () => {
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Claim Date</label>
-                                        <p class="text-lg font-semibold text-gray-800">{{ formatDate(claim.claim_date) }}</p>
+                                        <p class="text-lg font-semibold text-gray-800">{{ formatDate(claim.claim_date)
+                                        }}</p>
                                     </div>
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Travel Date</label>
-                                        <p class="text-lg font-semibold text-gray-800">{{ formatDate(claim.travel_date) }}</p>
+                                        <p class="text-lg font-semibold text-gray-800">{{ formatDate(claim.travel_date)
+                                        }}</p>
                                     </div>
                                 </div>
 
@@ -390,7 +404,8 @@ const rejectClaim = () => {
                         <template #content>
                             <div class="space-y-4">
                                 <div class="text-center">
-                                    <p class="text-3xl font-bold text-blue-600">{{ formatCurrency(claim.amount, claim.currency) }}</p>
+                                    <p class="text-3xl font-bold text-blue-600">{{ formatCurrency(claim.amount,
+                                        claim.currency) }}</p>
                                     <p class="text-sm text-gray-500 mt-1">Total Claim Amount</p>
                                 </div>
 
@@ -399,11 +414,13 @@ const rejectClaim = () => {
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Number of Trips</label>
-                                        <p class="text-lg font-semibold text-gray-800">{{ claim.number_of_trips }} trips</p>
+                                        <p class="text-lg font-semibold text-gray-800">{{ claim.number_of_trips }} trips
+                                        </p>
                                     </div>
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Cost per Trip</label>
-                                        <p class="text-lg font-semibold text-gray-800">{{ formatCurrency(claim.cost_per_trip, claim.currency) }}/trip</p>
+                                        <p class="text-lg font-semibold text-gray-800">{{
+                                            formatCurrency(claim.cost_per_trip, claim.currency) }}/trip</p>
                                     </div>
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Distance</label>
@@ -414,21 +431,25 @@ const rejectClaim = () => {
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Rate per KM</label>
-                                        <p class="text-lg font-semibold text-gray-800">{{ formatCurrency(claim.rate_per_km, claim.currency) }}/km</p>
+                                        <p class="text-lg font-semibold text-gray-800">{{
+                                            formatCurrency(claim.rate_per_km, claim.currency) }}/km</p>
                                     </div>
                                     <div class="space-y-1">
                                         <label class="block text-sm font-medium text-gray-600">Receipt Number</label>
-                                        <p class="text-lg font-semibold text-gray-800">{{ claim.receipt_number || '—' }}</p>
+                                        <p class="text-lg font-semibold text-gray-800">{{ claim.receipt_number || '—' }}
+                                        </p>
                                     </div>
                                 </div>
 
                                 <div class="p-3 bg-gray-50 rounded-lg">
                                     <div class="text-sm text-gray-600 text-center">
                                         <div v-if="claim.distance_km && claim.rate_per_km">
-                                            Distance Calculation: {{ claim.distance_km }} km × {{ formatCurrency(claim.rate_per_km, claim.currency) }}/km
+                                            Distance Calculation: {{ claim.distance_km }} km × {{
+                                                formatCurrency(claim.rate_per_km, claim.currency) }}/km
                                         </div>
                                         <div v-if="claim.number_of_trips && claim.cost_per_trip">
-                                            Trip Calculation: {{ claim.number_of_trips }} trips × {{ formatCurrency(claim.cost_per_trip, claim.currency) }}/trip
+                                            Trip Calculation: {{ claim.number_of_trips }} trips × {{
+                                                formatCurrency(claim.cost_per_trip, claim.currency) }}/trip
                                         </div>
                                     </div>
                                 </div>
@@ -441,8 +462,8 @@ const rejectClaim = () => {
                         <template #title>Attachments</template>
                         <template #content>
                             <div class="space-y-3">
-                                <div v-for="(doc, index) in claim.documents" :key="index" 
-                                     class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                <div v-for="(doc, index) in claim.documents" :key="index"
+                                    class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                                     <div class="flex items-center gap-3">
                                         <i class="pi pi-file text-gray-500 text-lg"></i>
                                         <div>
@@ -452,8 +473,7 @@ const rejectClaim = () => {
                                     </div>
                                     <div class="flex gap-2">
                                         <Button icon="pi pi-eye" severity="info" text rounded
-                                            @click="viewDocument(doc.url)"
-                                            v-tooltip="'View document'" />
+                                            @click="viewDocument(doc.url)" v-tooltip="'View document'" />
                                         <Button icon="pi pi-download" severity="success" text rounded
                                             @click="downloadDocument(doc.url, doc.name)"
                                             v-tooltip="'Download document'" />
@@ -472,47 +492,49 @@ const rejectClaim = () => {
                         <template #content>
                             <div class="space-y-4">
                                 <div class="text-center">
-                                    <Tag :value="getStatusText(claim.status)" :severity="statusSeverity" 
-                                          class="text-base font-semibold px-4 py-2" />
+                                    <Tag :value="getStatusText(claim.status)" :severity="statusSeverity"
+                                        class="text-base font-semibold px-4 py-2" />
                                 </div>
-                                
+
                                 <div class="space-y-3">
                                     <div class="flex justify-between text-sm">
                                         <span class="text-gray-600">Created:</span>
                                         <span class="font-medium">{{ formatDateTime(claim.created_at) }}</span>
                                     </div>
-                                    
+
                                     <div v-if="claim.submitted_at" class="flex justify-between text-sm">
                                         <span class="text-gray-600">Submitted:</span>
                                         <span class="font-medium">{{ formatDateTime(claim.updated_at) }}</span>
                                     </div>
-                                    
+
                                     <div v-if="claim.approver" class="flex justify-between text-sm">
-                                        <span class="text-gray-600">{{ claim.status === 'approved' ? 'Approved' : 'Rejected' }} By:</span>
+                                        <span class="text-gray-600">{{ claim.status === 'approved' ? 'Approved' :
+                                            'Rejected' }} By:</span>
                                         <span class="font-medium">{{ claim.approver?.name }}</span>
                                     </div>
 
                                     <div v-if="claim.approval_date" class="flex justify-between text-sm">
-                                        <span class="text-gray-600">{{ claim.status === 'approved' ? 'Approved' : 'Rejected' }} Date:</span>
+                                        <span class="text-gray-600">{{ claim.status === 'approved' ? 'Approved' :
+                                            'Rejected' }} Date:</span>
                                         <span class="font-medium">{{ formatDateTime(claim.approval_date) }}</span>
                                     </div>
                                 </div>
 
                                 <!-- Rejection Reason -->
-                                <div v-if="claim.status === 'rejected' && claim.rejection_reason" class="p-3 bg-red-50 border border-red-200 rounded">
+                                <div v-if="claim.status === 'rejected' && claim.rejection_reason"
+                                    class="p-3 bg-red-50 border border-red-200 rounded">
                                     <h5 class="font-semibold text-red-800 text-sm mb-1">Rejection Reason:</h5>
                                     <p class="text-red-700 text-sm">{{ claim.rejection_reason }}</p>
                                 </div>
 
                                 <!-- Action Buttons -->
                                 <div class="space-y-2 pt-2">
-                                    <Button v-if="canProcess" label="Approve Claim" icon="pi pi-check" severity="success"
-                                        @click="openApproveDialog"
+                                    <Button v-if="canProcess" label="Approve Claim" icon="pi pi-check"
+                                        severity="success" @click="openApproveDialog"
                                         class="w-full responsive-button" />
-                                    
-                                    <Button v-if="canProcess" label="Reject Claim" icon="pi pi-times" severity="danger" outlined
-                                        @click="openRejectDialog"
-                                        class="w-full responsive-button" />
+
+                                    <Button v-if="canProcess" label="Reject Claim" icon="pi pi-times" severity="danger"
+                                        outlined @click="openRejectDialog" class="w-full responsive-button" />
                                 </div>
                             </div>
                         </template>
@@ -549,7 +571,8 @@ const rejectClaim = () => {
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-sm text-gray-600">Rate:</span>
-                                    <span class="text-sm font-medium">{{ formatCurrency(claim.rate_per_km, claim.currency) }}/km</span>
+                                    <span class="text-sm font-medium">{{ formatCurrency(claim.rate_per_km,
+                                        claim.currency) }}/km</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-sm text-gray-600">Currency:</span>
@@ -558,7 +581,8 @@ const rejectClaim = () => {
                                 <hr class="my-2">
                                 <div class="flex justify-between">
                                     <span class="text-lg font-semibold text-gray-800">Total:</span>
-                                    <span class="text-lg font-bold text-blue-600">{{ formatCurrency(claim.amount, claim.currency) }}</span>
+                                    <span class="text-lg font-bold text-blue-600">{{ formatCurrency(claim.amount,
+                                        claim.currency) }}</span>
                                 </div>
                             </div>
                         </template>
