@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendClaimSubmittedNotification;
 use App\Models\DailyAllowance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -56,12 +57,29 @@ class DailyAllowanceController extends Controller
         $claimPercentage = DailyAllowance::getPercentageByType($validated['allowance_type']);
         $claimAmount = ($validated['daily_rate'] * $claimPercentage) / 100;
 
-        // Determine status
+        // Determine status and approver
         $status = $request->boolean('save_as_draft') ? 'draft' : 'submitted';
+        $approverId = null;
+
+        // If submitting (not draft), get the approver
+        if ($status === 'submitted') {
+            $user = Auth::user();
+            $approver = $user->approver;
+
+            // Check if user has an approver assigned
+            if (! $approver) {
+                return redirect()->back()
+                    ->with('error', 'No approver assigned to your account. Please contact administrator.')
+                    ->withInput();
+            }
+
+            $approverId = $approver->id;
+        }
 
         // Create the daily allowance claim
         $dailyAllowance = DailyAllowance::create([
             'user_id' => Auth::id(),
+            'approver_id' => $approverId, // Set approver_id if submitted
             'claim_date' => $validated['claim_date'],
             'allowance_type' => $validated['allowance_type'],
             'currency' => $validated['currency'],
@@ -78,6 +96,11 @@ class DailyAllowanceController extends Controller
             foreach ($request->file('attachments') as $file) {
                 $dailyAllowance->addMedia($file)->toMediaCollection('receipts');
             }
+        }
+
+        // Send notification to approver if submitted (not draft)
+        if ($status === 'submitted') {
+            dispatch(new SendClaimSubmittedNotification($dailyAllowance, 'daily', Auth::user()));
         }
 
         $message = $status === 'draft'
@@ -273,6 +296,9 @@ class DailyAllowanceController extends Controller
             'approver_id' => $approver->id,
             'status' => 'submitted',
         ]);
+
+        // Send notification to approver
+        dispatch(new SendClaimSubmittedNotification($dailyAllowance, 'daily', Auth::user()));
 
         return redirect()->route('user.daily-allowances.show', $dailyAllowance)
             ->with('success', 'Daily allowance claim submitted for approval successfully!');

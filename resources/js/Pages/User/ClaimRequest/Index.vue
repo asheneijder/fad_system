@@ -744,6 +744,7 @@ const getTransportTypeDisplay = (type) => {
 .page-container {
     padding: 0.75rem;
     max-width: 100%;
+    overflow-x: hidden;
 }
 
 @media (min-width: 640px) {
@@ -842,6 +843,12 @@ const getTransportTypeDisplay = (type) => {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 1rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
     }
 }
 
@@ -1144,14 +1151,47 @@ const getTransportTypeDisplay = (type) => {
     transform: scale(1.05);
 }
 
-/* TabView Styling */
+/* TabView Styling - IMPROVED FOR RESPONSIVE */
+.claims-tabview {
+    width: 100%;
+    overflow: hidden;
+}
+
+.claims-tabview :deep(.p-tabview-nav-container) {
+    overflow: visible;
+}
+
 .claims-tabview :deep(.p-tabview-nav) {
     background: transparent;
     border: none;
     border-bottom: 1px solid #e5e7eb;
+    display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db #f3f4f6;
+    position: relative;
+}
+
+/* Custom scrollbar for webkit browsers */
+.claims-tabview :deep(.p-tabview-nav)::-webkit-scrollbar {
+    height: 6px;
+}
+
+.claims-tabview :deep(.p-tabview-nav)::-webkit-scrollbar-track {
+    background: #f3f4f6;
+    border-radius: 3px;
+}
+
+.claims-tabview :deep(.p-tabview-nav)::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+.claims-tabview :deep(.p-tabview-nav)::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
 }
 
 .claims-tabview :deep(.p-tabview-nav-link) {
@@ -1161,6 +1201,7 @@ const getTransportTypeDisplay = (type) => {
     border-bottom: 2px solid transparent;
     white-space: nowrap;
     transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
 @media (min-width: 768px) {
@@ -1178,6 +1219,7 @@ const getTransportTypeDisplay = (type) => {
     background: transparent;
     color: #3b82f6;
     border-bottom-color: #3b82f6;
+    font-weight: 600;
 }
 
 .claims-tabview :deep(.p-tabview-panels) {
@@ -1193,7 +1235,13 @@ const getTransportTypeDisplay = (type) => {
 }
 
 .tab-icon {
-    font-size: 1rem;
+    font-size: 0.875rem;
+}
+
+@media (min-width: 768px) {
+    .tab-icon {
+        font-size: 1rem;
+    }
 }
 
 .tab-label {
@@ -1210,30 +1258,56 @@ const getTransportTypeDisplay = (type) => {
     margin-left: 0.25rem;
 }
 
-/* Table Wrapper */
+/* Table Wrapper - IMPROVED */
 .table-wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    width: 100%;
+    margin: 0 -0.5rem;
+    padding: 0 0.5rem;
+}
+
+@media (min-width: 768px) {
+    .table-wrapper {
+        margin: 0;
+        padding: 0;
+    }
 }
 
 /* DataTable Customization */
+:deep(.p-datatable) {
+    font-size: 0.875rem;
+}
+
+:deep(.p-datatable .p-datatable-wrapper) {
+    overflow-x: auto;
+}
+
 :deep(.p-datatable .p-datatable-thead > tr > th) {
     background: linear-gradient(to bottom, #f9fafb, #f3f4f6);
     font-weight: 600;
     color: #374151;
     border-color: #e5e7eb;
-    padding: 0.75rem;
-    font-size: 0.875rem;
+    padding: 0.75rem 0.5rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
+    :deep(.p-datatable .p-datatable-thead > tr > th) {
+        padding: 0.875rem 0.75rem;
+        font-size: 0.875rem;
+    }
+}
+
+@media (min-width: 1024px) {
     :deep(.p-datatable .p-datatable-thead > tr > th) {
         padding: 1rem;
         font-size: 0.875rem;
     }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
     :deep(.p-datatable .p-datatable-thead > tr > th) {
         font-size: 1rem;
     }
@@ -1248,10 +1322,17 @@ const getTransportTypeDisplay = (type) => {
 }
 
 :deep(.p-datatable .p-datatable-tbody > tr > td) {
-    padding: 0.75rem;
+    padding: 0.75rem 0.5rem;
+    border-color: #e5e7eb;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
+    :deep(.p-datatable .p-datatable-tbody > tr > td) {
+        padding: 0.875rem 0.75rem;
+    }
+}
+
+@media (min-width: 1024px) {
     :deep(.p-datatable .p-datatable-tbody > tr > td) {
         padding: 1rem;
     }
@@ -1259,11 +1340,11 @@ const getTransportTypeDisplay = (type) => {
 
 /* Table Cells */
 .table-cell {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     color: #6b7280;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
     .table-cell {
         font-size: 0.875rem;
     }
@@ -1282,9 +1363,15 @@ const getTransportTypeDisplay = (type) => {
 /* Status Badge */
 .status-badge {
     text-transform: capitalize;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     padding: 0.25rem 0.5rem;
     white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+    .status-badge {
+        font-size: 0.75rem;
+    }
 }
 
 @media (min-width: 768px) {
@@ -1299,6 +1386,7 @@ const getTransportTypeDisplay = (type) => {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+    justify-content: center;
 }
 
 .action-btn :deep(.p-button) {
@@ -1420,10 +1508,12 @@ const getTransportTypeDisplay = (type) => {
     display: flex;
     gap: 1rem;
     align-items: flex-start;
+    flex-direction: column;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
     .tips-content {
+        flex-direction: row;
         gap: 1.5rem;
     }
 }
@@ -1474,6 +1564,7 @@ const getTransportTypeDisplay = (type) => {
 
 .tips-list li {
     margin-bottom: 0.25rem;
+    line-height: 1.6;
 }
 
 .tips-list li:last-child {
@@ -1501,24 +1592,33 @@ const getTransportTypeDisplay = (type) => {
     padding: 0;
 }
 
-/* Mobile Optimization */
-@media (max-width: 639px) {
+/* Ensure proper spacing for tab scroll indicators */
+@media (max-width: 1023px) {
     .claims-tabview :deep(.p-tabview-nav) {
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
+        padding-bottom: 0.5rem;
+    }
+}
+
+/* Mobile specific improvements */
+@media (max-width: 639px) {
+    /* Improve touch targets */
+    .claim-type-card {
+        min-height: 180px;
     }
     
-    .claims-tabview :deep(.p-tabview-nav)::-webkit-scrollbar {
-        height: 4px;
+    /* Better button sizes */
+    .claim-type-button :deep(.p-button) {
+        padding: 0.625rem 1rem;
+        font-size: 0.875rem;
     }
     
-    .claims-tabview :deep(.p-tabview-nav)::-webkit-scrollbar-track {
-        background: #f3f4f6;
+    /* Adjust stat cards for better readability */
+    .stat-value {
+        font-size: 1.5rem !important;
     }
     
-    .claims-tabview :deep(.p-tabview-nav)::-webkit-scrollbar-thumb {
-        background: #d1d5db;
-        border-radius: 2px;
+    .stat-value-small {
+        font-size: 1.125rem !important;
     }
 }
 </style>
