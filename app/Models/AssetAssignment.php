@@ -20,6 +20,7 @@ class AssetAssignment extends Model
         'assigned_by',
         'assigned_at',
         'returned_at',
+        'acknowledged_at',
         'notes',
         'condition_assigned',
         'condition_returned',
@@ -28,6 +29,7 @@ class AssetAssignment extends Model
     protected $casts = [
         'assigned_at' => 'datetime',
         'returned_at' => 'datetime',
+        'acknowledged_at' => 'datetime',
     ];
 
     // Relationships
@@ -98,6 +100,24 @@ class AssetAssignment extends Model
         ]);
 
         return true;
+    }
+
+    // Add this accessor to check if acknowledged
+    public function getIsAcknowledgedAttribute(): bool
+    {
+        return ! is_null($this->acknowledged_at);
+    }
+
+    // Add this method to mark as acknowledged
+    public function markAcknowledged(): bool
+    {
+        if ($this->acknowledged_at) {
+            return false; // Already acknowledged
+        }
+
+        return $this->update([
+            'acknowledged_at' => now(),
+        ]);
     }
 
     public function getActivitylogOptions(): LogOptions

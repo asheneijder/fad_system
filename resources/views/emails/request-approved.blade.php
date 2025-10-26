@@ -14,7 +14,7 @@ Good news! Your stationary request has been approved.
 | Item | Requested | Approved | Unit Price |
 | :--- | :-------- | :------- | :--------- |
 @foreach($requestItem->items as $item)
-| {{ $item->stationaryItem->name }} | {{ $item->quantity }} {{ $item->stationaryItem->unit }} | {{ $item->approved_quantity ?? $item->quantity }} {{ $item->stationaryItem->unit }} | ${{ number_format($item->unit_price, 2) }} |
+| {{ $item->stationaryItem->name }} | {{ $item->quantity }} {{ $item->stationaryItem->unit }} | {{ $item->approved_quantity ?? $item->quantity }} {{ $item->stationaryItem->unit }} | RM{{ number_format($item->unit_price, 2) }} |
 @endforeach
 </x-mail::table>
 

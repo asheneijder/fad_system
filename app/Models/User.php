@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -35,6 +36,8 @@ class User extends Authenticatable
         'department',
         'office_location',
         'status',
+        'approver_id', // ADD THIS
+        'can_approve', // ADD THIS
     ];
 
     /**
@@ -58,12 +61,46 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'status' => 'boolean',
+            'can_approve' => 'boolean', // ADD THIS
         ];
     }
 
     public function assets(): HasMany
     {
         return $this->hasMany(Asset::class);
+    }
+
+    /**
+     * NEW: User belongs to an approver
+     */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approver_id');
+    }
+
+    /**
+     * NEW: User has many users they approve for
+     */
+    public function subordinates(): HasMany
+    {
+        return $this->hasMany(User::class, 'approver_id');
+    }
+
+    /**
+     * NEW: User has many travel claims to approve
+     */
+    public function claimsToApprove(): HasMany
+    {
+        return $this->hasMany(TravelClaim::class, 'approver_id')
+            ->where('approval_status', 'pending');
+    }
+
+    /**
+     * NEW: Check if user can approve claims
+     */
+    public function canApproveClaims(): bool
+    {
+        return $this->can_approve || $this->subordinates()->exists();
     }
 
     /**

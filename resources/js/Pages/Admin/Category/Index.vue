@@ -109,7 +109,7 @@ watch([search, typeFilter], ([newSearch, newType], [oldSearch, oldType]) => {
             preserveScroll: true
         });
     }
-});
+}, 300);
 
 watch(showCreateEditDialog, (val) => {
     if (!val) resetForm();

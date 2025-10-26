@@ -34,6 +34,10 @@ const props = defineProps({
         type: Array,
         default: () => []
     },
+    approvers: {
+        type: Array,
+        default: () => []
+    },
     filters: {
         type: Object,
         default: () => ({ search: '', status: '' })
@@ -59,6 +63,11 @@ const loading = ref(false);
 const currentPerPage = ref(props.users?.per_page || 10);
 const { hasPermission } = usePermissions();
 
+// NEW: Approval assignment refs
+const showApprovalDialog = ref(false);
+const selectedUserForApproval = ref(null);
+const selectedApproverId = ref(null);
+
 // Form data
 const userForm = useForm({
     name: '',
@@ -69,6 +78,7 @@ const userForm = useForm({
     password: '',
     password_confirmation: '',
     role_ids: [],
+    approver_id: null,
 });
 
 // Action menu items
@@ -115,6 +125,8 @@ const statistics = computed(() => {
         withJobTitle: data.filter(u => u.job_title && u.job_title.trim() !== '').length,
         withoutJobTitle: data.filter(u => !u.job_title || u.job_title.trim() === '').length,
         withDepartment: data.filter(u => u.department && u.department.trim() !== '').length,
+        withApprover: data.filter(u => u.approver_id).length,
+        withoutApprover: data.filter(u => !u.approver_id).length,
         recentUsers: data.filter(u => {
             const created = new Date(u.created_at);
             const thirtyDaysAgo = new Date();
@@ -225,6 +237,7 @@ const openEditModal = (user) => {
     userForm.password = '';
     userForm.password_confirmation = '';
     userForm.role_ids = user.roles ? user.roles.map(role => role.id) : [];
+    userForm.approver_id = user.approver_id || null;
     
     showUserModal.value = true;
 };
@@ -300,6 +313,74 @@ const deleteUser = (user) => {
                         severity: "error",
                         summary: "Error",
                         detail: errors.message || "Failed to delete user",
+                        life: 3000,
+                    });
+                }
+            });
+        },
+    });
+};
+
+// NEW: Assign approval methods
+const assignApproval = (user) => {
+    selectedUserForApproval.value = user;
+    selectedApproverId.value = user.approver_id;
+    showApprovalDialog.value = true;
+};
+
+const saveApprovalAssignment = () => {
+    if (!selectedUserForApproval.value) return;
+
+    const form = useForm({
+        approver_id: selectedApproverId.value
+    });
+
+    form.post(route('admin.users.assign-approver', selectedUserForApproval.value.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.add({
+                severity: "success",
+                summary: "Approver Assigned",
+                detail: "Approver assigned successfully",
+                life: 3000,
+            });
+            showApprovalDialog.value = false;
+            selectedUserForApproval.value = null;
+            selectedApproverId.value = null;
+        },
+        onError: (errors) => {
+            toast.add({
+                severity: "error",
+                summary: "Error",
+                detail: "Failed to assign approver",
+                life: 3000,
+            });
+        }
+    });
+};
+
+const removeApproval = (user) => {
+    confirm.require({
+        message: `Are you sure you want to remove the approver from ${user.name}?`,
+        header: "Remove Approver Confirmation",
+        icon: "pi pi-user-minus",
+        accept: () => {
+            router.delete(route('admin.users.remove-approver', user.id), {
+                preserveState: false,
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.add({
+                        severity: "success",
+                        summary: "Approver Removed",
+                        detail: "Approver removed successfully",
+                        life: 3000,
+                    });
+                },
+                onError: (errors) => {
+                    toast.add({
+                        severity: "error",
+                        summary: "Error",
+                        detail: "Failed to remove approver",
                         life: 3000,
                     });
                 }
@@ -488,6 +569,10 @@ const getUserRoles = (user) => {
     return user.roles.map(role => role.name);
 };
 
+const getUserApprover = (user) => {
+    return user.approver ? user.approver.name : 'No Approver';
+};
+
 // Computed properties for form validation
 const isFormValid = computed(() => {
     const baseValid = userForm.name && userForm.email;
@@ -596,29 +681,31 @@ const isFormValid = computed(() => {
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-orange-500 shadow-md">
+                <!-- NEW: With Approver Card -->
+                <Card class="border-l-4 border-green-500 shadow-md">
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="text-xs font-medium text-gray-500 truncate">With Department</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.withDepartment }}</p>
+                                <p class="text-xs font-medium text-gray-500 truncate">With Approver</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.withApprover }}</p>
                             </div>
-                            <div class="p-2 sm:p-3 bg-orange-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-orange-600 pi pi-building"></i>
+                            <div class="p-2 sm:p-3 bg-green-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-green-600 pi pi-user-check"></i>
                             </div>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-purple-500 shadow-md">
+                <!-- NEW: Without Approver Card -->
+                <Card class="border-l-4 border-red-500 shadow-md">
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="text-xs font-medium text-gray-500 truncate">Recent (30d)</p>
-                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.recentUsers }}</p>
+                                <p class="text-xs font-medium text-gray-500 truncate">No Approver</p>
+                                <p class="mt-1 text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{{ statistics.withoutApprover }}</p>
                             </div>
-                            <div class="p-2 sm:p-3 bg-purple-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg md:text-xl text-purple-600 pi pi-clock"></i>
+                            <div class="p-2 sm:p-3 bg-red-100 rounded-full flex-shrink-0">
+                                <i class="text-base sm:text-lg md:text-xl text-red-600 pi pi-user-minus"></i>
                             </div>
                         </div>
                     </template>
@@ -745,13 +832,28 @@ const isFormValid = computed(() => {
                                 </template>
                             </Column>
 
+                            <!-- NEW: Approver Column -->
+                            <Column header="Approver" sortable style="min-width: 150px;">
+                                <template #body="slotProps">
+                                    <div class="text-xs sm:text-sm">
+                                        <div class="font-medium text-gray-900">
+                                            {{ getUserApprover(slotProps.data) }}
+                                        </div>
+                                        <div v-if="slotProps.data.approver" class="text-xs text-gray-500">
+                                            {{ slotProps.data.approver.email }}
+                                        </div>
+                                    </div>
+                                </template>
+                            </Column>
+
                             <Column field="office_location" header="Location" sortable style="min-width: 120px;">
                                 <template #body="slotProps">
-                                    <Badge v-if="slotProps.data.office_location" 
-                                        :value="slotProps.data.office_location" 
-                                        severity="info" 
-                                        class="text-xs" />
-                                    <Badge v-else value="—" severity="secondary" class="text-xs" />
+                                    <span v-if="slotProps.data.office_location" 
+                                          class="inline-block px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-md truncate max-w-full"
+                                          :title="slotProps.data.office_location">
+                                        {{ slotProps.data.office_location }}
+                                    </span>
+                                    <span v-else class="text-gray-400 text-xs">—</span>
                                 </template>
                             </Column>
 
@@ -764,15 +866,22 @@ const isFormValid = computed(() => {
                             </Column>
 
                             <!-- Actions -->
-                            <Column header="Actions" style="min-width: 140px">
+                            <Column header="Actions" style="min-width: 160px">
                                 <template #body="slotProps">
                                     <div class="flex gap-1 flex-wrap">
                                         <Button icon="pi pi-pencil" outlined rounded severity="warning" size="small"
                                             v-tooltip.top="'Edit'" @click="openEditModal(slotProps.data)" 
                                             class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
-                                        <Button icon="pi pi-key" outlined rounded severity="help" size="small"
-                                            v-tooltip.top="'Reset Password'" @click="resetPassword(slotProps.data)" 
+                                        <!-- REPLACED: Change Password with Assign Approval -->
+                                        <Button icon="pi pi-user-edit" outlined rounded severity="info" size="small"
+                                            v-tooltip.top="slotProps.data.approver_id ? 'Change Approver' : 'Assign Approver'" 
+                                            @click="assignApproval(slotProps.data)" 
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
+
+                                        <Button v-if="slotProps.data.approver_id" 
+                                            icon="pi pi-user-minus" outlined rounded severity="danger" size="small"
+                                            v-tooltip.top="'Remove Approver'" @click="removeApproval(slotProps.data)" 
                                             class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
                                         <Button v-if="hasPermission('can.delete.user')"
@@ -856,6 +965,48 @@ const isFormValid = computed(() => {
                                 placeholder="Enter office location" 
                                 class="w-full text-xs sm:text-sm"
                                 :disabled="userForm.processing" />
+                        </div>
+
+                       <!-- NEW: Approver Selection with Search -->
+                        <div class="space-y-1 sm:space-y-2 md:col-span-2">
+                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Assign Approver</label>
+                            <Select v-model="userForm.approver_id" 
+                                :options="approvers" 
+                                optionLabel="name" 
+                                optionValue="id"
+                                placeholder="Select approver..."
+                                :filter="true"
+                                filterPlaceholder="Search approvers..."
+                                :showClear="true"
+                                class="w-full text-xs sm:text-sm"
+                                :disabled="userForm.processing">
+                                <template #value="slotProps">
+                                    <div v-if="slotProps.value" class="flex items-center space-x-2">
+                                        <i class="pi pi-user text-blue-500 text-xs"></i>
+                                        <span class="text-xs sm:text-sm">{{ approvers.find(a => a.id === slotProps.value)?.name }}</span>
+                                    </div>
+                                    <span v-else class="text-gray-400 text-xs sm:text-sm">{{ slotProps.placeholder }}</span>
+                                </template>
+                                <template #option="slotProps">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="pi pi-user text-blue-500 text-xs"></i>
+                                        <div>
+                                            <span class="text-xs sm:text-sm font-medium">{{ slotProps.option.name }}</span>
+                                            <div class="text-xs text-gray-500">{{ slotProps.option.email }}</div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template #footer>
+                                    <div class="p-2 border-t border-gray-200">
+                                        <div class="text-xs text-gray-500 text-center">
+                                            {{ approvers.length }} approver(s) available
+                                        </div>
+                                    </div>
+                                </template>
+                            </Select>
+                            <small class="text-gray-500 text-xs">
+                                Select who will approve this user's travel claims
+                            </small>
                         </div>
 
                         <!-- Roles Assignment -->
@@ -952,6 +1103,57 @@ const isFormValid = computed(() => {
                             :loading="userForm.processing"
                             :disabled="!isFormValid || userForm.processing"
                             class="w-full sm:w-auto text-xs sm:text-sm" />
+                    </div>
+                </div>
+            </Dialog>
+
+            <!-- NEW: Assign Approval Dialog -->
+            <Dialog v-model:visible="showApprovalDialog" modal 
+                header="Assign Approver" 
+                :style="{ width: '95vw', maxWidth: '500px' }">
+                
+                <div class="space-y-4" v-if="selectedUserForApproval">
+                    <div class="p-3 bg-blue-50 rounded-lg">
+                        <div class="text-sm font-medium text-blue-800">User:</div>
+                        <div class="text-lg font-semibold">{{ selectedUserForApproval.name }}</div>
+                        <div class="text-sm text-blue-600">{{ selectedUserForApproval.email }}</div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-gray-700">Select Approver</label>
+                        <Select v-model="selectedApproverId" 
+                            :options="approvers" 
+                            optionLabel="name" 
+                            optionValue="id"
+                            placeholder="Choose an approver..."
+                            class="w-full">
+                            <template #option="slotProps">
+                                <div class="flex items-center space-x-3">
+                                    <i class="pi pi-user text-blue-500"></i>
+                                    <div>
+                                        <div class="font-medium">{{ slotProps.option.name }}</div>
+                                        <div class="text-xs text-gray-500">{{ slotProps.option.email }}</div>
+                                    </div>
+                                </div>
+                            </template>
+                        </Select>
+                        <small class="text-gray-500 text-xs">
+                            This person will approve travel claims for {{ selectedUserForApproval.name }}
+                        </small>
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-4 border-t">
+                        <Button label="Cancel" 
+                            severity="secondary" 
+                            outlined 
+                            @click="showApprovalDialog = false"
+                            class="text-sm" />
+                        <Button label="Assign Approver" 
+                            icon="pi pi-user-check" 
+                            severity="success" 
+                            @click="saveApprovalAssignment"
+                            :disabled="!selectedApproverId"
+                            class="text-sm" />
                     </div>
                 </div>
             </Dialog>

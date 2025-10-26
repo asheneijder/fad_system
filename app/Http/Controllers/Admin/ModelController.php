@@ -60,12 +60,8 @@ class ModelController extends Controller
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        // dd($request->all());
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:model_types,name',
             'description' => 'nullable|string|max:1000',
@@ -81,13 +77,9 @@ class ModelController extends Controller
 
         ModelType::create($validated);
 
-        return redirect()->route('admin.models.index')
-            ->with('success', 'Model created successfully.');
+        return back()->with('success', 'Model created successfully.');
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, ModelType $model)
     {
         $validated = $request->validate([
@@ -105,8 +97,7 @@ class ModelController extends Controller
 
         $model->update($validated);
 
-        return redirect()->route('admin.models.index')
-            ->with('success', 'Model updated successfully.');
+        return back()->with('success', 'Model updated successfully.');
     }
 
     /**
