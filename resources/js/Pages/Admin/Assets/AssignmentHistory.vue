@@ -6,6 +6,7 @@ import Button from "primevue/button";
 import Badge from 'primevue/badge';
 import Breadcrumb from 'primevue/breadcrumb';
 import Card from "primevue/card";
+import Chip from 'primevue/chip';
 import Dialog from 'primevue/dialog';
 import { Head, router } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
@@ -29,23 +30,23 @@ const activeAssignment = computed(() => props.assignments.data.find(a => !a.retu
 const returnedAssignments = computed(() => props.assignments.data.filter(a => a.returned_at));
 
 // Add acknowledgment statistics
-const acknowledgedAssignments = computed(() => 
+const acknowledgedAssignments = computed(() =>
     props.assignments.data.filter(a => a.acknowledged_at).length
 );
 
-const pendingAcknowledgment = computed(() => 
+const pendingAcknowledgment = computed(() =>
     props.assignments.data.filter(a => !a.returned_at && !a.acknowledged_at).length
 );
 
 const averageAssignmentDuration = computed(() => {
     if (returnedAssignments.value.length === 0) return 0;
-    
+
     const totalDays = returnedAssignments.value.reduce((sum, assignment) => {
         const start = new Date(assignment.assigned_at);
         const end = new Date(assignment.returned_at);
         return sum + Math.ceil((end - start) / (1000 * 60 * 60 * 24));
     }, 0);
-    
+
     return Math.round(totalDays / returnedAssignments.value.length);
 });
 
@@ -103,13 +104,13 @@ const formatDate = (date) => {
 
 const getAssignmentDuration = (assignment) => {
     if (!assignment.assigned_at) return '—';
-    
+
     const startDate = new Date(assignment.assigned_at);
     const endDate = assignment.returned_at ? new Date(assignment.returned_at) : new Date();
-    
+
     const diffTime = Math.abs(endDate - startDate);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) {
         const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
         return diffHours <= 1 ? 'Less than 1 hour' : `${diffHours} hours`;
@@ -149,11 +150,11 @@ const getAcknowledgmentIcon = (assignment) => {
 };
 
 const getAssetStatusSeverity = (status) => {
-    const map = { 
-        available: 'success', 
-        assigned: 'info', 
-        maintenance: 'warning', 
-        retired: 'danger' 
+    const map = {
+        available: 'success',
+        assigned: 'info',
+        maintenance: 'warning',
+        retired: 'danger'
     };
     return map[status] || 'secondary';
 };
@@ -191,7 +192,7 @@ const exportAssignments = () => {
     const form = document.createElement('form');
     form.method = 'GET';
     form.action = route('admin.assets.assignment-history.export', props.asset.id);
-    
+
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
@@ -203,14 +204,15 @@ const visit = (url) => {
 </script>
 
 <template>
+
     <Head :title="`Assignment History - ${asset.name}`" />
     <AppLayout>
         <div class="p-6 space-y-6">
             <!-- Breadcrumb -->
             <Breadcrumb :home="home" :model="items" class="mb-4">
                 <template #item="{ item }">
-                    <span v-if="item.url" class="text-blue-600 cursor-pointer hover:text-blue-800" 
-                          @click="visit(item.url)">
+                    <span v-if="item.url" class="text-blue-600 cursor-pointer hover:text-blue-800"
+                        @click="visit(item.url)">
                         {{ item.label }}
                     </span>
                     <span v-else class="font-semibold text-gray-700">{{ item.label }}</span>
@@ -222,14 +224,14 @@ const visit = (url) => {
                 <div>
                     <h1 class="text-2xl lg:text-3xl font-bold text-gray-800">Assignment History</h1>
                     <p class="mt-1 text-gray-500">
-                        Track all assignments for 
+                        Track all assignments for
                         <span class="font-semibold text-blue-600">{{ asset.name }}</span>
                         ({{ asset.asset_tag_no }})
                     </p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <Button label="Back to Assets" icon="pi pi-arrow-left" severity="secondary"
-                        @click="goBack" class="flex-1 lg:flex-none" />
+                    <Button label="Back to Assets" icon="pi pi-arrow-left" severity="secondary" @click="goBack"
+                        class="flex-1 lg:flex-none" />
                 </div>
             </div>
 
@@ -254,9 +256,8 @@ const visit = (url) => {
                                 <i class="pi pi-user text-white text-xl"></i>
                             </div>
                             <p class="text-sm font-medium text-gray-600">Current Status</p>
-                            <Badge :value="asset.status" 
-                                   :severity="getAssetStatusSeverity(asset.status)"
-                                   class="mt-1 capitalize text-sm" />
+                            <Badge :value="asset.status" :severity="getAssetStatusSeverity(asset.status)"
+                                class="mt-1 capitalize text-sm" />
                         </div>
                     </template>
                 </Card>
@@ -296,18 +297,16 @@ const visit = (url) => {
                         </div>
                         <div class="flex gap-2">
                             <Button label="Export CSV" icon="pi pi-download" severity="help" outlined
-                                @click="exportAssignments" class="text-sm" 
+                                @click="exportAssignments" class="text-sm"
                                 v-tooltip="'Export all assignment records to CSV'" />
                         </div>
                     </div>
                 </template>
                 <template #content>
-                    <DataTable :value="assignments.data" showGridlines stripedRows
-                        :rowHover="true" paginator :rows="assignments.per_page" 
-                        :totalRecords="assignments.total"
-                        :first="(assignments.current_page - 1) * assignments.per_page"
-                        @page="onPageChange"
-                        responsiveLayout="scroll" 
+                    <DataTable :value="assignments.data" showGridlines stripedRows :rowHover="true" paginator
+                        :rows="assignments.per_page" :totalRecords="assignments.total"
+                        :first="(assignments.current_page - 1) * assignments.per_page" @page="onPageChange"
+                        responsiveLayout="scroll"
                         :class="['p-datatable-custom', { 'min-h-[400px]': assignments.data.length > 0 }]"
                         paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                         currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
@@ -331,21 +330,21 @@ const visit = (url) => {
                         <!-- Columns -->
                         <Column header="#" style="width: 60px;">
                             <template #body="slotProps">
-                                <Badge :value="getRowNumber(slotProps.index)" 
-                                       severity="secondary" 
-                                       class="min-w-[2rem] justify-center" />
+                                <Badge :value="getRowNumber(slotProps.index)" severity="secondary"
+                                    class="min-w-[2rem] justify-center" />
                             </template>
                         </Column>
 
                         <Column header="User" style="min-width: 180px;">
                             <template #body="slotProps">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <div
+                                        class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                                         <i class="pi pi-user text-blue-600 text-sm"></i>
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <div class="font-semibold text-gray-900 truncate hover:text-blue-600 cursor-pointer"
-                                             @click="viewUser(slotProps.data.assigned_to)">
+                                            @click="viewUser(slotProps.data.assigned_to)">
                                             {{ slotProps.data.user?.name || 'Unknown User' }}
                                         </div>
                                         <div class="text-xs text-gray-500 truncate">
@@ -368,9 +367,9 @@ const visit = (url) => {
                                     <div v-if="slotProps.data.assignedBy" class="flex items-center gap-2">
                                         <i class="pi pi-user-edit text-gray-400 text-sm"></i>
                                         <span class="text-sm text-gray-600">
-                                            Assigned by 
+                                            Assigned by
                                             <span class="font-medium hover:text-blue-600 cursor-pointer"
-                                                  @click="viewUser(slotProps.data.assigned_by)">
+                                                @click="viewUser(slotProps.data.assigned_by)">
                                                 {{ slotProps.data.assignedBy.name }}
                                             </span>
                                         </span>
@@ -412,23 +411,24 @@ const visit = (url) => {
                         </Column>
 
                         <!-- Add Acknowledgment Status Column -->
-                        <Column header="Acknowledgment" style="width: 140px;">
+                        <Column header="Acknowledgment" style="width: 160px;">
                             <template #body="slotProps">
                                 <div class="flex items-center gap-2">
-                                    <i :class="[getAcknowledgmentIcon(slotProps.data), 'text-sm', 
-                                              slotProps.data.acknowledged_at ? 'text-green-500' : 'text-orange-500']"></i>
-                                    <Badge :value="getAcknowledgmentStatus(slotProps.data)"
-                                        :severity="getAcknowledgmentSeverity(slotProps.data)"
-                                        class="capitalize text-xs" />
+                                    <i :class="[getAcknowledgmentIcon(slotProps.data), 'text-sm',
+                                    slotProps.data.acknowledged_at ? 'text-green-500' : 'text-orange-500']"></i>
+
+                                    <Chip :label="getAcknowledgmentStatus(slotProps.data)"
+                                        :class="getAcknowledgmentSeverity(slotProps.data)"
+                                        class="capitalize text-xs px-2 py-1" />
                                 </div>
                             </template>
                         </Column>
 
+
                         <Column header="Status" style="width: 120px;">
                             <template #body="slotProps">
                                 <Badge :value="getAssignmentStatus(slotProps.data)"
-                                    :severity="getStatusSeverity(slotProps.data)"
-                                    class="capitalize text-xs" />
+                                    :severity="getStatusSeverity(slotProps.data)" class="capitalize text-xs" />
                             </template>
                         </Column>
 
@@ -436,8 +436,7 @@ const visit = (url) => {
                             <template #body="slotProps">
                                 <div class="flex justify-center">
                                     <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
-                                        v-tooltip.top="'View Details'"
-                                        @click="viewAssignmentDetails(slotProps.data)"
+                                        v-tooltip.top="'View Details'" @click="viewAssignmentDetails(slotProps.data)"
                                         class="w-8 h-8" />
                                 </div>
                             </template>
@@ -471,8 +470,7 @@ const visit = (url) => {
                                 <div class="flex flex-col items-end gap-1">
                                     <Badge value="Active" severity="info" />
                                     <Badge :value="getAcknowledgmentStatus(activeAssignment)"
-                                        :severity="getAcknowledgmentSeverity(activeAssignment)"
-                                        class="text-xs" />
+                                        :severity="getAcknowledgmentSeverity(activeAssignment)" class="text-xs" />
                                 </div>
                             </div>
 
@@ -483,16 +481,19 @@ const visit = (url) => {
                                 </div>
                                 <div>
                                     <p class="font-medium text-gray-500">Assignment Date</p>
-                                    <p class="font-semibold text-gray-900">{{ formatDate(activeAssignment.assigned_at) }}</p>
+                                    <p class="font-semibold text-gray-900">{{ formatDate(activeAssignment.assigned_at)
+                                        }}</p>
                                 </div>
                                 <div>
                                     <p class="font-medium text-gray-500">Duration</p>
-                                    <p class="font-semibold text-gray-900">{{ getAssignmentDuration(activeAssignment) }}</p>
+                                    <p class="font-semibold text-gray-900">{{ getAssignmentDuration(activeAssignment) }}
+                                    </p>
                                 </div>
                                 <div>
                                     <p class="font-medium text-gray-500">Acknowledged</p>
                                     <p class="font-semibold text-gray-900">
-                                        {{ activeAssignment.acknowledged_at ? formatDate(activeAssignment.acknowledged_at) : 'Not Yet' }}
+                                        {{ activeAssignment.acknowledged_at ?
+                                            formatDate(activeAssignment.acknowledged_at) : 'Not Yet' }}
                                     </p>
                                 </div>
                             </div>
@@ -520,8 +521,8 @@ const visit = (url) => {
                     </template>
                     <template #content>
                         <div class="space-y-4">
-                            <div v-for="stat in assignmentStats" :key="stat.label" 
-                                 class="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                            <div v-for="stat in assignmentStats" :key="stat.label"
+                                class="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
                                 <div class="flex items-center gap-3">
                                     <div :class="['p-2 rounded-full', stat.bgColor]">
                                         <i :class="[stat.icon, stat.textColor]"></i>
@@ -537,9 +538,8 @@ const visit = (url) => {
         </div>
 
         <!-- Assignment Detail Dialog -->
-        <Dialog v-model:visible="showAssignmentDialog" modal header="Assignment Details" 
-                :style="{ width: '95vw', maxWidth: '600px' }"
-                :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
+        <Dialog v-model:visible="showAssignmentDialog" modal header="Assignment Details"
+            :style="{ width: '95vw', maxWidth: '600px' }" :breakpoints="{ '1199px': '90vw', '640px': '95vw' }">
             <div v-if="selectedAssignment" class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -565,17 +565,15 @@ const visit = (url) => {
                     <div>
                         <label class="block text-sm font-medium text-gray-500">Status</label>
                         <Badge :value="getAssignmentStatus(selectedAssignment)"
-                               :severity="getStatusSeverity(selectedAssignment)"
-                               class="mt-1 capitalize" />
+                            :severity="getStatusSeverity(selectedAssignment)" class="mt-1 capitalize" />
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-500">Acknowledgment</label>
                         <div class="mt-1 flex items-center gap-2">
-                            <i :class="[getAcknowledgmentIcon(selectedAssignment), 
-                                      selectedAssignment.acknowledged_at ? 'text-green-500' : 'text-orange-500']"></i>
+                            <i :class="[getAcknowledgmentIcon(selectedAssignment),
+                            selectedAssignment.acknowledged_at ? 'text-green-500' : 'text-orange-500']"></i>
                             <Badge :value="getAcknowledgmentStatus(selectedAssignment)"
-                                   :severity="getAcknowledgmentSeverity(selectedAssignment)"
-                                   class="capitalize" />
+                                :severity="getAcknowledgmentSeverity(selectedAssignment)" class="capitalize" />
                         </div>
                         <p v-if="selectedAssignment.acknowledged_at" class="text-xs text-gray-500 mt-1">
                             Acknowledged on {{ formatDate(selectedAssignment.acknowledged_at) }}
