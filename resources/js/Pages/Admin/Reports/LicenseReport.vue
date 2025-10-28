@@ -2,404 +2,218 @@
 import AppLayout from "@/sakai/layout/AppLayout.vue";
 import Card from "primevue/card";
 import Button from "primevue/button";
-import Dropdown from "primevue/dropdown";
 import Breadcrumb from "primevue/breadcrumb";
-import DataTable from "primevue/datatable";
-import Column from "primevue/column";
-import Badge from "primevue/badge";
+import VueApexCharts from "vue3-apexcharts";
 import { Head, router } from "@inertiajs/vue3";
-import { ref, computed } from "vue";
+import { ref } from "vue";
 
-const props = defineProps({
-    report: Object,
-    filters: Object
-});
-
-const home = { icon: 'pi pi-home', url: route('dashboard') };
+const home = { icon: 'pi pi-home', url: route('admin.dashboard') };
 const items = [
     { label: 'Reports', url: route('admin.reports.index') },
-    { label: 'Software License Report' }
+    { label: 'License Report' }
 ];
 
-const dateRanges = ref([
-    { value: 'today', label: 'Today' },
-    { value: 'yesterday', label: 'Yesterday' },
-    { value: 'last_7_days', label: 'Last 7 Days' },
-    { value: 'last_30_days', label: 'Last 30 Days' },
-    { value: 'this_month', label: 'This Month' },
-    { value: 'last_month', label: 'Last Month' },
-    { value: 'this_quarter', label: 'This Quarter' },
-    { value: 'this_year', label: 'This Year' },
-]);
+const props = defineProps({
+    licenses: Array,
+    summary: Object,
+    chartData: Object,
+    filters: Object,
+});
 
-const selectedDateRange = ref(props.filters?.date_range || 'last_30_days');
+// Chart configurations
+const statusChartSeries = ref(props.chartData.status_chart.series);
+const statusChartOptions = ref({
+    chart: {
+        type: 'pie',
+        height: 350
+    },
+    labels: props.chartData.status_chart.labels,
+    colors: ['#6366F1', '#10B981', '#F59E0B', '#EF4444'],
+    responsive: [{
+        breakpoint: 480,
+        options: {
+            chart: { width: 300 },
+            legend: { position: 'bottom' }
+        }
+    }]
+});
 
-const refreshReport = () => {
-    router.get(route('admin.reports.license-report'), {
-        date_range: selectedDateRange.value,
-        report_type: 'license'
-    });
-};
+const manufacturerChartSeries = ref(props.chartData.manufacturer_chart.series);
+const manufacturerChartOptions = ref({
+    chart: {
+        type: 'bar',
+        height: 350
+    },
+    plotOptions: {
+        bar: {
+            horizontal: true,
+            borderRadius: 4
+        }
+    },
+    dataLabels: {
+        enabled: false
+    },
+    xaxis: {
+        categories: props.chartData.manufacturer_chart.labels
+    },
+    colors: ['#6366F1']
+});
 
 const exportReport = () => {
-    router.get(route('admin.reports.license-report'), {
-        date_range: selectedDateRange.value,
-        report_type: 'license',
-        export: 'true'
-    });
-};
-
-const formatNumber = (num) => {
-    return new Intl.NumberFormat().format(num);
-};
-
-const formatPercentage = (num) => {
-    return `${(num || 0).toFixed(1)}%`;
-};
-
-const getStockStatus = (license) => {
-    if (license.available_qty === 0) return { label: 'Out of Stock', severity: 'danger' };
-    if (license.available_qty <= license.min_qty) return { label: 'Low Stock', severity: 'warning' };
-    return { label: 'In Stock', severity: 'success' };
-};
-
-const isExpiringSoon = (expirationDate) => {
-    if (!expirationDate) return false;
-    const expDate = new Date(expirationDate);
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-    return expDate <= thirtyDaysFromNow && expDate > new Date();
-};
-
-const isExpired = (expirationDate) => {
-    if (!expirationDate) return false;
-    return new Date(expirationDate) < new Date();
+    router.get(route('reports.license'), { ...props.filters, export: true });
 };
 </script>
 
 <template>
-    <Head :title="report?.title" />
+
+    <Head title="License Management Report" />
     <AppLayout>
         <div class="p-6 space-y-6">
-            <!-- Breadcrumb -->
-            <Breadcrumb :home="home" :model="items" class="mb-4">
-                <template #item="{ item }">
-                    <span v-if="item.url" class="text-blue-600 cursor-pointer hover:text-blue-800" @click="router.visit(item.url)">
-                        {{ item.label }}
-                    </span>
-                    <span v-else class="font-semibold text-gray-700">{{ item.label }}</span>
-                </template>
-            </Breadcrumb>
+            <Breadcrumb :home="home" :model="items" class="mb-4" />
 
-            <!-- Header -->
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">{{ report?.title }}</h1>
-                    <p class="mt-1 text-gray-500">
-                        Period: {{ report?.period }} | Generated: {{ report?.generated_at }}
-                    </p>
+                    <h1 class="text-3xl font-bold text-gray-800">License Management Report</h1>
+                    <p class="mt-1 text-gray-500">Software license utilization and expiration overview</p>
                 </div>
-                <div class="flex flex-col sm:flex-row gap-3">
-                    <div class="flex gap-2">
-                        <Dropdown
-                            v-model="selectedDateRange"
-                            :options="dateRanges"
-                            optionLabel="label"
-                            optionValue="value"
-                            @change="refreshReport"
-                            class="min-w-[200px]"
-                        />
-                        <Button
-                            icon="pi pi-refresh"
-                            severity="secondary"
-                            outlined
-                            @click="refreshReport"
-                            v-tooltip="'Refresh Report'"
-                        />
-                    </div>
-                    <Button
-                        label="Export Report"
-                        icon="pi pi-download"
-                        severity="primary"
-                        @click="exportReport"
-                    />
-                </div>
+                <Button label="Export to Excel" icon="pi pi-download" @click="exportReport" severity="success" />
             </div>
 
             <!-- Summary Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card class="border-l-4 border-blue-500">
+                <Card class="bg-gradient-to-r from-blue-50 to-blue-100 border-0">
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">Total Licenses</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
-                                    {{ formatNumber(report?.summary?.total_licenses) }}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    {{ formatNumber(report?.summary?.active_licenses) }} active
-                                </p>
+                                <p class="text-blue-600 font-semibold">Total Licenses</p>
+                                <h3 class="text-2xl font-bold text-gray-800">{{ summary.total }}</h3>
                             </div>
-                            <div class="p-3 bg-blue-100 rounded-full">
-                                <i class="pi pi-key text-blue-600 text-xl"></i>
-                            </div>
+                            <i class="pi pi-key text-3xl text-blue-500"></i>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-green-500">
+                <Card class="bg-gradient-to-r from-green-50 to-green-100 border-0">
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">Total Quantity</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
-                                    {{ formatNumber(report?.summary?.total_quantity) }}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    {{ formatNumber(report?.summary?.available_quantity) }} available
-                                </p>
+                                <p class="text-green-600 font-semibold">Utilization Rate</p>
+                                <h3 class="text-2xl font-bold text-gray-800">{{ summary.utilization_rate }}%</h3>
                             </div>
-                            <div class="p-3 bg-green-100 rounded-full">
-                                <i class="pi pi-box text-green-600 text-xl"></i>
-                            </div>
+                            <i class="pi pi-percentage text-3xl text-green-500"></i>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-purple-500">
+                <Card class="bg-gradient-to-r from-orange-50 to-orange-100 border-0">
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">Utilization Rate</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
-                                    {{ formatPercentage(report?.summary?.utilization_rate) }}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    License usage efficiency
-                                </p>
+                                <p class="text-orange-600 font-semibold">Expiring Soon</p>
+                                <h3 class="text-2xl font-bold text-gray-800">{{ summary.expiring_soon }}</h3>
                             </div>
-                            <div class="p-3 bg-purple-100 rounded-full">
-                                <i class="pi pi-chart-line text-purple-600 text-xl"></i>
-                            </div>
+                            <i class="pi pi-clock text-3xl text-orange-500"></i>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-orange-500">
+                <Card class="bg-gradient-to-r from-red-50 to-red-100 border-0">
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">Expired Licenses</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
-                                    {{ formatNumber(report?.summary?.expired_licenses) }}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    Require attention
-                                </p>
+                                <p class="text-red-600 font-semibold">Expired</p>
+                                <h3 class="text-2xl font-bold text-gray-800">{{ summary.expired }}</h3>
                             </div>
-                            <div class="p-3 bg-orange-100 rounded-full">
-                                <i class="pi pi-clock text-orange-600 text-xl"></i>
-                            </div>
+                            <i class="pi pi-exclamation-triangle text-3xl text-red-500"></i>
                         </div>
                     </template>
                 </Card>
             </div>
 
-            <!-- Two Column Layout -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Status Distribution -->
+                <!-- Status Chart -->
                 <Card>
                     <template #title>
                         <div class="flex items-center gap-2">
                             <i class="pi pi-chart-pie text-blue-500"></i>
-                            <span>License Status Distribution</span>
+                            <span>Licenses by Status</span>
                         </div>
                     </template>
                     <template #content>
-                        <div class="space-y-4">
-                            <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div class="flex items-center gap-3">
-                                    <Badge :value="report?.status_distribution?.active" severity="success" />
-                                    <span class="font-medium text-gray-700">Active Licenses</span>
-                                </div>
-                                <span class="text-sm text-gray-500">
-                                    {{ ((report?.status_distribution?.active / report?.summary?.total_licenses) * 100 || 0).toFixed(1) }}%
-                                </span>
-                            </div>
-                            <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                                <div class="flex items-center gap-3">
-                                    <Badge :value="report?.status_distribution?.expired" severity="danger" />
-                                    <span class="font-medium text-gray-700">Expired Licenses</span>
-                                </div>
-                                <span class="text-sm text-gray-500">
-                                    {{ ((report?.status_distribution?.expired / report?.summary?.total_licenses) * 100 || 0).toFixed(1) }}%
-                                </span>
-                            </div>
-                            <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                                <div class="flex items-center gap-3">
-                                    <Badge :value="report?.status_distribution?.expiring_soon" severity="warning" />
-                                    <span class="font-medium text-gray-700">Expiring Soon</span>
-                                </div>
-                                <span class="text-sm text-gray-500">
-                                    Next 30 days
-                                </span>
-                            </div>
+                        <div class="h-80">
+                            <VueApexCharts type="pie" :options="statusChartOptions" :series="statusChartSeries"
+                                height="100%" />
                         </div>
                     </template>
                 </Card>
 
-                <!-- Expiration Analytics -->
+                <!-- Manufacturer Chart -->
                 <Card>
                     <template #title>
                         <div class="flex items-center gap-2">
-                            <i class="pi pi-calendar-times text-orange-500"></i>
-                            <span>Expiration Analytics</span>
+                            <i class="pi pi-chart-bar text-green-500"></i>
+                            <span>Licenses by Manufacturer</span>
                         </div>
                     </template>
                     <template #content>
-                        <div class="space-y-4">
-                            <div class="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
-                                <span class="font-medium text-gray-700">Expiring This Month</span>
-                                <span class="font-bold text-yellow-600">
-                                    {{ formatNumber(report?.expiration_analytics?.expiring_this_month) }}
-                                </span>
-                            </div>
-                            <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
-                                <span class="font-medium text-gray-700">Already Expired</span>
-                                <span class="font-bold text-red-600">
-                                    {{ formatNumber(report?.expiration_analytics?.expired_licenses) }}
-                                </span>
-                            </div>
-                            <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                                <span class="font-medium text-gray-700">Next Expiration</span>
-                                <span class="font-bold text-green-600">
-                                    {{ report?.expiration_analytics?.next_expiration ? new Date(report.expiration_analytics.next_expiration).toLocaleDateString() : 'N/A' }}
-                                </span>
-                            </div>
+                        <div class="h-80">
+                            <VueApexCharts type="bar" :options="manufacturerChartOptions"
+                                :series="[{ data: manufacturerChartSeries }]" height="100%" />
                         </div>
                     </template>
                 </Card>
             </div>
 
-            <!-- Manufacturer Breakdown -->
+            <!-- Licenses Table -->
             <Card>
                 <template #title>
                     <div class="flex items-center gap-2">
-                        <i class="pi pi-building text-purple-500"></i>
-                        <span>Manufacturer Breakdown</span>
+                        <i class="pi pi-list text-gray-500"></i>
+                        <span>License Details</span>
                     </div>
                 </template>
                 <template #content>
-                    <DataTable :value="report?.manufacturer_breakdown" showGridlines stripedRows class="p-datatable-sm">
-                        <Column field="manufacturer" header="Manufacturer" style="min-width: 200px">
-                            <template #body="slotProps">
-                                <div class="font-medium text-gray-900">{{ slotProps.data.manufacturer }}</div>
-                            </template>
-                        </Column>
-                        <Column field="count" header="License Count" style="min-width: 150px">
-                            <template #body="slotProps">
-                                <Badge :value="slotProps.data.count" severity="info" />
-                            </template>
-                        </Column>
-                        <Column field="total_quantity" header="Total Quantity" style="min-width: 150px">
-                            <template #body="slotProps">
-                                {{ formatNumber(slotProps.data.total_quantity) }}
-                            </template>
-                        </Column>
-                        <Column header="Market Share" style="min-width: 150px">
-                            <template #body="slotProps">
-                                {{ ((slotProps.data.count / report?.summary?.total_licenses) * 100 || 0).toFixed(1) }}%
-                            </template>
-                        </Column>
-                    </DataTable>
-                </template>
-            </Card>
-
-            <!-- Low Stock Alerts -->
-            <Card>
-                <template #title>
-                    <div class="flex items-center gap-2">
-                        <i class="pi pi-exclamation-triangle text-red-500"></i>
-                        <span>Low Stock Alerts</span>
+                    <div class="overflow-x-auto">
+                        <table class="w-full table-auto">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">License Name
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Manufacturer
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Total Qty</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Available</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Expiration Date
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <tr v-for="license in licenses" :key="license.id" class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-sm text-gray-900">{{ license.license_name }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">{{ license.manufacturer }}</td>
+                                    <td class="px-4 py-3">
+                                        <span :class="[
+                                            'px-2 py-1 text-xs font-medium rounded-full',
+                                            license.status ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                        ]">
+                                            {{ license.status ? 'Active' : 'Inactive' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-900">{{ license.total_qty }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">{{ license.available_qty }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">
+                                        <span :class="{
+                                            'text-red-600 font-semibold': new Date(license.expiration_date) < new Date(),
+                                            'text-orange-600 font-semibold': new Date(license.expiration_date) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                                        }">
+                                            {{ license.expiration_date }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                </template>
-                <template #content>
-                    <DataTable :value="report?.low_stock_alerts" showGridlines stripedRows class="p-datatable-sm">
-                        <Column field="license_name" header="License Name" style="min-width: 250px">
-                            <template #body="slotProps">
-                                <div class="font-medium text-gray-900">{{ slotProps.data.license_name }}</div>
-                                <div class="text-xs text-gray-500">{{ slotProps.data.manufacturer }}</div>
-                            </template>
-                        </Column>
-                        <Column field="available_qty" header="Available" style="min-width: 120px">
-                            <template #body="slotProps">
-                                <Badge 
-                                    :value="slotProps.data.available_qty" 
-                                    :severity="getStockStatus(slotProps.data).severity" 
-                                />
-                            </template>
-                        </Column>
-                        <Column field="min_qty" header="Min Qty" style="min-width: 100px">
-                            <template #body="slotProps">
-                                {{ formatNumber(slotProps.data.min_qty) }}
-                            </template>
-                        </Column>
-                        <Column field="total_qty" header="Total Qty" style="min-width: 100px">
-                            <template #body="slotProps">
-                                {{ formatNumber(slotProps.data.total_qty) }}
-                            </template>
-                        </Column>
-                        <Column field="expiration_date" header="Expiration" style="min-width: 150px">
-                            <template #body="slotProps">
-                                <div v-if="slotProps.data.expiration_date">
-                                    <Badge 
-                                        :value="new Date(slotProps.data.expiration_date).toLocaleDateString()"
-                                        :severity="isExpired(slotProps.data.expiration_date) ? 'danger' : isExpiringSoon(slotProps.data.expiration_date) ? 'warning' : 'success'"
-                                    />
-                                </div>
-                                <Badge v-else value="No Expiry" severity="info" />
-                            </template>
-                        </Column>
-                    </DataTable>
-                </template>
-            </Card>
-
-            <!-- Recently Added Licenses -->
-            <Card>
-                <template #title>
-                    <div class="flex items-center gap-2">
-                        <i class="pi pi-plus-circle text-green-500"></i>
-                        <span>Recently Added Licenses</span>
-                    </div>
-                </template>
-                <template #content>
-                    <DataTable :value="report?.recently_added" showGridlines stripedRows class="p-datatable-sm">
-                        <Column field="license_name" header="License Name" style="min-width: 250px">
-                            <template #body="slotProps">
-                                <div class="font-medium text-gray-900">{{ slotProps.data.license_name }}</div>
-                                <div class="text-xs text-gray-500">{{ slotProps.data.product_key }}</div>
-                            </template>
-                        </Column>
-                        <Column field="manufacturer" header="Manufacturer" style="min-width: 150px" />
-                        <Column field="total_qty" header="Total Qty" style="min-width: 100px">
-                            <template #body="slotProps">
-                                {{ formatNumber(slotProps.data.total_qty) }}
-                            </template>
-                        </Column>
-                        <Column field="available_qty" header="Available" style="min-width: 100px">
-                            <template #body="slotProps">
-                                {{ formatNumber(slotProps.data.available_qty) }}
-                            </template>
-                        </Column>
-                        <Column field="status" header="Status" style="min-width: 100px">
-                            <template #body="slotProps">
-                                <Badge 
-                                    :value="slotProps.data.status ? 'Active' : 'Inactive'" 
-                                    :severity="slotProps.data.status ? 'success' : 'danger'" 
-                                />
-                            </template>
-                        </Column>
-                    </DataTable>
                 </template>
             </Card>
         </div>

@@ -44,6 +44,14 @@ class StationaryItem extends Model
     }
 
     /**
+     * Get the request item details for this stationary item
+     */
+    public function requestItemDetails(): HasMany
+    {
+        return $this->hasMany(RequestItemDetail::class, 'stationary_item_id');
+    }
+
+    /**
      * Scope for active items
      */
     public function scopeActive($query)

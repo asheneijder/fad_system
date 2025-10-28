@@ -1,389 +1,578 @@
-<script setup>
-import AppLayout from "@/sakai/layout/AppLayout.vue";
-import Card from "primevue/card";
-import Button from "primevue/button";
-import Dropdown from "primevue/dropdown";
-import Breadcrumb from "primevue/breadcrumb";
-import DataTable from "primevue/datatable";
-import Column from "primevue/column";
-import Badge from "primevue/badge";
-import { Head, router } from "@inertiajs/vue3";
-import { ref } from "vue";
+    <script setup>
+    import AppLayout from "@/sakai/layout/AppLayout.vue";
+    import Card from "primevue/card";
+    import Button from "primevue/button";
+    import Breadcrumb from "primevue/breadcrumb";
+    import VueApexCharts from "vue3-apexcharts";
+    import { Head, router } from "@inertiajs/vue3";
+    import { ref, computed, onMounted, nextTick } from "vue";
 
-const props = defineProps({
-    report: Object,
-    filters: Object
-});
+    const home = { icon: 'pi pi-home', url: route('admin.dashboard') };
+    const items = [
+        { label: 'Reports', url: route('admin.reports.index') },
+        { label: 'Stationary Report' }
+    ];
 
-const home = { icon: 'pi pi-home', url: route('dashboard') };
-const items = [
-    { label: 'Reports', url: route('admin.reports.index') },
-    { label: 'Stationary Items Report' }
-];
-
-const dateRanges = ref([
-    { value: 'today', label: 'Today' },
-    { value: 'yesterday', label: 'Yesterday' },
-    { value: 'last_7_days', label: 'Last 7 Days' },
-    { value: 'last_30_days', label: 'Last 30 Days' },
-    { value: 'this_month', label: 'This Month' },
-    { value: 'last_month', label: 'Last Month' },
-    { value: 'this_quarter', label: 'This Quarter' },
-    { value: 'this_year', label: 'This Year' },
-]);
-
-const selectedDateRange = ref(props.filters?.date_range || 'last_30_days');
-
-const refreshReport = () => {
-    router.get(route('admin.reports.stationary-report'), {
-        date_range: selectedDateRange.value,
-        report_type: 'stationary'
+    const props = defineProps({
+        stationaryItems: Array,
+        hotItems: [Array, Object],
+        usageStats: Array,
+        summary: Object,
+        chartData: Object,
+        filters: Object,
     });
-};
 
-const exportReport = () => {
-    router.get(route('admin.reports.stationary-report'), {
-        date_range: selectedDateRange.value,
-        report_type: 'stationary',
-        export: 'true'
+    // Convert hotItems to array if it's an object/collection
+    const hotItemsArray = computed(() => {
+        if (Array.isArray(props.hotItems)) {
+            return props.hotItems;
+        } else if (props.hotItems && typeof props.hotItems === 'object') {
+            return Object.values(props.hotItems);
+        }
+        return [];
     });
-};
 
-const formatNumber = (num) => {
-    return new Intl.NumberFormat().format(num);
-};
+    // Hot items scrolling
+    const hotItemsContainer = ref(null);
+    const hotItemsScrollPosition = ref(0);
+    const isHotItemsScrollEnd = ref(false);
 
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD'
-    }).format(amount || 0);
-};
+    // Safe number formatting function
+    const formatPrice = (price) => {
+        if (!price && price !== 0) return '0.00';
+        const num = typeof price === 'string' ? parseFloat(price) : price;
+        return isNaN(num) ? '0.00' : num.toFixed(2);
+    };
 
-const getStockStatus = (item) => {
-    if (item.quantity === 0) return { label: 'Out of Stock', severity: 'danger' };
-    if (item.quantity <= item.min_quantity) return { label: 'Low Stock', severity: 'warning' };
-    return { label: 'In Stock', severity: 'success' };
-};
+    // Chart configurations with safe defaults
+    const categoryChartSeries = computed(() =>
+        props.chartData?.category_chart?.series || [1]
+    );
+
+    const categoryChartOptions = computed(() => ({
+        chart: {
+            type: 'pie',
+            height: 350
+        },
+        labels: props.chartData?.category_chart?.labels || ['No Data'],
+        colors: ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'],
+        responsive: [{
+            breakpoint: 480,
+            options: {
+                chart: { width: 300 },
+                legend: { position: 'bottom' }
+            }
+        }]
+    }));
+
+    const stockChartSeries = computed(() =>
+        props.chartData?.stock_chart?.series || [1]
+    );
+
+    const stockChartOptions = computed(() => ({
+        chart: {
+            type: 'donut',
+            height: 350
+        },
+        labels: props.chartData?.stock_chart?.labels || ['No Data'],
+        colors: ['#10B981', '#F59E0B', '#EF4444'],
+        responsive: [{
+            breakpoint: 480,
+            options: {
+                chart: { width: 300 },
+                legend: { position: 'bottom' }
+            }
+        }],
+        plotOptions: {
+            pie: {
+                donut: {
+                    labels: {
+                        show: true,
+                        total: {
+                            show: true,
+                            label: 'Total Items',
+                            color: '#374151'
+                        }
+                    }
+                }
+            }
+        }
+    }));
+
+    // Chart rendering state
+    const chartsMounted = ref(false);
+
+    onMounted(() => {
+        setTimeout(() => {
+            chartsMounted.value = true;
+        }, 100);
+    });
+
+    const exportReport = () => {
+        // Build the export URL with parameters
+        const params = new URLSearchParams({
+            ...props.filters,
+            export: true
+        });
+
+        // Use window.location to trigger download
+        window.location.href = route('admin.reports.stationary') + '?' + params.toString();
+    };
+
+    // Generate transaction log data for each item from completed requests
+    const getTransactionLog = (item) => {
+        if (!item.request_item_details || !Array.isArray(item.request_item_details)) {
+            return [];
+        }
+
+        // Filter only completed request details
+        const completedRequests = item.request_item_details.filter(detail =>
+            detail.request_item && detail.request_item.status === 'completed'
+        );
+
+        if (completedRequests.length === 0) {
+            return [];
+        }
+
+        let balance = item.current_stock;
+
+        const transactions = completedRequests.map(detail => {
+            const request = detail.request_item;
+
+            // Get user and request information
+            let userName = 'Unknown';
+            let userDepartment = 'Unknown Department';
+            let userEmail = '';
+            let purpose = '';
+            let approverName = 'Unknown';
+            let approvedAt = '';
+
+            if (request && request.user) {
+                userName = request.user.name || 'Unknown';
+                userDepartment = request.user.department || 'Unknown Department';
+                userEmail = request.user.email || '';
+            }
+
+            if (request) {
+                purpose = request.purpose || 'No purpose specified';
+                approverName = request.approved_by?.name || 'Unknown';
+                approvedAt = request.approved_at ?
+                    new Date(request.approved_at).toLocaleDateString('en-GB') : 'N/A';
+            }
+
+            // For outgoing transactions (stock reduction)
+            const outQuantity = detail.final_quantity || detail.quantity || 0;
+
+            const transaction = {
+                date: request?.created_at ? new Date(request.created_at).toLocaleDateString('en-GB') : 'N/A',
+                description: `Request: ${purpose}`,
+                in: 0, // Requests typically only reduce stock
+                out: outQuantity,
+                balance: balance - outQuantity, // Update balance after this transaction
+                cost_price: formatPrice(item.cost_price),
+                selling_price: formatPrice(item.selling_price),
+                amount: outQuantity * (parseFloat(item.cost_price) || 0),
+                user: userName,
+                department: userDepartment,
+                email: userEmail,
+                purpose: purpose,
+                approver: approverName,
+                approved_date: approvedAt,
+                requested_quantity: detail.quantity || 0,
+                approved_quantity: detail.approved_quantity || detail.quantity || 0
+            };
+
+            // Update running balance for next transaction
+            balance -= outQuantity;
+
+            return transaction;
+        });
+
+        return transactions.reverse();
+    };
+
+    // Calculate totals for transaction log
+    const getTransactionTotals = (transactions) => {
+        return {
+            totalIn: transactions.reduce((sum, t) => sum + t.in, 0),
+            totalOut: transactions.reduce((sum, t) => sum + t.out, 0),
+            totalAmount: transactions.reduce((sum, t) => sum + t.amount, 0)
+        };
+    };
+
+    const scrollHotItems = (direction) => {
+        if (!hotItemsContainer.value) return;
+
+        const container = hotItemsContainer.value;
+        const scrollAmount = 300; // Adjust based on card width + gap
+
+        if (direction === 'left') {
+            container.scrollLeft -= scrollAmount;
+        } else {
+            container.scrollLeft += scrollAmount;
+        }
+    };
+
+    const updateHotItemsScrollPosition = () => {
+        if (!hotItemsContainer.value) return;
+
+        const container = hotItemsContainer.value;
+        hotItemsScrollPosition.value = container.scrollLeft;
+        isHotItemsScrollEnd.value = container.scrollLeft + container.clientWidth >= container.scrollWidth - 10;
+    };
+
+    // Initialize scroll position
+    onMounted(() => {
+        nextTick(() => {
+            if (hotItemsContainer.value) {
+                updateHotItemsScrollPosition();
+            }
+        });
+    });
 </script>
 
-<template>
-    <Head :title="report?.title" />
-    <AppLayout>
-        <div class="p-6 space-y-6">
-            <!-- Breadcrumb -->
-            <Breadcrumb :home="home" :model="items" class="mb-4">
-                <template #item="{ item }">
-                    <span v-if="item.url" class="text-blue-600 cursor-pointer hover:text-blue-800" @click="router.visit(item.url)">
-                        {{ item.label }}
-                    </span>
-                    <span v-else class="font-semibold text-gray-700">{{ item.label }}</span>
-                </template>
-            </Breadcrumb>
+    <template>
 
-            <!-- Header -->
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-800">{{ report?.title }}</h1>
-                    <p class="mt-1 text-gray-500">
-                        Period: {{ report?.period }} | Generated: {{ report?.generated_at }}
-                    </p>
+        <Head title="Stationary Items Report" />
+        <AppLayout>
+            <div class="p-6 space-y-6">
+                <Breadcrumb :home="home" :model="items" class="mb-4" />
+
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-800">Stationary Items Report</h1>
+                        <p class="mt-1 text-gray-500">Inventory levels, movements, and completed request history</p>
+                    </div>
+                    <Button label="Export to Excel" icon="pi pi-download" @click="exportReport" severity="success" />
                 </div>
-                <div class="flex flex-col sm:flex-row gap-3">
-                    <div class="flex gap-2">
-                        <Dropdown
-                            v-model="selectedDateRange"
-                            :options="dateRanges"
-                            optionLabel="label"
-                            optionValue="value"
-                            @change="refreshReport"
-                            class="min-w-[200px]"
-                        />
-                        <Button
-                            icon="pi pi-refresh"
-                            severity="secondary"
-                            outlined
-                            @click="refreshReport"
-                            v-tooltip="'Refresh Report'"
-                        />
-                    </div>
-                    <Button
-                        label="Export Report"
-                        icon="pi pi-download"
-                        severity="primary"
-                        @click="exportReport"
-                    />
+
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <Card class="bg-gradient-to-r from-blue-50 to-blue-100 border-0">
+                        <template #content>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-blue-600 font-semibold">Total Items</p>
+                                    <h3 class="text-2xl font-bold text-gray-800">{{ summary?.total || 0 }}</h3>
+                                </div>
+                                <i class="pi pi-shopping-cart text-3xl text-blue-500"></i>
+                            </div>
+                        </template>
+                    </Card>
+
+                    <Card class="bg-gradient-to-r from-green-50 to-green-100 border-0">
+                        <template #content>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-green-600 font-semibold">Completed Requests</p>
+                                    <h3 class="text-2xl font-bold text-gray-800">{{ summary?.completed_requests || 0 }}
+                                    </h3>
+                                </div>
+                                <i class="pi pi-check-circle text-3xl text-green-500"></i>
+                            </div>
+                        </template>
+                    </Card>
+
+                    <Card class="bg-gradient-to-r from-orange-50 to-orange-100 border-0">
+                        <template #content>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-orange-600 font-semibold">Low Stock</p>
+                                    <h3 class="text-2xl font-bold text-gray-800">{{ summary?.low_stock || 0 }}</h3>
+                                </div>
+                                <i class="pi pi-exclamation-circle text-3xl text-orange-500"></i>
+                            </div>
+                        </template>
+                    </Card>
+
+                    <Card class="bg-gradient-to-r from-red-50 to-red-100 border-0">
+                        <template #content>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-red-600 font-semibold">Out of Stock</p>
+                                    <h3 class="text-2xl font-bold text-gray-800">{{ summary?.out_of_stock || 0 }}</h3>
+                                </div>
+                                <i class="pi pi-times-circle text-3xl text-red-500"></i>
+                            </div>
+                        </template>
+                    </Card>
                 </div>
-            </div>
 
-            <!-- Summary Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card class="border-l-4 border-blue-500">
-                    <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Total Items</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
-                                    {{ formatNumber(report?.summary?.total_items) }}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    {{ formatNumber(report?.summary?.active_items) }} active
-                                </p>
-                            </div>
-                            <div class="p-3 bg-blue-100 rounded-full">
-                                <i class="pi pi-box text-blue-600 text-xl"></i>
-                            </div>
-                        </div>
-                    </template>
-                </Card>
-
-                <Card class="border-l-4 border-green-500">
-                    <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Total Stock Value</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
-                                    {{ formatCurrency(report?.summary?.total_stock_value) }}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    Inventory value
-                                </p>
-                            </div>
-                            <div class="p-3 bg-green-100 rounded-full">
-                                <i class="pi pi-dollar text-green-600 text-xl"></i>
-                            </div>
-                        </div>
-                    </template>
-                </Card>
-
-                <Card class="border-l-4 border-orange-500">
-                    <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Low Stock Items</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
-                                    {{ formatNumber(report?.summary?.low_stock_items) }}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    Require attention
-                                </p>
-                            </div>
-                            <div class="p-3 bg-orange-100 rounded-full">
-                                <i class="pi pi-exclamation-triangle text-orange-600 text-xl"></i>
-                            </div>
-                        </div>
-                    </template>
-                </Card>
-
-                <Card class="border-l-4 border-purple-500">
-                    <template #content>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Avg. Quantity</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
-                                    {{ formatNumber(report?.stock_analytics?.avg_quantity) }}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    Per item average
-                                </p>
-                            </div>
-                            <div class="p-3 bg-purple-100 rounded-full">
-                                <i class="pi pi-chart-bar text-purple-600 text-xl"></i>
-                            </div>
-                        </div>
-                    </template>
-                </Card>
-            </div>
-
-            <!-- Stock Analytics -->
-            <Card>
-                <template #title>
-                    <div class="flex items-center gap-2">
-                        <i class="pi pi-chart-line text-green-500"></i>
-                        <span>Stock Analytics</span>
-                    </div>
-                </template>
-                <template #content>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="text-center p-6 bg-blue-50 rounded-lg">
-                            <i class="pi pi-box text-blue-600 text-3xl mb-3"></i>
-                            <p class="text-sm font-medium text-gray-500">Total Quantity</p>
-                            <p class="mt-1 text-3xl font-bold text-blue-600">
-                                {{ formatNumber(report?.stock_analytics?.total_quantity) }}
-                            </p>
-                        </div>
-                        <div class="text-center p-6 bg-green-50 rounded-lg">
-                            <i class="pi pi-shopping-cart text-green-600 text-3xl mb-3"></i>
-                            <p class="text-sm font-medium text-gray-500">Total Items</p>
-                            <p class="mt-1 text-3xl font-bold text-green-600">
-                                {{ formatNumber(report?.stock_analytics?.total_items) }}
-                            </p>
-                        </div>
-                        <div class="text-center p-6 bg-purple-50 rounded-lg">
-                            <i class="pi pi-calculator text-purple-600 text-3xl mb-3"></i>
-                            <p class="text-sm font-medium text-gray-500">Average per Item</p>
-                            <p class="mt-1 text-3xl font-bold text-purple-600">
-                                {{ formatNumber(report?.stock_analytics?.avg_quantity) }}
-                            </p>
-                        </div>
-                    </div>
-                </template>
-            </Card>
-
-            <!-- Two Column Layout -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Low Stock Alerts -->
-                <Card>
+                <!-- Hot Items Alert -->
+                <Card v-if="hotItemsArray.length > 0" class="border-orange-200 bg-orange-50">
                     <template #title>
-                        <div class="flex items-center gap-2">
-                            <i class="pi pi-exclamation-triangle text-red-500"></i>
-                            <span>Low Stock Alerts</span>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2 text-orange-800">
+                                <i class="pi pi-exclamation-triangle"></i>
+                                <span>Low Stock Alert ({{ hotItemsArray.length }} items)</span>
+                            </div>
                         </div>
                     </template>
                     <template #content>
-                        <DataTable :value="report?.low_stock_items" showGridlines stripedRows class="p-datatable-sm">
-                            <Column field="name" header="Item Name" style="min-width: 200px">
-                                <template #body="slotProps">
-                                    <div class="font-medium text-gray-900">{{ slotProps.data.name }}</div>
-                                    <div class="text-xs text-gray-500">{{ slotProps.data.category?.name || 'Uncategorized' }}</div>
-                                </template>
-                            </Column>
-                            <Column field="quantity" header="Current Stock" style="min-width: 120px">
-                                <template #body="slotProps">
-                                    <Badge 
-                                        :value="slotProps.data.quantity" 
-                                        :severity="getStockStatus(slotProps.data).severity" 
-                                    />
-                                </template>
-                            </Column>
-                            <Column field="min_quantity" header="Min Qty" style="min-width: 100px">
-                                <template #body="slotProps">
-                                    {{ formatNumber(slotProps.data.min_quantity) }}
-                                </template>
-                            </Column>
-                            <Column field="unit_price" header="Unit Price" style="min-width: 100px">
-                                <template #body="slotProps">
-                                    {{ formatCurrency(slotProps.data.unit_price) }}
-                                </template>
-                            </Column>
-                            <Column header="Status" style="min-width: 120px">
-                                <template #body="slotProps">
-                                    <Badge 
-                                        :value="getStockStatus(slotProps.data).label" 
-                                        :severity="getStockStatus(slotProps.data).severity" 
-                                    />
-                                </template>
-                            </Column>
-                        </DataTable>
-                    </template>
-                </Card>
+                        <div class="relative">
+                            <!-- Scroll buttons for larger screens -->
+                            <button @click="scrollHotItems('left')"
+                                class="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-orange-500 hover:bg-orange-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+                                :class="{ 'opacity-30 cursor-not-allowed': hotItemsScrollPosition === 0 }">
+                                <i class="pi pi-chevron-left text-sm"></i>
+                            </button>
 
-                <!-- Top Moving Items -->
-                <Card>
-                    <template #title>
-                        <div class="flex items-center gap-2">
-                            <i class="pi pi-sort-amount-up text-blue-500"></i>
-                            <span>Top Moving Items</span>
-                        </div>
-                    </template>
-                    <template #content>
-                        <div class="space-y-4">
-                            <div
-                                v-for="(item, index) in report?.top_moving_items"
-                                :key="index"
-                                class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                            >
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                        <span class="text-blue-600 font-bold text-sm">{{ index + 1 }}</span>
+                            <button @click="scrollHotItems('right')"
+                                class="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-orange-500 hover:bg-orange-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+                                :class="{ 'opacity-30 cursor-not-allowed': isHotItemsScrollEnd }">
+                                <i class="pi pi-chevron-right text-sm"></i>
+                            </button>
+
+                            <!-- Scrollable container -->
+                            <div ref="hotItemsContainer" class="flex gap-4 overflow-x-auto pb-4 scrollbar-hide group"
+                                style="scroll-behavior: smooth;" @scroll="updateHotItemsScrollPosition">
+                                <div v-for="item in hotItemsArray" :key="item.id"
+                                    class="flex-shrink-0 w-64 p-4 bg-white rounded-lg border border-orange-200 hover:border-orange-300 hover:shadow-md transition-all duration-200">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1 min-w-0">
+                                            <p class="font-semibold text-gray-800 truncate" :title="item.name">
+                                                {{ item.name }}
+                                            </p>
+                                            <div class="mt-2 space-y-1">
+                                                <div class="flex justify-between items-center">
+                                                    <span class="text-sm text-gray-600">Current Stock:</span>
+                                                    <span class="font-semibold text-sm px-2 py-1 rounded" :class="{
+                                                        'bg-red-100 text-red-800': item.current_stock === 0,
+                                                        'bg-orange-100 text-orange-800': item.current_stock > 0 && item.current_stock <= item.min_stock,
+                                                        'bg-green-100 text-green-800': item.current_stock > item.min_stock
+                                                    }">
+                                                        {{ item.current_stock }} {{ item.unit }}
+                                                    </span>
+                                                </div>
+                                                <div class="flex justify-between items-center">
+                                                    <span class="text-sm text-gray-600">Min Stock:</span>
+                                                    <span class="font-semibold text-gray-800 text-sm">
+                                                        {{ item.min_stock }} {{ item.unit }}
+                                                    </span>
+                                                </div>
+                                                <div class="flex justify-between items-center">
+                                                    <span class="text-sm text-gray-600">Status:</span>
+                                                    <span class="text-xs font-semibold px-2 py-1 rounded capitalize"
+                                                        :class="{
+                                                            'bg-red-100 text-red-800': item.current_stock === 0,
+                                                            'bg-orange-100 text-orange-800': item.current_stock > 0 && item.current_stock <= item.min_stock,
+                                                            'bg-green-100 text-green-800': item.current_stock > item.min_stock
+                                                        }">
+                                                        {{
+                                                            item.current_stock === 0 ? 'Out of Stock' :
+                                                                item.current_stock <= item.min_stock ? 'Low Stock' : 'In Stock'
+                                                        }} </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="ml-3 flex-shrink-0">
+                                            <i class="pi text-2xl" :class="{
+                                                'pi-times-circle text-red-500': item.current_stock === 0,
+                                                'pi-exclamation-triangle text-orange-500': item.current_stock > 0 && item.current_stock <= item.min_stock,
+                                                'pi-check-circle text-green-500': item.current_stock > item.min_stock
+                                            }"></i>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <div class="font-medium text-gray-700">{{ item.name }}</div>
-                                        <div class="text-xs text-gray-500">Stock: {{ formatNumber(item.quantity) }}</div>
+
+                                    <!-- Stock level indicator -->
+                                    <div class="mt-3">
+                                        <div class="flex justify-between text-xs text-gray-600 mb-1">
+                                            <span>Stock Level</span>
+                                            <span>{{ Math.round((item.current_stock / Math.max(item.min_stock * 2,
+                                                item.current_stock)) * 100) }}%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="h-2 rounded-full transition-all duration-500" :class="{
+                                                'bg-red-500': item.current_stock === 0,
+                                                'bg-orange-500': item.current_stock > 0 && item.current_stock <= item.min_stock,
+                                                'bg-green-500': item.current_stock > item.min_stock
+                                            }"
+                                                :style="{ width: `${Math.min(100, (item.current_stock / Math.max(item.min_stock * 2, item.current_stock)) * 100)}%` }">
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="text-right">
-                                    <div class="font-bold text-gray-900">{{ formatCurrency(item.unit_price) }}</div>
-                                    <div class="text-xs text-gray-500">per unit</div>
-                                </div>
+                            </div>
+
+                            <!-- Scroll indicators -->
+                            <div class="flex justify-center mt-3 space-x-1">
+                                <div v-for="(item, index) in hotItemsArray" :key="index"
+                                    class="w-2 h-2 rounded-full transition-all duration-200" :class="{
+                                        'bg-orange-500': Math.floor(hotItemsScrollPosition / 272) === index,
+                                        'bg-orange-200': Math.floor(hotItemsScrollPosition / 272) !== index
+                                    }"></div>
                             </div>
                         </div>
                     </template>
                 </Card>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Category Chart -->
+                    <Card>
+                        <template #title>
+                            <div class="flex items-center gap-2">
+                                <i class="pi pi-chart-pie text-blue-500"></i>
+                                <span>Items by Category</span>
+                            </div>
+                        </template>
+                        <template #content>
+                            <div class="h-80">
+                                <VueApexCharts
+                                    v-if="chartsMounted && categoryChartSeries.length > 0 && categoryChartSeries[0] !== 1"
+                                    type="pie" :options="categoryChartOptions" :series="categoryChartSeries"
+                                    height="100%" />
+                                <div v-else class="h-full flex items-center justify-center text-gray-500">
+                                    No category data available
+                                </div>
+                            </div>
+                        </template>
+                    </Card>
+
+                    <!-- Stock Status Chart -->
+                    <Card>
+                        <template #title>
+                            <div class="flex items-center gap-2">
+                                <i class="pi pi-chart-donut text-green-500"></i>
+                                <span>Stock Status Distribution</span>
+                            </div>
+                        </template>
+                        <template #content>
+                            <div class="h-80">
+                                <VueApexCharts
+                                    v-if="chartsMounted && stockChartSeries.length > 0 && stockChartSeries[0] !== 1"
+                                    type="donut" :options="stockChartOptions" :series="stockChartSeries"
+                                    height="100%" />
+                                <div v-else class="h-full flex items-center justify-center text-gray-500">
+                                    No stock data available
+                                </div>
+                            </div>
+                        </template>
+                    </Card>
+                </div>
+
+                <!-- Transaction Log for Each Item -->
+                <div v-for="item in stationaryItems" :key="item.id" class="space-y-6">
+                    <!-- Transaction Log -->
+                    <Card>
+                        <template #title>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i class="pi pi-file-text text-gray-500"></i>
+                                    <span>{{ item.name }} - Transaction Log (Completed Requests)</span>
+                                </div>
+                                <div class="text-sm text-gray-500">
+                                    Current Stock: <span :class="[
+                                        'font-semibold',
+                                        item.current_stock === 0 ? 'text-red-600' :
+                                            item.current_stock <= item.min_stock ? 'text-orange-600' :
+                                                'text-green-600'
+                                    ]">{{ item.current_stock }}</span>
+                                    | Min Stock: {{ item.min_stock }}
+                                </div>
+                            </div>
+                        </template>
+                        <template #content>
+                            <div class="overflow-x-auto">
+                                <table class="w-full table-auto text-sm">
+                                    <thead>
+                                        <tr class="bg-gray-50 border-b-2 border-gray-200">
+                                            <th class="px-3 py-2 text-left font-semibold text-gray-700 w-24">DATE</th>
+                                            <th class="px-3 py-2 text-left font-semibold text-gray-700">DESCRIPTION</th>
+                                            <th class="px-3 py-2 text-center font-semibold text-gray-700 w-16">IN</th>
+                                            <th class="px-3 py-2 text-center font-semibold text-gray-700 w-16">OUT</th>
+                                            <th class="px-3 py-2 text-center font-semibold text-gray-700 w-20">BALANCE
+                                            </th>
+                                            <th class="px-3 py-2 text-center font-semibold text-gray-700 w-20">COST P.
+                                            </th>
+                                            <th class="px-3 py-2 text-center font-semibold text-gray-700 w-20">SELL. P.
+                                            </th>
+                                            <th class="px-3 py-2 text-center font-semibold text-gray-700 w-20">AMOUNT
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Opening Balance -->
+                                        <tr class="border-b border-gray-100">
+                                            <td class="px-3 py-2 text-gray-600"></td>
+                                            <td class="px-3 py-2 text-gray-600 font-medium">BALANCE B/F</td>
+                                            <td class="px-3 py-2 text-center"></td>
+                                            <td class="px-3 py-2 text-center"></td>
+                                            <td class="px-3 py-2 text-center font-semibold text-blue-600">{{
+                                                item.current_stock }}</td>
+                                            <td class="px-3 py-2 text-center text-gray-600">RM{{
+                                                formatPrice(item.cost_price)
+                                                }}</td>
+                                            <td class="px-3 py-2 text-center text-gray-600">RM{{
+                                                formatPrice(item.selling_price) }}</td>
+                                            <td class="px-3 py-2 text-center"></td>
+                                        </tr>
+
+                                        <!-- Transactions -->
+                                        <tr v-for="(transaction, index) in getTransactionLog(item)" :key="index"
+                                            class="border-b border-gray-100 hover:bg-gray-50">
+                                            <td class="px-3 py-2 text-gray-600">{{ transaction.date }}</td>
+                                            <td class="px-3 py-2 text-gray-600">
+                                                <div class="font-medium">{{ transaction.description }}</div>
+                                                <div class="text-xs text-gray-500 mt-1">
+                                                    <div class="font-semibold">{{ transaction.user }}</div>
+                                                    <div>{{ transaction.department }}</div>
+                                                    <div class="text-blue-600">{{ transaction.email }}</div>
+                                                    <div class="text-green-600 mt-1">Approved by: {{
+                                                        transaction.approver }}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-2 text-center text-green-600 font-semibold">
+                                                <span v-if="transaction.in > 0">{{ transaction.in }}</span>
+                                            </td>
+                                            <td class="px-3 py-2 text-center text-red-600 font-semibold">
+                                                <span v-if="transaction.out > 0">{{ transaction.out }}</span>
+                                            </td>
+                                            <td class="px-3 py-2 text-center font-semibold">{{ transaction.balance }}
+                                            </td>
+                                            <td class="px-3 py-2 text-center text-gray-600">RM{{ transaction.cost_price
+                                            }}
+                                            </td>
+                                            <td class="px-3 py-2 text-center text-gray-600">RM{{
+                                                transaction.selling_price
+                                            }}
+                                            </td>
+                                            <td class="px-3 py-2 text-center text-blue-600 font-semibold">
+                                                <span v-if="transaction.amount > 0">RM{{ transaction.amount.toFixed(2)
+                                                }}</span>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Totals -->
+                                        <tr v-if="getTransactionLog(item).length > 0" class="bg-gray-50 font-semibold">
+                                            <td class="px-3 py-2" colspan="2">TOTAL :</td>
+                                            <td class="px-3 py-2 text-center text-green-600">
+                                                {{ getTransactionTotals(getTransactionLog(item)).totalIn }}
+                                            </td>
+                                            <td class="px-3 py-2 text-center text-red-600">
+                                                {{ getTransactionTotals(getTransactionLog(item)).totalOut }}
+                                            </td>
+                                            <td class="px-3 py-2 text-center">{{ item.current_stock }}</td>
+                                            <td class="px-3 py-2 text-center">{{ item.unit || '' }}</td>
+                                            <td class="px-3 py-2 text-center"></td>
+                                            <td class="px-3 py-2 text-center text-blue-600">
+                                                RM{{
+                                                    getTransactionTotals(getTransactionLog(item)).totalAmount.toFixed(2) }}
+                                            </td>
+                                        </tr>
+
+                                        <!-- No transactions message -->
+                                        <tr v-if="getTransactionLog(item).length === 0">
+                                            <td colspan="8" class="px-3 py-4 text-center text-gray-500">
+                                                No completed request history available
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </template>
+                    </Card>
+                </div>
             </div>
-
-            <!-- Movement Analytics -->
-            <Card>
-                <template #title>
-                    <div class="flex items-center gap-2">
-                        <i class="pi pi-sync text-purple-500"></i>
-                        <span>Movement Analytics</span>
-                    </div>
-                </template>
-                <template #content>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="text-center p-6 bg-purple-50 rounded-lg">
-                            <i class="pi pi-chart-line text-purple-600 text-3xl mb-3"></i>
-                            <p class="text-sm font-medium text-gray-500">Total Movements</p>
-                            <p class="mt-1 text-3xl font-bold text-purple-600">
-                                {{ formatNumber(report?.movement_analytics?.total_movements) }}
-                            </p>
-                        </div>
-                        <div class="text-center p-6 bg-green-50 rounded-lg">
-                            <i class="pi pi-arrow-down-left text-green-600 text-3xl mb-3"></i>
-                            <p class="text-sm font-medium text-gray-500">In Stock Movements</p>
-                            <p class="mt-1 text-3xl font-bold text-green-600">
-                                {{ formatNumber(report?.movement_analytics?.in_stock_movements) }}
-                            </p>
-                        </div>
-                        <div class="text-center p-6 bg-red-50 rounded-lg">
-                            <i class="pi pi-arrow-up-right text-red-600 text-3xl mb-3"></i>
-                            <p class="text-sm font-medium text-gray-500">Out Stock Movements</p>
-                            <p class="mt-1 text-3xl font-bold text-red-600">
-                                {{ formatNumber(report?.movement_analytics?.out_stock_movements) }}
-                            </p>
-                        </div>
-                    </div>
-                </template>
-            </Card>
-
-            <!-- Inventory Value Summary -->
-            <Card>
-                <template #title>
-                    <div class="flex items-center gap-2">
-                        <i class="pi pi-dollar text-green-500"></i>
-                        <span>Inventory Value Summary</span>
-                    </div>
-                </template>
-                <template #content>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div class="text-center p-4 bg-gray-50 rounded-lg">
-                            <p class="text-sm font-medium text-gray-500">Total Inventory Value</p>
-                            <p class="mt-1 text-xl font-bold text-gray-900">
-                                {{ formatCurrency(report?.summary?.total_stock_value) }}
-                            </p>
-                        </div>
-                        <div class="text-center p-4 bg-blue-50 rounded-lg">
-                            <p class="text-sm font-medium text-gray-500">Average Item Value</p>
-                            <p class="mt-1 text-xl font-bold text-blue-600">
-                                {{ formatCurrency(report?.summary?.total_stock_value / report?.summary?.total_items) }}
-                            </p>
-                        </div>
-                        <div class="text-center p-4 bg-green-50 rounded-lg">
-                            <p class="text-sm font-medium text-gray-500">Active Items Value</p>
-                            <p class="mt-1 text-xl font-bold text-green-600">
-                                {{ formatCurrency(report?.summary?.total_stock_value * (report?.summary?.active_items / report?.summary?.total_items)) }}
-                            </p>
-                        </div>
-                        <div class="text-center p-4 bg-orange-50 rounded-lg">
-                            <p class="text-sm font-medium text-gray-500">Low Stock Value</p>
-                            <p class="mt-1 text-xl font-bold text-orange-600">
-                                {{ formatCurrency(report?.low_stock_items?.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0) || 0) }}
-                            </p>
-                        </div>
-                    </div>
-                </template>
-            </Card>
-        </div>
-    </AppLayout>
-</template>
+        </AppLayout>
+    </template>

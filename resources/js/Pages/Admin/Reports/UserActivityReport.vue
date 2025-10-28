@@ -2,339 +2,235 @@
 import AppLayout from "@/sakai/layout/AppLayout.vue";
 import Card from "primevue/card";
 import Button from "primevue/button";
-import Dropdown from "primevue/dropdown";
 import Breadcrumb from "primevue/breadcrumb";
-import DataTable from "primevue/datatable";
-import Column from "primevue/column";
-import Badge from "primevue/badge";
+import VueApexCharts from "vue3-apexcharts";
 import { Head, router } from "@inertiajs/vue3";
-import { ref } from "vue";
+import { ref, computed } from "vue";
 
-const props = defineProps({
-    report: Object,
-    filters: Object
-});
-
-const home = { icon: 'pi pi-home', url: route('dashboard') };
+const home = { icon: 'pi pi-home', url: route('admin.dashboard') };
 const items = [
     { label: 'Reports', url: route('admin.reports.index') },
     { label: 'User Activity Report' }
 ];
 
-const dateRanges = ref([
-    { value: 'today', label: 'Today' },
-    { value: 'yesterday', label: 'Yesterday' },
-    { value: 'last_7_days', label: 'Last 7 Days' },
-    { value: 'last_30_days', label: 'Last 30 Days' },
-    { value: 'this_month', label: 'This Month' },
-    { value: 'last_month', label: 'Last Month' },
-    { value: 'this_quarter', label: 'This Quarter' },
-    { value: 'this_year', label: 'This Year' },
-]);
+const props = defineProps({
+    users: Array,
+    summary: Object,
+    chartData: Object,
+    filters: Object,
+});
 
-const selectedDateRange = ref(props.filters?.date_range || 'last_30_days');
+// Chart configurations with safe defaults
+const departmentChartSeries = computed(() =>
+    props.chartData?.department_chart?.series || []
+);
 
-const refreshReport = () => {
-    router.get(route('admin.reports.user-activity-report'), {
-        date_range: selectedDateRange.value,
-        report_type: 'user_activity'
-    });
-};
+const departmentChartOptions = computed(() => ({
+    chart: {
+        type: 'bar',
+        height: 350
+    },
+    plotOptions: {
+        bar: {
+            borderRadius: 4,
+            distributed: true
+        }
+    },
+    dataLabels: {
+        enabled: false
+    },
+    xaxis: {
+        categories: props.chartData?.department_chart?.labels || []
+    },
+    colors: ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4']
+}));
+
+const statusChartSeries = computed(() =>
+    props.chartData?.status_chart?.series || []
+);
+
+const statusChartOptions = computed(() => ({
+    chart: {
+        type: 'donut',
+        height: 350
+    },
+    labels: props.chartData?.status_chart?.labels || [],
+    colors: ['#10B981', '#EF4444'],
+    responsive: [{
+        breakpoint: 480,
+        options: {
+            chart: { width: 300 },
+            legend: { position: 'bottom' }
+        }
+    }]
+}));
 
 const exportReport = () => {
-    router.get(route('admin.reports.user-activity-report'), {
-        date_range: selectedDateRange.value,
-        report_type: 'user_activity',
-        export: 'true'
-    });
-};
-
-const formatNumber = (num) => {
-    return new Intl.NumberFormat().format(num);
-};
-
-const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+    router.get(route('reports.user-activity'), { ...props.filters, export: true });
 };
 </script>
 
 <template>
-    <Head :title="report?.title" />
+
+    <Head title="User Activity Report" />
     <AppLayout>
         <div class="p-6 space-y-6">
-            <!-- Breadcrumb -->
-            <Breadcrumb :home="home" :model="items" class="mb-4">
-                <template #item="{ item }">
-                    <span v-if="item.url" class="text-blue-600 cursor-pointer hover:text-blue-800" @click="router.visit(item.url)">
-                        {{ item.label }}
-                    </span>
-                    <span v-else class="font-semibold text-gray-700">{{ item.label }}</span>
-                </template>
-            </Breadcrumb>
+            <Breadcrumb :home="home" :model="items" class="mb-4" />
 
-            <!-- Header -->
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">{{ report?.title }}</h1>
-                    <p class="mt-1 text-gray-500">
-                        Period: {{ report?.period }} | Generated: {{ report?.generated_at }}
-                    </p>
+                    <h1 class="text-3xl font-bold text-gray-800">User Activity Report</h1>
+                    <p class="mt-1 text-gray-500">User statistics, assignments, and department analytics</p>
                 </div>
-                <div class="flex flex-col sm:flex-row gap-3">
-                    <div class="flex gap-2">
-                        <Dropdown
-                            v-model="selectedDateRange"
-                            :options="dateRanges"
-                            optionLabel="label"
-                            optionValue="value"
-                            @change="refreshReport"
-                            class="min-w-[200px]"
-                        />
-                        <Button
-                            icon="pi pi-refresh"
-                            severity="secondary"
-                            outlined
-                            @click="refreshReport"
-                            v-tooltip="'Refresh Report'"
-                        />
-                    </div>
-                    <Button
-                        label="Export Report"
-                        icon="pi pi-download"
-                        severity="primary"
-                        @click="exportReport"
-                    />
-                </div>
+                <Button label="Export to Excel" icon="pi pi-download" @click="exportReport" severity="success" />
             </div>
 
             <!-- Summary Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card class="border-l-4 border-blue-500">
+                <Card class="bg-gradient-to-r from-blue-50 to-blue-100 border-0">
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">Total Users</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
-                                    {{ formatNumber(report?.user_statistics?.total_users) }}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    {{ formatNumber(report?.user_statistics?.new_users_this_period) }} new this period
-                                </p>
+                                <p class="text-blue-600 font-semibold">Total Users</p>
+                                <h3 class="text-2xl font-bold text-gray-800">{{ summary?.total || 0 }}</h3>
                             </div>
-                            <div class="p-3 bg-blue-100 rounded-full">
-                                <i class="pi pi-users text-blue-600 text-xl"></i>
-                            </div>
+                            <i class="pi pi-users text-3xl text-blue-500"></i>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-green-500">
+                <Card class="bg-gradient-to-r from-green-50 to-green-100 border-0">
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">Active Users</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
-                                    {{ formatNumber(report?.user_statistics?.active_users) }}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    {{ ((report?.user_statistics?.active_users / report?.user_statistics?.total_users) * 100 || 0).toFixed(1) }}% active rate
-                                </p>
+                                <p class="text-green-600 font-semibold">Active Users</p>
+                                <h3 class="text-2xl font-bold text-gray-800">{{ summary?.active || 0 }}</h3>
                             </div>
-                            <div class="p-3 bg-green-100 rounded-full">
-                                <i class="pi pi-user text-green-600 text-xl"></i>
-                            </div>
+                            <i class="pi pi-user-plus text-3xl text-green-500"></i>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-purple-500">
+                <Card class="bg-gradient-to-r from-purple-50 to-purple-100 border-0">
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">Users with Assets</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
-                                    {{ formatNumber(report?.user_statistics?.users_with_assets) }}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    {{ ((report?.user_statistics?.users_with_assets / report?.user_statistics?.total_users) * 100 || 0).toFixed(1) }}% assignment rate
-                                </p>
+                                <p class="text-purple-600 font-semibold">With Assets</p>
+                                <h3 class="text-2xl font-bold text-gray-800">{{ summary?.with_assets || 0 }}</h3>
                             </div>
-                            <div class="p-3 bg-purple-100 rounded-full">
-                                <i class="pi pi-desktop text-purple-600 text-xl"></i>
-                            </div>
+                            <i class="pi pi-desktop text-3xl text-purple-500"></i>
                         </div>
                     </template>
                 </Card>
 
-                <Card class="border-l-4 border-orange-500">
+                <Card class="bg-gradient-to-r from-orange-50 to-orange-100 border-0">
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">New Users</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900">
-                                    {{ formatNumber(report?.user_statistics?.new_users_this_period) }}
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    Added during this period
-                                </p>
+                                <p class="text-orange-600 font-semibold">Avg Assets/User</p>
+                                <h3 class="text-2xl font-bold text-gray-800">{{ summary?.average_assets || 0 }}</h3>
                             </div>
-                            <div class="p-3 bg-orange-100 rounded-full">
-                                <i class="pi pi-user-plus text-orange-600 text-xl"></i>
-                            </div>
+                            <i class="pi pi-chart-line text-3xl text-orange-500"></i>
                         </div>
                     </template>
                 </Card>
             </div>
 
-            <!-- Two Column Layout -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Top Users by Asset Count -->
+                <!-- Department Chart -->
                 <Card>
                     <template #title>
                         <div class="flex items-center gap-2">
-                            <i class="pi pi-trophy text-yellow-500"></i>
-                            <span>Top Users by Asset Assignment</span>
+                            <i class="pi pi-chart-bar text-blue-500"></i>
+                            <span>Users by Department</span>
                         </div>
                     </template>
                     <template #content>
-                        <div class="space-y-4">
-                            <div
-                                v-for="(user, index) in report?.asset_assignments_by_user"
-                                :key="index"
-                                class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                            >
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                        <span class="text-blue-600 font-bold text-sm">{{ index + 1 }}</span>
-                                    </div>
-                                    <div>
-                                        <div class="font-medium text-gray-700">{{ user.user_name }}</div>
-                                        <div class="text-xs text-gray-500">{{ user.department || 'No Department' }}</div>
-                                    </div>
-                                </div>
-                                <Badge :value="user.asset_count" severity="info" />
+                        <div class="h-80">
+                            <VueApexCharts v-if="departmentChartSeries.length > 0" type="bar"
+                                :options="departmentChartOptions" :series="[{ data: departmentChartSeries }]"
+                                height="100%" />
+                            <div v-else class="h-full flex items-center justify-center text-gray-500">
+                                No department data available
                             </div>
                         </div>
                     </template>
                 </Card>
 
-                <!-- Department Breakdown -->
+                <!-- Status Chart -->
                 <Card>
                     <template #title>
                         <div class="flex items-center gap-2">
-                            <i class="pi pi-building text-purple-500"></i>
-                            <span>Department Breakdown</span>
+                            <i class="pi pi-chart-donut text-green-500"></i>
+                            <span>User Status Distribution</span>
                         </div>
                     </template>
                     <template #content>
-                        <div class="space-y-4">
-                            <div
-                                v-for="dept in report?.department_breakdown"
-                                :key="dept.department"
-                                class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                            >
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                                        <i class="pi pi-users text-purple-600 text-sm"></i>
-                                    </div>
-                                    <span class="font-medium text-gray-700">{{ dept.department }}</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <Badge :value="dept.user_count" severity="info" />
-                                    <span class="text-sm text-gray-500">
-                                        {{ ((dept.user_count / report?.user_statistics?.total_users) * 100 || 0).toFixed(1) }}%
-                                    </span>
-                                </div>
+                        <div class="h-80">
+                            <VueApexCharts v-if="statusChartSeries.length > 0" type="donut"
+                                :options="statusChartOptions" :series="statusChartSeries" height="100%" />
+                            <div v-else class="h-full flex items-center justify-center text-gray-500">
+                                No status data available
                             </div>
                         </div>
                     </template>
                 </Card>
             </div>
 
-            <!-- Recent Activities -->
+            <!-- Users Table -->
             <Card>
                 <template #title>
                     <div class="flex items-center gap-2">
-                        <i class="pi pi-history text-gray-500"></i>
-                        <span>Recent User Activities</span>
+                        <i class="pi pi-list text-gray-500"></i>
+                        <span>User Details</span>
                     </div>
                 </template>
                 <template #content>
-                    <DataTable :value="report?.recent_activities" showGridlines stripedRows class="p-datatable-sm">
-                        <Column field="user_name" header="User" style="min-width: 200px">
-                            <template #body="slotProps">
-                                <div class="font-medium text-gray-900">{{ slotProps.data.user_name }}</div>
-                            </template>
-                        </Column>
-                        <Column field="action" header="Action" style="min-width: 150px">
-                            <template #body="slotProps">
-                                <Badge :value="slotProps.data.action" severity="info" />
-                            </template>
-                        </Column>
-                        <Column field="asset_name" header="Asset" style="min-width: 200px">
-                            <template #body="slotProps">
-                                {{ slotProps.data.asset_name || 'N/A' }}
-                            </template>
-                        </Column>
-                        <Column field="timestamp" header="Timestamp" style="min-width: 200px">
-                            <template #body="slotProps">
-                                {{ formatDate(slotProps.data.timestamp) }}
-                            </template>
-                        </Column>
-                    </DataTable>
+                    <div class="overflow-x-auto">
+                        <table class="w-full table-auto">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">User Name</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Department</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Role</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Assets Assigned
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Last Activity
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-sm text-gray-900">{{ user.name }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">{{ user.email }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">{{ user.department || 'N/A' }}</td>
+                                    <td class="px-4 py-3">
+                                        <span :class="[
+                                            'px-2 py-1 text-xs font-medium rounded-full',
+                                            user.status === 'active' ? 'bg-green-100 text-green-800' :
+                                                'bg-red-100 text-red-800'
+                                        ]">
+                                            {{ user.status }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">
+                                        <span v-for="role in user.roles" :key="role.id"
+                                            class="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full mr-1">
+                                            {{ role.name }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-900">{{ user.assets_count || 0 }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">
+                                        {{ user.last_login_at || 'Never' }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </template>
             </Card>
-
-            <!-- User Distribution Stats -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card class="text-center">
-                    <template #content>
-                        <div class="p-4">
-                            <div class="p-3 bg-blue-100 rounded-full inline-flex mb-3">
-                                <i class="pi pi-chart-bar text-blue-600 text-xl"></i>
-                            </div>
-                            <p class="text-sm font-medium text-gray-500">User Activity Rate</p>
-                            <p class="mt-1 text-2xl font-bold text-gray-900">
-                                {{ ((report?.user_statistics?.users_with_assets / report?.user_statistics?.total_users) * 100 || 0).toFixed(1) }}%
-                            </p>
-                        </div>
-                    </template>
-                </Card>
-
-                <Card class="text-center">
-                    <template #content>
-                        <div class="p-4">
-                            <div class="p-3 bg-green-100 rounded-full inline-flex mb-3">
-                                <i class="pi pi-check-circle text-green-600 text-xl"></i>
-                            </div>
-                            <p class="text-sm font-medium text-gray-500">Active User Rate</p>
-                            <p class="mt-1 text-2xl font-bold text-gray-900">
-                                {{ ((report?.user_statistics?.active_users / report?.user_statistics?.total_users) * 100 || 0).toFixed(1) }}%
-                            </p>
-                        </div>
-                    </template>
-                </Card>
-
-                <Card class="text-center">
-                    <template #content>
-                        <div class="p-4">
-                            <div class="p-3 bg-purple-100 rounded-full inline-flex mb-3">
-                                <i class="pi pi-user-plus text-purple-600 text-xl"></i>
-                            </div>
-                            <p class="text-sm font-medium text-gray-500">Growth Rate</p>
-                            <p class="mt-1 text-2xl font-bold text-gray-900">
-                                +{{ formatNumber(report?.user_statistics?.new_users_this_period) }}
-                            </p>
-                        </div>
-                    </template>
-                </Card>
-            </div>
         </div>
     </AppLayout>
 </template>

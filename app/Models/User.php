@@ -67,7 +67,7 @@ class User extends Authenticatable
 
     public function assets(): HasMany
     {
-        return $this->hasMany(Asset::class);
+        return $this->hasMany(Asset::class, 'assigned_to');
     }
 
     /**
