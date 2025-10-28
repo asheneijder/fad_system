@@ -176,13 +176,15 @@ Route::group([
     Route::get('/audit-logs/statistics', [AuditLogController::class, 'statistics'])->name('audit-logs.statistics');
     Route::post('/audit-logs/cleanup', [AuditLogController::class, 'cleanup'])->name('audit-logs.cleanup');
 
-    Route::resource('reports', ReportController::class);
+    // Remove this line: Route::resource('reports', ReportController::class);
 
-    Route::get('reports/asset-report', [ReportController::class, 'assetReport'])->name('reports.asset-report');
-    Route::get('reports/license-report', [ReportController::class, 'licenseReport'])->name('reports.license-report');
-    Route::get('reports/user-activity-report', [ReportController::class, 'userActivityReport'])->name('reports.user-activity-report');
-    Route::get('reports/stationary-report', [ReportController::class, 'stationaryReport'])->name('reports.stationary-report');
-    Route::get('reports/dashboard-report', [ReportController::class, 'dashboardReport'])->name('reports.dashboard-report');
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/asset-report', [ReportController::class, 'assetReport'])->name('reports.asset');
+    Route::get('/reports/license-report', [ReportController::class, 'licenseReport'])->name('reports.license');
+    Route::get('/reports/user-activity-report', [ReportController::class, 'userActivityReport'])->name('reports.user-activity');
+    Route::get('/reports/stationary-report', [ReportController::class, 'stationaryReport'])->name('reports.stationary');
+    Route::get('/reports/dashboard-report', [ReportController::class, 'dashboardReport'])->name('reports.dashboard');
+    Route::get('/reports/stationary', [ReportController::class, 'stationaryReport'])->name('reports.stationary');
 
     Route::get('/cron', [CronJobController::class, 'index'])->name('cron.index');
     Route::post('/cron/run-command', [CronJobController::class, 'runCommand'])->name('cron.run-command');

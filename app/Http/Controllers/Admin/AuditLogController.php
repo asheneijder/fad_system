@@ -2,13 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Exports\AuditLogsExport;
 use App\Http\Controllers\Controller;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
 use Inertia\Inertia;
-use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Activitylog\Models\Activity;
 
 class AuditLogController extends Controller
@@ -28,6 +26,7 @@ class AuditLogController extends Controller
                 $q->where('description', 'like', "%{$search}%")
                     ->orWhere('subject_type', 'like', "%{$search}%")
                     ->orWhere('log_name', 'like', "%{$search}%")
+                    ->orWhere('subject_id', 'like', "%{$search}%")
                     ->orWhereHas('causer', function ($q) use ($search) {
                         $q->where('name', 'like', "%{$search}%")
                             ->orWhere('email', 'like', "%{$search}%");
@@ -108,6 +107,7 @@ class AuditLogController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('description', 'like', "%{$search}%")
                     ->orWhere('subject_type', 'like', "%{$search}%")
+                    ->orWhere('subject_id', 'like', "%{$search}%")
                     ->orWhereHas('causer', function ($q) use ($search) {
                         $q->where('name', 'like', "%{$search}%")
                             ->orWhere('email', 'like', "%{$search}%");
@@ -151,31 +151,33 @@ class AuditLogController extends Controller
                 'Action',
                 'Model',
                 'Model ID',
+                'Log Name',
                 'User Name',
                 'User Email',
-                'Description',
-                'Changes',
+                'User ID',
+                'Properties (JSON)',
                 'IP Address',
                 'User Agent',
-                'Date & Time',
+                'Created At',
+                'Updated At',
             ]);
 
             // Add data rows
             foreach ($logs as $log) {
-                $changes = $this->formatChangesForExport($log);
-
                 fputcsv($file, [
                     $log->id,
-                    ucfirst($log->description),
-                    class_basename($log->subject_type ?? 'N/A'),
+                    ucfirst($log->description ?? 'N/A'),
+                    $log->subject_type ?? 'N/A',
                     $log->subject_id ?? 'N/A',
+                    $log->log_name ?? 'default',
                     $log->causer->name ?? 'System',
                     $log->causer->email ?? 'N/A',
-                    $log->log_name ?? 'N/A',
-                    $changes,
+                    $log->causer_id ?? 'N/A',
+                    json_encode($log->properties ?? []),
                     $log->properties['ip_address'] ?? 'N/A',
                     $log->properties['user_agent'] ?? 'N/A',
                     $log->created_at->format('Y-m-d H:i:s'),
+                    $log->updated_at->format('Y-m-d H:i:s'),
                 ]);
             }
 
@@ -183,102 +185,6 @@ class AuditLogController extends Controller
         };
 
         return Response::stream($callback, 200, $headers);
-    }
-
-    /**
-     * Export audit logs to Excel
-     */
-    public function exportExcel(Request $request)
-    {
-        // Apply filters
-        $filters = [
-            'search' => $request->search,
-            'start_date' => $request->start_date,
-            'end_date' => $request->end_date,
-            'action' => $request->action,
-            'model' => $request->model,
-        ];
-
-        $filename = 'audit-logs-'.now()->format('Y-m-d-His').'.xlsx';
-
-        return Excel::download(new AuditLogsExport($filters), $filename);
-    }
-
-    /**
-     * Export audit logs to PDF
-     */
-    public function exportPdf(Request $request)
-    {
-        $query = Activity::with('causer')->latest();
-
-        // Apply same filters as index
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('description', 'like', "%{$search}%")
-                    ->orWhere('subject_type', 'like', "%{$search}%")
-                    ->orWhereHas('causer', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $query->whereBetween('created_at', [
-                Carbon::parse($request->start_date)->startOfDay(),
-                Carbon::parse($request->end_date)->endOfDay(),
-            ]);
-        }
-
-        if ($request->filled('action')) {
-            $query->where('description', $request->action);
-        }
-
-        if ($request->filled('model')) {
-            $query->where('subject_type', $request->model);
-        }
-
-        $logs = $query->get();
-
-        $filename = 'audit-logs-'.now()->format('Y-m-d-His').'.pdf';
-
-        // You can use a PDF library like DomPDF or TCPDF here
-        // For now, we'll return a simple response
-        return response()->json([
-            'message' => 'PDF export will be implemented with a PDF library',
-            'total_logs' => $logs->count(),
-            'filters' => $request->all(),
-        ]);
-    }
-
-    /**
-     * Format changes for export
-     */
-    private function formatChangesForExport($log): string
-    {
-        if (! $log->properties) {
-            return 'No changes';
-        }
-
-        $changes = [];
-
-        if ($log->description === 'updated' && isset($log->properties['attributes'], $log->properties['old'])) {
-            foreach ($log->properties['attributes'] as $key => $newValue) {
-                $oldValue = $log->properties['old'][$key] ?? 'N/A';
-                $changes[] = "{$key}: {$oldValue} → {$newValue}";
-            }
-        } elseif ($log->description === 'created' && isset($log->properties['attributes'])) {
-            foreach ($log->properties['attributes'] as $key => $value) {
-                $changes[] = "{$key}: {$value}";
-            }
-        } elseif ($log->description === 'deleted' && isset($log->properties['old'])) {
-            foreach ($log->properties['old'] as $key => $value) {
-                $changes[] = "{$key}: {$value}";
-            }
-        }
-
-        return implode(' | ', $changes) ?: 'No detailed changes';
     }
 
     /**
@@ -339,5 +245,17 @@ class AuditLogController extends Controller
         $deleted = Activity::where('created_at', '<', $date)->delete();
 
         return back()->with('success', "Deleted {$deleted} audit log(s) older than {$request->days} days.");
+    }
+
+    /**
+     * Delete a specific audit log
+     */
+    public function destroy(string $id)
+    {
+        $activity = Activity::findOrFail($id);
+        $activity->delete();
+
+        return redirect()->route('admin.audit-logs.index')
+            ->with('success', 'Audit log deleted successfully.');
     }
 }
