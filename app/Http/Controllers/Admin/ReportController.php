@@ -10,6 +10,7 @@ use App\Exports\UserActivityReportExport;
 use App\Http\Controllers\Controller;
 use App\Models\AccommodationClaim;
 use App\Models\Asset;
+use App\Models\Category;
 use App\Models\DailyAllowance;
 use App\Models\License;
 use App\Models\StationaryItem;
@@ -41,26 +42,169 @@ class ReportController extends Controller
      */
     public function assetReport(Request $request)
     {
-        $query = Asset::with(['category', 'model', 'user'])
-            ->when($request->date_range, function ($q) use ($request) {
+        \Log::info('Asset Report Request:', $request->all());
+
+        // Start with a basic query
+        $query = Asset::with(['category', 'model', 'user']);
+
+        \Log::info('Base query count: '.$query->count());
+
+        // Apply filters one by one and log the count after each
+        if ($request->date_range && $request->date_range !== 'all_time') {
+            $query->when($request->date_range, function ($q) use ($request) {
                 $this->applyDateFilter($q, $request->date_range, 'purchase_date');
             });
+            \Log::info('After date filter count: '.$query->count());
+        }
+
+        if ($request->category) {
+            $query->when($request->category, function ($q, $category) {
+                $q->whereHas('category', function ($query) use ($category) {
+                    $query->where('name', $category);
+                });
+            });
+            \Log::info('After category filter count: '.$query->count());
+        }
+
+        if ($request->status) {
+            $query->when($request->status, function ($q, $status) {
+                $q->where('status', $status);
+            });
+            \Log::info('After status filter count: '.$query->count());
+        }
+
+        if ($request->search) {
+            $query->when($request->search, function ($q, $search) {
+                $q->where(function ($query) use ($search) {
+                    $query->where('asset_name', 'like', "%{$search}%")
+                        ->orWhere('asset_tag_no', 'like', "%{$search}%")
+                        ->orWhere('serial_no', 'like', "%{$search}%");
+                });
+            });
+            \Log::info('After search filter count: '.$query->count());
+        }
+
+        $query->orderBy('category_type_id')->orderBy('asset_tag_no');
+
+        $assets = $query->get();
+
+        \Log::info('Final assets count: '.$assets->count());
 
         if ($request->boolean('export')) {
             return Excel::download(new AssetReportExport($query->get()),
-                'asset-report-'.date('Y-m-d').'.xlsx');
+                'fixed-asset-listing-'.date('Y-m-d').'.xlsx');
         }
 
-        $assets = $query->get();
-        $summary = $this->getAssetSummary($assets);
-        $chartData = $this->getAssetChartData($assets);
+        // Get all categories for filter dropdown
+        $allCategories = Category::where('type', 'asset')
+            ->orderBy('name')
+            ->get()
+            ->pluck('name');
+
+        $summary = $this->getEnhancedAssetSummary($assets);
+        $chartData = $this->getEnhancedAssetChartData($assets);
+        $categoryBreakdown = $this->getCategoryBreakdown($assets);
 
         return Inertia::render('Admin/Reports/AssetReport', [
             'assets' => $assets,
             'summary' => $summary,
             'chartData' => $chartData,
-            'filters' => $request->only(['date_range']),
+            'categoryBreakdown' => $categoryBreakdown,
+            'allCategories' => $allCategories,
+            'statusOptions' => ['active', 'assigned', 'available', 'maintenance', 'retired'],
+            'filters' => $request->only(['date_range', 'category', 'status', 'search']),
         ]);
+    }
+
+    /**
+     * Enhanced Asset Summary with Financial Metrics
+     */
+    private function getEnhancedAssetSummary($assets)
+    {
+        $fullyDepreciated = $assets->filter(fn ($asset) => $asset->is_fully_depreciated);
+        $depreciatingSoon = $assets->filter(fn ($asset) => $asset->remaining_life_percentage <= 20 && ! $asset->is_fully_depreciated
+        );
+        $needsSighting = $assets->filter(fn ($asset) => $asset->needs_sighting);
+
+        $totalPurchaseCost = $assets->sum('purchase_cost');
+        $totalDepreciation = $assets->sum('depreciation_cost');
+        $totalCurrentValue = $assets->sum('current_value');
+
+        return [
+            'total_assets' => $assets->count(),
+            'total_purchase_cost' => number_format($totalPurchaseCost, 2),
+            'total_depreciation' => number_format($totalDepreciation, 2),
+            'total_current_value' => number_format($totalCurrentValue, 2),
+            'assigned_assets' => $assets->whereNotNull('assigned_to')->count(),
+            'unassigned_assets' => $assets->whereNull('assigned_to')->count(),
+            'fully_depreciated' => $fullyDepreciated->count(),
+            'depreciating_soon' => $depreciatingSoon->count(),
+            'needs_sighting' => $needsSighting->count(),
+            'avg_asset_value' => number_format($assets->avg('current_value') ?? 0, 2),
+            'utilization_rate' => $assets->count() > 0 ?
+                round(($assets->whereNotNull('assigned_to')->count() / $assets->count()) * 100, 1) : 0,
+        ];
+    }
+
+    /**
+     * Enhanced Chart Data
+     */
+    private function getEnhancedAssetChartData($assets)
+    {
+        $statusData = $assets->groupBy('status')->map->count();
+        $categoryData = $assets->groupBy('category.name')->map->count();
+
+        // Financial breakdown
+        $financialData = [
+            'Purchase Cost' => (float) $assets->sum('purchase_cost'),
+            'Accumulated Depreciation' => (float) $assets->sum('depreciation_cost'),
+            'Current Value' => (float) $assets->sum('current_value'),
+        ];
+
+        // Depreciation status
+        $depreciationStatus = [
+            'Fully Depreciated' => $assets->where('is_fully_depreciated', true)->count(),
+            'Depreciating' => $assets->where('is_fully_depreciated', false)->count(),
+        ];
+
+        return [
+            'status_chart' => [
+                'labels' => $statusData->keys()->map(fn ($status) => ucfirst($status))->toArray(),
+                'series' => $statusData->values()->toArray(),
+            ],
+            'category_chart' => [
+                'labels' => $categoryData->keys()->toArray(),
+                'series' => $categoryData->values()->toArray(),
+            ],
+            'financial_chart' => [
+                'labels' => array_keys($financialData),
+                'series' => array_values($financialData),
+            ],
+            'depreciation_chart' => [
+                'labels' => array_keys($depreciationStatus),
+                'series' => array_values($depreciationStatus),
+            ],
+        ];
+    }
+
+    /**
+     * Category Breakdown for Summary
+     */
+    private function getCategoryBreakdown($assets)
+    {
+        return $assets->groupBy('category.name')->map(function ($categoryAssets, $categoryName) {
+            $totalValue = $categoryAssets->sum('current_value');
+            $totalCost = $categoryAssets->sum('purchase_cost');
+
+            return [
+                'name' => $categoryName,
+                'count' => $categoryAssets->count(),
+                'total_value' => number_format($totalValue, 2),
+                'total_cost' => number_format($totalCost, 2),
+                'depreciation' => number_format($totalCost - $totalValue, 2),
+                'assigned_count' => $categoryAssets->whereNotNull('assigned_to')->count(),
+            ];
+        })->sortByDesc('count')->values();
     }
 
     /**
@@ -248,16 +392,31 @@ class ReportController extends Controller
         };
     }
 
+    /**
+     * Enhanced asset summary with depreciation data
+     */
     private function getAssetSummary($assets)
     {
+        $fullyDepreciated = $assets->filter(function ($asset) {
+            return $asset->is_fully_depreciated;
+        });
+
+        $depreciatingSoon = $assets->filter(function ($asset) {
+            return $asset->remaining_life_percentage <= 20 && ! $asset->is_fully_depreciated;
+        });
+
         return [
             'total' => $assets->count(),
             'total_value' => number_format($assets->sum('current_value'), 2),
+            'total_purchase_cost' => number_format($assets->sum('purchase_cost'), 2),
+            'total_depreciation' => number_format($assets->sum('depreciation_cost'), 2),
             'assigned' => $assets->whereNotNull('assigned_to')->count(),
             'unassigned' => $assets->whereNull('assigned_to')->count(),
             'average_value' => number_format($assets->avg('current_value') ?? 0, 2),
+            'fully_depreciated' => $fullyDepreciated->count(),
+            'depreciating_soon' => $depreciatingSoon->count(),
             'by_status' => $assets->groupBy('status')->map->count(),
-            'by_category' => $assets->groupBy('category_type_id')->map->count(),
+            'by_category' => $assets->groupBy('category.name')->map->count(),
         ];
     }
 
