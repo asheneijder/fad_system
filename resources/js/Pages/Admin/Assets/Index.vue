@@ -637,7 +637,7 @@ const canReturn = (asset) => {
             </div>
 
             <!-- Statistics Cards -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
                 <Card class="border-l-4 border-blue-500 shadow-md hover:shadow-lg transition-shadow">
                     <template #content>
                         <div class="flex items-center justify-between gap-2">
@@ -703,22 +703,6 @@ const canReturn = (asset) => {
                             </div>
                             <div class="p-2 bg-red-100 rounded-full flex-shrink-0">
                                 <i class="text-base sm:text-lg text-red-600 pi pi-times-circle"></i>
-                            </div>
-                        </div>
-                    </template>
-                </Card>
-
-                <Card class="border-l-4 border-purple-500 shadow-md hover:shadow-lg transition-shadow">
-                    <template #content>
-                        <div class="flex items-center justify-between gap-2">
-                            <div class="min-w-0">
-                                <p class="text-xs font-medium text-gray-500 truncate">Value</p>
-                                <p class="mt-1 text-base sm:text-lg font-bold text-gray-900">
-                                    {{ formatCurrency(statistics.total_value) }}
-                                </p>
-                            </div>
-                            <div class="p-2 bg-purple-100 rounded-full flex-shrink-0">
-                                <i class="text-base sm:text-lg text-purple-600 pi pi-dollar"></i>
                             </div>
                         </div>
                     </template>
@@ -850,10 +834,10 @@ const canReturn = (asset) => {
                                 </template>
                             </Column>
 
-                            <Column header="Value" sortable style="min-width: 120px;">
+                            <Column header="Purchase Cost" sortable style="min-width: 120px;">
                                 <template #body="slotProps">
                                     <div class="text-xs">
-                                        <div class="font-medium text-gray-900">{{ formatCurrency(slotProps.data.current_value) }}</div>
+                                        <div class="font-medium text-gray-900">{{ formatCurrency(slotProps.data.purchase_cost) }}</div>
                                     </div>
                                 </template>
                             </Column>
@@ -1330,12 +1314,12 @@ const canReturn = (asset) => {
                         </div>
 
                         <!-- Image URL -->
-                        <div class="space-y-1 sm:space-y-2">
+                        <!-- <div class="space-y-1 sm:space-y-2">
                             <label class="block text-xs sm:text-sm font-semibold text-gray-700">Image URL</label>
                             <InputText v-model="assetForm.image" 
                                 placeholder="Enter image URL" 
                                 class="w-full text-xs sm:text-sm" />
-                        </div>
+                        </div> -->
 
                         <!-- Notes -->
                         <div class="space-y-1 sm:space-y-2 md:col-span-2">
