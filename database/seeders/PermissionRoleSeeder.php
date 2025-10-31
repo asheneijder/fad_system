@@ -39,6 +39,8 @@ class PermissionRoleSeeder extends Seeder
             'can.delete.user',
             'can.view.claim-request',
             'can.manage.claim-request',
+            'can.view.asset.registry',
+            'can.view.asset.registry.report'
         ];
 
         foreach ($permissions as $permission) {
@@ -71,11 +73,14 @@ class PermissionRoleSeeder extends Seeder
             'can.create.user',
             'can.view.claim-request',
             'can.manage.claim-request',
+            'can.view.asset.registry',
+            'can.view.asset.registry.report'
         ];
 
         $fadApproverRole->givePermissionTo($fadApproverPermissions);
 
         $hodApproverPermissions = [
+            'can.view.asset.registry',
             'can.view.request',
             'can.view.claim-request',
             'can.manage.claim-request',
@@ -85,6 +90,7 @@ class PermissionRoleSeeder extends Seeder
 
         // Assign basic permissions to staff role
         $staffPermissions = [
+            'can.view.asset.registry',
             'can.view.request',
             'can.view.claim-request',
         ];

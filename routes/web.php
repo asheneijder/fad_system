@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\StationaryItemController;
 use App\Http\Controllers\Guest\AssetAssignmentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\User\AccommodationClaimController;
+use App\Http\Controllers\User\AssetRegistryController;
 use App\Http\Controllers\User\CartController;
 use App\Http\Controllers\User\ClaimRequestController;
 use App\Http\Controllers\User\DailyAllowanceController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\User\TravelClaimController;
 use App\Http\Controllers\User\UserDashboardController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
+
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -60,7 +62,7 @@ Route::middleware('auth')->group(function () {
 Route::group([
     'prefix' => 'admin',
     'as' => 'admin.',
-    'middleware' => ['auth', 'verified'],
+    'middleware' => ['auth', 'verified', 'permission:can.as.admin'],
 ], function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -77,8 +79,12 @@ Route::group([
     Route::post('assets/{asset}/return', [AssetController::class, 'returnAsset'])->name('assets.return');
     Route::get('assets/{asset}/assignment-history', [AssetController::class, 'assignmentHistory'])->name('assets.assignment-history');
     Route::post('assets/export', [AssetController::class, 'export'])->name('assets.export');
-    Route::get('assets/{asset}/assignment-history/export', [AssetController::class, 'exportAssignmentHistory'])
-        ->name('assets.assignment-history.export');
+    Route::get('assets/{asset}/assignment-history/export', [AssetController::class, 'exportAssignmentHistory'])->name('assets.assignment-history.export');
+
+    Route::get('/asset-assignments', [AssetController::class, 'listAssetAssign'])->name('asset-assignments.index');
+    Route::get('/asset-assignments/user-acknowledgment-report', [AssetController::class, 'userAcknowledgmentReport'])->name('asset-assignments.user-acknowledgment-report');
+    // Reminder routes
+    Route::post('/users/{user}/send-acknowledgment-reminder', [AssetController::class, 'sendReminder'])->name('users.send-acknowledgment-reminder');
 
     Route::resource('models', ModelController::class);
 
@@ -211,6 +217,10 @@ Route::group([
 ], function () {
     // User Dashboard
     Route::get('/dashboard', [UserDashboardController::class, 'index'])->name('dashboard');
+
+    // User Asset Registry
+    Route::get('/asset-registry', [AssetRegistryController::class, 'index'])->name('asset-registry.index');
+    Route::post('/asset-registry/{assignment}/acknowledge', [AssetRegistryController::class, 'acknowledge'])->name('asset-registry.acknowledge');
 
     // Request Items Routes
     Route::resource('request-items', RequestItemController::class);

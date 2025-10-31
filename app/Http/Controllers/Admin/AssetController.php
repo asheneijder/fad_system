@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendAcknowledgmentReminder;
 use App\Jobs\SendAssetAssignmentNotification;
 use App\Models\Asset;
 use App\Models\AssetAssignment;
@@ -267,6 +268,74 @@ class AssetController extends Controller
 
             return redirect()->back()
                 ->with('error', 'Failed to delete asset: '.$e->getMessage());
+        }
+    }
+
+    public function listAssetAssign() 
+    {
+        $assetAssignments = AssetAssignment::with([
+            'asset', 
+            'asset.model', 
+            'asset.category',
+            'user',
+            'assignedBy'
+        ])
+        ->orderBy('assigned_at', 'desc')
+        ->paginate(20);
+
+        $summary = [
+            'total' => AssetAssignment::count(),
+            'acknowledged' => AssetAssignment::whereNotNull('acknowledged_at')->count(),
+            'pending' => AssetAssignment::whereNull('acknowledged_at')->whereNull('returned_at')->count(),
+            'returned' => AssetAssignment::whereNotNull('returned_at')->count(),
+        ];
+
+        return Inertia::render('Admin/AssetAssignments/Index', [
+            'assetAssignments' => $assetAssignments,
+            'summary' => $summary
+        ]);
+    }
+
+    public function userAcknowledgmentReport()
+    {
+        $users = User::withCount([
+            'assetAssignments as total_assignments',
+            'assetAssignments as acknowledged_assignments' => function($query) {
+                $query->whereNotNull('acknowledged_at');
+            },
+            'assetAssignments as pending_assignments' => function($query) {
+                $query->whereNull('acknowledged_at')->whereNull('returned_at');
+            },
+            'assetAssignments as returned_assignments' => function($query) {
+                $query->whereNotNull('returned_at');
+            }
+        ])
+        ->has('assetAssignments')
+        ->with(['assetAssignments.asset'])
+        ->paginate(20);
+
+        return Inertia::render('Admin/AssetAssignments/UserAcknowledgmentReport', [
+            'users' => $users
+        ]);
+    }
+
+      public function sendReminder(Request $request, User $user)
+    {
+        try {
+            // Get user's pending assignments
+            $pendingAssignments = $user->pendingAssetAssignments();
+
+            if ($pendingAssignments->isEmpty()) {
+                return redirect()->back()->with('error', 'User has no pending assignments to acknowledge.');
+            }
+
+            // Dispatch job to send reminder
+            SendAcknowledgmentReminder::dispatch($user, $pendingAssignments, auth()->user());
+
+            return redirect()->back()->with('success', "Acknowledgment reminder sent successfully to {$user->name}.");
+
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to send reminder: ' . $e->getMessage());
         }
     }
 

@@ -3,6 +3,10 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Asset;
+use App\Models\AssetAssignment;
+use App\Models\TravelClaim;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -68,6 +72,25 @@ class User extends Authenticatable
     public function assets(): HasMany
     {
         return $this->hasMany(Asset::class, 'assigned_to');
+    }
+
+    public function assetAssignments(): HasMany
+    {
+        return $this->hasMany(AssetAssignment::class, 'assigned_to');
+    }
+
+    public function currentAssetAssignments(): HasMany
+    {
+        return $this->assetAssignments()->active();
+    }
+
+    public function pendingAssetAssignments()
+    {
+        return $this->assetAssignments()
+            ->whereNull('acknowledged_at')
+            ->whereNull('returned_at')
+            ->with('asset')
+            ->get();
     }
 
     /**

@@ -1,24 +1,16 @@
 <script setup>
 import AppLayout from "@/sakai/layout/AppLayout.vue";
-import DataTable from "primevue/datatable";
-import Column from "primevue/column";
 import InputText from "primevue/inputtext";
 import Button from "primevue/button";
 import Badge from 'primevue/badge';
-import Dialog from 'primevue/dialog';
-import Select from 'primevue/select';
-import Breadcrumb from 'primevue/breadcrumb';
 import ConfirmDialog from "primevue/confirmdialog";
 import Toast from "primevue/toast";
-import InputNumber from "primevue/inputnumber";
-import Card from "primevue/card";
-import Divider from "primevue/divider";
 import Checkbox from "primevue/checkbox";
 import Textarea from "primevue/textarea";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
-import { Link, router, Head } from "@inertiajs/vue3";
-import { ref, computed, onMounted } from "vue";
+import { router, Head } from "@inertiajs/vue3";
+import { ref, computed } from "vue";
 
 const confirm = useConfirm();
 const toast = useToast();

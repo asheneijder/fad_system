@@ -25,8 +25,6 @@ By confirming this assignment, you agree to:
 ✅ Confirm & Accept Responsibility
 </x-mail::button>
 
-**Important:** This confirmation link will expire in 7 days for security purposes.
-
 If you have any questions or concerns about this assignment, please contact {{ $assignedBy->name }} or your department supervisor.
 
 <small>

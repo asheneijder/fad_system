@@ -588,10 +588,10 @@ const clearFilters = () => {
                                     <span>Category:</span>
                                     <span class="font-medium capitalize">{{ item.category }}</span>
                                 </div>
-                                <div class="flex justify-between">
+                                <!-- <div class="flex justify-between">
                                     <span>Stock:</span>
                                     <span class="font-medium">{{ item.current_stock }} {{ item.unit }}</span>
-                                </div>
+                                </div> -->
                                 <div class="flex justify-between">
                                     <span>Price:</span>
                                     <span class="font-medium">{{ formatCurrency(item.cost_price) }}</span>
@@ -746,10 +746,10 @@ const clearFilters = () => {
                         </div>
 
                         <div class="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
-                            <div>
+                            <!-- <div>
                                 <span class="text-gray-500">Current Stock:</span>
                                 <p class="font-medium">{{ selectedItem.current_stock }} {{ selectedItem.unit }}</p>
-                            </div>
+                            </div> -->
                             <div>
                                 <span class="text-gray-500">Price:</span>
                                 <p class="font-medium">{{ formatCurrency(selectedItem.cost_price) }}</p>

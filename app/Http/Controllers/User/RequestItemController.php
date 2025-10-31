@@ -87,7 +87,7 @@ class RequestItemController extends Controller
         $validated = $request->validate([
             'purpose' => 'required|string|max:255',
             'priority' => 'required|in:low,medium,high,urgent',
-            'needed_by' => 'nullable|date|after:today',
+            'needed_by' => 'nullable|date|after_or_equal:today',
             'notes' => 'nullable|string|max:1000',
             'cart_item_ids' => 'required|array',
             'cart_item_ids.*' => 'exists:carts,id,user_id,'.auth()->id(),
