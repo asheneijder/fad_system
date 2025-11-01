@@ -17,6 +17,7 @@ import Textarea from 'primevue/textarea';
 import Menu from "primevue/menu";
 import IconField from "primevue/iconfield";
 import InputIcon from "primevue/inputicon";
+import usePermissions from '@/composables/usePermissions'; 
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { router, Head, useForm } from "@inertiajs/vue3";
@@ -162,31 +163,31 @@ const actionItems = ref([
     {
         label: 'Bulk Actions',
         items: [
-            {
-                label: 'Bulk Assign',
-                icon: 'pi pi-user-plus',
-                command: () => openBulkAssignDialog()
-            },
-            {
-                label: 'Set Active',
-                icon: 'pi pi-check',
-                command: () => bulkUpdateStatus('active')
-            },
-            {
-                label: 'Set Available',
-                icon: 'pi pi-check-circle',
-                command: () => bulkUpdateStatus('available')
-            },
+            // {
+            //     label: 'Bulk Assign',
+            //     icon: 'pi pi-user-plus',
+            //     command: () => openBulkAssignDialog()
+            // },
+            // {
+            //     label: 'Set Active',
+            //     icon: 'pi pi-check',
+            //     command: () => bulkUpdateStatus('active')
+            // },
+            // {
+            //     label: 'Set Available',
+            //     icon: 'pi pi-check-circle',
+            //     command: () => bulkUpdateStatus('available')
+            // },
             {
                 label: 'Set Maintenance',
                 icon: 'pi pi-wrench',
                 command: () => bulkUpdateStatus('maintenance')
             },
-            {
-                label: 'Set Retired',
-                icon: 'pi pi-times',
-                command: () => bulkUpdateStatus('retired')
-            },
+            // {
+            //     label: 'Set Retired',
+            //     icon: 'pi pi-times',
+            //     command: () => bulkUpdateStatus('retired')
+            // },
             {
                 label: 'Export Selected',
                 icon: 'pi pi-download',
@@ -323,50 +324,50 @@ const openAssignDialog = (asset) => {
     showAssignDialog.value = true;
 };
 
-const openBulkAssignDialog = () => {
-    if (selectedAssets.value.length === 0) {
-        toast.add({
-            severity: 'warn',
-            summary: 'No Selection',
-            detail: 'Please select assets first',
-            life: 3000
-        });
-        return;
-    }
+// const openBulkAssignDialog = () => {
+//     if (selectedAssets.value.length === 0) {
+//         toast.add({
+//             severity: 'warn',
+//             summary: 'No Selection',
+//             detail: 'Please select assets first',
+//             life: 3000
+//         });
+//         return;
+//     }
     
-    bulkAssignForm.reset();
-    bulkAssignForm.asset_ids = selectedAssets.value.map(asset => asset.id);
-    showBulkAssignDialog.value = true;
-};
+//     bulkAssignForm.reset();
+//     bulkAssignForm.asset_ids = selectedAssets.value.map(asset => asset.id);
+//     showBulkAssignDialog.value = true;
+// };
 
-const openBulkSightingDialog = () => {
-    if (selectedAssets.value.length === 0) {
-        toast.add({
-            severity: 'warn',
-            summary: 'No Selection',
-            detail: 'Please select assets first',
-            life: 3000
-        });
-        return;
-    }
+// const openBulkSightingDialog = () => {
+//     if (selectedAssets.value.length === 0) {
+//         toast.add({
+//             severity: 'warn',
+//             summary: 'No Selection',
+//             detail: 'Please select assets first',
+//             life: 3000
+//         });
+//         return;
+//     }
     
-    selectedAssets.value.forEach(asset => {
-        router.post(route('admin.assets.update-sighting', asset.id), {
-            last_sighting_date: new Date().toISOString().split('T')[0],
-            notes: 'Bulk sighting update'
-        }, {
-            preserveScroll: true,
-            onSuccess: () => {
-                toast.add({ 
-                    severity: 'success', 
-                    summary: 'Success', 
-                    detail: 'Sighting updated for selected assets', 
-                    life: 3000 
-                });
-            }
-        });
-    });
-};
+//     selectedAssets.value.forEach(asset => {
+//         router.post(route('admin.assets.update-sighting', asset.id), {
+//             last_sighting_date: new Date().toISOString().split('T')[0],
+//             notes: 'Bulk sighting update'
+//         }, {
+//             preserveScroll: true,
+//             onSuccess: () => {
+//                 toast.add({ 
+//                     severity: 'success', 
+//                     summary: 'Success', 
+//                     detail: 'Sighting updated for selected assets', 
+//                     life: 3000 
+//                 });
+//             }
+//         });
+//     });
+// };
 
 const saveAsset = () => {
     if (isEditMode.value) {
@@ -415,23 +416,23 @@ const submitAssignment = () => {
     });
 };
 
-const submitBulkAssignment = () => {
-    bulkAssignForm.post(route('admin.assets.bulk-assign'), {
-        preserveScroll: true,
-        onSuccess: (response) => {
-            showBulkAssignDialog.value = false;
-            selectedAssets.value = [];
-            toast.add({ severity: 'success', summary: 'Success', detail: response.props.success_count + ' asset(s) assigned', life: 5000 });
+// const submitBulkAssignment = () => {
+//     bulkAssignForm.post(route('admin.assets.bulk-assign'), {
+//         preserveScroll: true,
+//         onSuccess: (response) => {
+//             showBulkAssignDialog.value = false;
+//             selectedAssets.value = [];
+//             toast.add({ severity: 'success', summary: 'Success', detail: response.props.success_count + ' asset(s) assigned', life: 5000 });
             
-            if (response.props.failed_assets?.length > 0) {
-                toast.add({ severity: 'warn', summary: 'Partial Success', detail: 'Some assets could not be assigned', life: 6000 });
-            }
-        },
-        onError: () => {
-            toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to assign assets', life: 3000 });
-        }
-    });
-};
+//             if (response.props.failed_assets?.length > 0) {
+//                 toast.add({ severity: 'warn', summary: 'Partial Success', detail: 'Some assets could not be assigned', life: 6000 });
+//             }
+//         },
+//         onError: () => {
+//             toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to assign assets', life: 3000 });
+//         }
+//     });
+// };
 
 const bulkUpdateStatus = (status) => {
     if (selectedAssets.value.length === 0) {
@@ -498,37 +499,59 @@ const deleteAsset = (id) => {
     });
 };
 
-const exportSelected = () => {
+const exportSelected = async () => {
     if (selectedAssets.value.length === 0) {
-        toast.add({ severity: 'warn', summary: 'No Selection', detail: 'Please select assets to export', life: 3000 });
+        toast.add({ 
+            severity: 'warn', 
+            summary: 'No Selection', 
+            detail: 'Please select assets to export', 
+            life: 3000 
+        });
         return;
     }
 
     const assetIds = selectedAssets.value.map(asset => asset.id);
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = route('admin.assets.export');
     
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (csrfToken) {
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = '_token';
-        csrfInput.value = csrfToken;
-        form.appendChild(csrfInput);
+    try {
+        // Create a form and submit it
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = route('admin.assets.export');
+        
+        // Safely get CSRF token
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        if (csrfMeta) {
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = csrfMeta.getAttribute('content');
+            form.appendChild(csrfInput);
+        } else {
+            console.warn('CSRF token meta tag not found');
+        }
+        
+        // Add asset IDs
+        assetIds.forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'asset_ids[]';
+            input.value = id;
+            form.appendChild(input);
+        });
+        
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+        
+    } catch (error) {
+        console.error('Export error:', error);
+        toast.add({ 
+            severity: 'error', 
+            summary: 'Export Failed', 
+            detail: 'There was an error exporting assets', 
+            life: 3000 
+        });
     }
-    
-    assetIds.forEach(id => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'asset_ids[]';
-        input.value = id;
-        form.appendChild(input);
-    });
-    
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
 };
 
 const getStatusSeverity = (status) => {
@@ -871,7 +894,7 @@ const canReturn = (asset) => {
                                             v-tooltip.top="'Edit'" @click="openEditDialog(slotProps.data)" 
                                             class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
-                                        <Button icon="pi pi-trash" outlined rounded severity="danger" size="small"
+                                        <Button v-if="usePermissions().hasPermission('can.delete.user')" icon="pi pi-trash" outlined rounded severity="danger" size="small"
                                             v-tooltip.top="'Delete'" 
                                             @click="deleteAsset(slotProps.data.id)" 
                                             class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
@@ -1350,7 +1373,7 @@ const canReturn = (asset) => {
             </Dialog>
 
             <!-- Bulk Assign Dialog -->
-            <Dialog v-model:visible="showBulkAssignDialog" modal header="Bulk Assign Assets" 
+            <!-- <Dialog v-model:visible="showBulkAssignDialog" modal header="Bulk Assign Assets" 
                 :style="{ width: '95vw', maxWidth: '600px' }"
                 :breakpoints="{ '1199px': '85vw', '640px': '95vw' }">
                 
@@ -1420,7 +1443,7 @@ const canReturn = (asset) => {
                             class="w-full sm:w-auto text-xs sm:text-sm" />
                     </div>
                 </div>
-            </Dialog>
+            </Dialog> -->
 
             <!-- Return Asset Dialog -->
             <Dialog v-model:visible="showReturnDialog" modal header="Return Asset" 

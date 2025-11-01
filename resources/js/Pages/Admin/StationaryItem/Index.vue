@@ -10,6 +10,7 @@ import Select from 'primevue/select';
 import Breadcrumb from 'primevue/breadcrumb';
 import ConfirmDialog from "primevue/confirmdialog";
 import Toast from "primevue/toast";
+import usePermissions from '@/composables/usePermissions'; 
 import Card from "primevue/card";
 import Calendar from 'primevue/calendar';
 import InputNumber from 'primevue/inputnumber';
@@ -812,7 +813,7 @@ const toggleActionMenu = (event) => {
                                             v-tooltip.top="'Edit'" @click="openEditDialog(slotProps.data)" 
                                             class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 
-                                        <Button icon="pi pi-trash" outlined rounded severity="danger" size="small"
+                                        <Button v-if="usePermissions().hasPermission('can.delete.user')" icon="pi pi-trash" outlined rounded severity="danger" size="small"
                                             v-tooltip.top="'Delete'" @click="deleteItem(slotProps.data.id)" 
                                             class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
 

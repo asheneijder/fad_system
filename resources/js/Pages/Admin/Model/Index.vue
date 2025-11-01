@@ -94,11 +94,11 @@ const actionItems = ref([
                 icon: 'pi pi-download',
                 command: () => exportSelected()
             },
-            {
-                label: 'Delete Selected',
-                icon: 'pi pi-trash',
-                command: () => bulkDelete()
-            }
+            // {
+            //     label: 'Delete Selected',
+            //     icon: 'pi pi-trash',
+            //     command: () => bulkDelete()
+            // }
         ]
     }
 ]);

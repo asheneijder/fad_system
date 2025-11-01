@@ -12,6 +12,7 @@ import ConfirmDialog from "primevue/confirmdialog";
 import Toast from "primevue/toast";
 import Card from "primevue/card";
 import InputNumber from 'primevue/inputnumber';
+import usePermissions from '@/composables/usePermissions'; 
 import Checkbox from 'primevue/checkbox';
 import Textarea from 'primevue/textarea';
 import IconField from 'primevue/iconfield';
@@ -434,7 +435,8 @@ const getParentCategoryName = (parentId, categories) => {
 
                                         <Button icon="pi pi-trash" outlined rounded severity="danger" size="small"
                                             v-tooltip.top="'Delete'" @click="deleteCategory(slotProps.data.id)" 
-                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" />
+                                            class="w-7 h-7 sm:w-8 sm:h-8 p-0" 
+                                             v-if="usePermissions().hasPermission('can.delete.user')" />
                                     </div>
                                 </template>
                             </Column>

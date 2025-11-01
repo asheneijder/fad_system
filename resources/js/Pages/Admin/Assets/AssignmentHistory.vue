@@ -8,13 +8,19 @@ import Breadcrumb from 'primevue/breadcrumb';
 import Card from "primevue/card";
 import Chip from 'primevue/chip';
 import Dialog from 'primevue/dialog';
+import ConfirmDialog from 'primevue/confirmdialog';
 import { Head, router } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "primevue/usetoast";
 
 const props = defineProps({
     asset: Object,
     assignments: Object,
 });
+
+const confirm = useConfirm();
+const toast = useToast(); // Add this line
 
 const home = { icon: 'pi pi-home', url: route('dashboard') };
 const items = [
@@ -37,6 +43,38 @@ const acknowledgedAssignments = computed(() =>
 const pendingAcknowledgment = computed(() =>
     props.assignments.data.filter(a => !a.returned_at && !a.acknowledged_at).length
 );
+
+const cancelAssignment = (assignment) => {
+    confirm.require({
+        group: 'headless',
+        header: 'Cancel Assignment',
+        message: `Are you sure you want to permanently cancel and delete this assignment to ${assignment.user?.name}? This action cannot be undone.`,
+        accept: () => {
+            // Use Inertia to delete the assignment
+            router.delete(route('admin.assignments.cancel-acknowledgment', assignment.id), {}, {
+                onSuccess: () => {
+                    toast.add({
+                        severity: 'success',
+                        summary: 'Assignment Deleted',
+                        detail: 'The assignment has been permanently removed.',
+                        life: 3000
+                    });
+                },
+                onError: (errors) => {
+                    toast.add({
+                        severity: 'error',
+                        summary: 'Deletion Failed',
+                        detail: 'There was an error deleting the assignment.',
+                        life: 3000
+                    });
+                }
+            });
+        },
+        reject: () => {
+            // Optional: handle rejection
+        }
+    });
+};
 
 const averageAssignmentDuration = computed(() => {
     if (returnedAssignments.value.length === 0) return 0;
@@ -205,7 +243,7 @@ const visit = (url) => {
 
 <template>
 
-    <Head :title="`Assignment History - ${asset.name}`" />
+    <Head :title="`Assignment History`" />
     <AppLayout>
         <div class="p-6 space-y-6">
             <!-- Breadcrumb -->
@@ -432,16 +470,37 @@ const visit = (url) => {
                             </template>
                         </Column>
 
-                        <Column header="Actions" style="width: 100px;">
+                        <Column header="Actions" style="width: 140px;">
                             <template #body="slotProps">
-                                <div class="flex justify-center">
+                                <div class="flex justify-center gap-1">
                                     <Button icon="pi pi-eye" outlined rounded severity="info" size="small"
                                         v-tooltip.top="'View Details'" @click="viewAssignmentDetails(slotProps.data)"
+                                        class="w-8 h-8" />
+                                    
+                                    <!-- Cancel/Delete button - only show when acknowledged_at is null (pending) -->
+                                   <Button v-if="!slotProps.data.acknowledged_at" 
+                                        icon="pi pi-times" outlined rounded severity="danger" size="small"
+                                        v-tooltip.top="'Cancel Assignment'" @click="cancelAssignment(slotProps.data)"
                                         class="w-8 h-8" />
                                 </div>
                             </template>
                         </Column>
                     </DataTable>
+                    <ConfirmDialog group="headless">
+                        <template #container="{ message, acceptCallback, rejectCallback }">
+                            <div class="flex flex-col align-items-center p-5 surface-overlay border-round">
+                                <div class="border-circle bg-primary inline-flex justify-content-center align-items-center h-6rem w-6rem -mt-8">
+                                    <i class="pi pi-question text-5xl"></i>
+                                </div>
+                                <span class="font-bold text-2xl block mb-2 mt-4">{{ message.header }}</span>
+                                <p class="mb-0">{{ message.message }}</p>
+                                <div class="flex align-items-center gap-2 mt-4">
+                                    <Button label="Cancel" outlined @click="rejectCallback" class="w-8rem"></Button>
+                                    <Button label="Yes" @click="acceptCallback" class="w-8rem" severity="danger"></Button>
+                                </div>
+                            </div>
+                        </template>
+                    </ConfirmDialog>
                 </template>
             </Card>
 

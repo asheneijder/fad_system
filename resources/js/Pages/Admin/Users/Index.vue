@@ -86,21 +86,21 @@ const actionItems = ref([
     {
         label: 'Bulk Actions',
         items: [
-            {
-                label: 'Reset Passwords',
-                icon: 'pi pi-key',
-                command: () => bulkResetPassword()
-            },
+            // {
+            //     label: 'Reset Passwords',
+            //     icon: 'pi pi-key',
+            //     command: () => bulkResetPassword()
+            // },
             {
                 label: 'Export Selected',
                 icon: 'pi pi-download',
                 command: () => exportSelected()
             },
-            {
-                label: 'Delete Selected',
-                icon: 'pi pi-trash',
-                command: () => bulkDelete()
-            }
+            // {
+            //     label: 'Delete Selected',
+            //     icon: 'pi pi-trash',
+            //     command: () => bulkDelete()
+            // }
         ]
     }
 ]);

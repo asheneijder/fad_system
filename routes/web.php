@@ -78,8 +78,9 @@ Route::group([
     Route::post('assets/bulk-update-status', [AssetController::class, 'bulkUpdateStatus'])->name('assets.bulk-update-status');
     Route::post('assets/{asset}/return', [AssetController::class, 'returnAsset'])->name('assets.return');
     Route::get('assets/{asset}/assignment-history', [AssetController::class, 'assignmentHistory'])->name('assets.assignment-history');
-    Route::post('assets/export', [AssetController::class, 'export'])->name('assets.export');
+    Route::post('/assets/export', [AssetController::class, 'export'])->name('assets.export');
     Route::get('assets/{asset}/assignment-history/export', [AssetController::class, 'exportAssignmentHistory'])->name('assets.assignment-history.export');
+    Route::delete('/assignments/{assignment}/cancel-acknowledgment', [AssetController::class, 'cancelAcknowledgment'])->name('assignments.cancel-acknowledgment');
 
     Route::get('/asset-assignments', [AssetController::class, 'listAssetAssign'])->name('asset-assignments.index');
     Route::get('/asset-assignments/user-acknowledgment-report', [AssetController::class, 'userAcknowledgmentReport'])->name('asset-assignments.user-acknowledgment-report');

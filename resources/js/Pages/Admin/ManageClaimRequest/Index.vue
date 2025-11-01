@@ -73,16 +73,16 @@ const actionItems = ref([
     {
         label: 'Bulk Actions',
         items: [
-            {
-                label: 'Approve Selected',
-                icon: 'pi pi-check',
-                command: () => openBulkActionDialog('approve')
-            },
-            {
-                label: 'Reject Selected',
-                icon: 'pi pi-times',
-                command: () => openBulkActionDialog('reject')
-            }
+            // {
+            //     label: 'Approve Selected',
+            //     icon: 'pi pi-check',
+            //     command: () => openBulkActionDialog('approve')
+            // },
+            // {
+            //     label: 'Reject Selected',
+            //     icon: 'pi pi-times',
+            //     command: () => openBulkActionDialog('reject')
+            // }
         ]
     }
 ]);
@@ -300,7 +300,7 @@ const clearFilters = () => {
     <AppLayout>
         <Toast />
         <ConfirmDialog />
-        <Menu ref="actionMenu" :model="actionItems" :popup="true" />
+        <!-- <Menu ref="actionMenu" :model="actionItems" :popup="true" /> -->
 
         <div class="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
             <!-- Breadcrumb -->
@@ -326,9 +326,9 @@ const clearFilters = () => {
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
+                    <!-- <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
                         @click="toggleActionMenu" :disabled="!hasSelectedClaims"
-                        class="flex-1 min-w-fit text-xs sm:text-sm" />
+                        class="flex-1 min-w-fit text-xs sm:text-sm" /> -->
                     <Button label="Clear Filters" icon="pi pi-filter-slash" severity="secondary" text
                         @click="clearFilters" class="flex-1 min-w-fit text-xs sm:text-sm" />
                 </div>
@@ -419,9 +419,9 @@ const clearFilters = () => {
                         <div
                             class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3">
                             <div class="flex flex-wrap gap-1 sm:gap-2 w-full sm:w-auto">
-                                <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
+                                <!-- <Button label="Bulk Actions" icon="pi pi-cog" severity="secondary" outlined
                                     @click="toggleActionMenu" :disabled="!hasSelectedClaims"
-                                    class="flex-1 sm:flex-none text-xs sm:text-sm" />
+                                    class="flex-1 sm:flex-none text-xs sm:text-sm" /> -->
                                 <span v-if="hasSelectedClaims"
                                     class="text-xs text-blue-600 font-medium flex items-center">
                                     {{ selectedClaims.length }} selected
@@ -500,7 +500,7 @@ const clearFilters = () => {
                             </template>
 
                             <!-- Selection Column -->
-                            <Column selectionMode="multiple" headerStyle="width: 2.5rem" />
+                            <!-- <Column selectionMode="multiple" headerStyle="width: 2.5rem" /> -->
 
                             <!-- Columns -->
                             <Column header="#" style="min-width: 50px;">

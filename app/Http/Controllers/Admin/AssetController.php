@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\AssetsExport;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendAcknowledgmentReminder;
 use App\Jobs\SendAssetAssignmentNotification;
@@ -14,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AssetController extends Controller
 {
@@ -551,7 +553,7 @@ class AssetController extends Controller
         }
     }
 
-    public function bulkUpdateStatus(Request $request)
+   public function bulkUpdateStatus(Request $request)
     {
         $validated = $request->validate([
             'asset_ids' => 'required|array|min:1',
@@ -594,96 +596,54 @@ class AssetController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => "{$updatedCount} asset(s) status updated to {$validated['status']}",
-                'updated_count' => $updatedCount,
-            ]);
+            // Return Inertia response with flash message
+            return back()->with('success', "{$updatedCount} asset(s) status updated to {$validated['status']}");
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update assets status: '.$e->getMessage(),
-            ], 500);
+            // Return Inertia response with error message
+            return back()->with('error', 'Failed to update assets status: '.$e->getMessage());
+        }
+    }
+
+    public function cancelAcknowledgment(AssetAssignment $assignment)
+    {
+            try {
+            // Check if this is the current assignment and update asset status if needed
+            if (!$assignment->returned_at) {
+                // If this is an active assignment, update the asset status back to available
+                $asset = $assignment->asset;
+                $asset->update([
+                    'status' => 'available',
+                    'assigned_to' => null,
+                    'assigned_at' => null,
+                    'updated_by' => Auth::id(),
+                ]);
+            }
+
+            // Delete the assignment record
+            $assignment->delete();
+
+            return back()->with('success', 'Assignment has been permanently deleted.');
+            
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to delete assignment: ' . $e->getMessage());
         }
     }
 
     public function export(Request $request)
     {
         $assetIds = $request->input('asset_ids', []);
+        
+        // Handle both array and string input
+        if (is_string($assetIds)) {
+            $assetIds = explode(',', $assetIds);
+        }
+        
+        $filename = 'assets_' . now()->format('Y-m-d') . '.xlsx';
 
-        $assets = $this->asset->with(['model', 'category', 'user'])
-            ->when(! empty($assetIds), function ($query) use ($assetIds) {
-                $query->whereIn('id', $assetIds);
-            })
-            ->get();
-
-        $filename = 'assets_'.now()->format('Y-m-d').'.csv';
-
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-        ];
-
-        $callback = function () use ($assets) {
-            $file = fopen('php://output', 'w');
-
-            // Add headers
-            fputcsv($file, [
-                'Asset Name',
-                'Asset Tag',
-                'Serial Number',
-                'Model',
-                'Category',
-                'Status',
-                'Quantity',
-                'Location',
-                'Secondary Location',
-                'Assigned To',
-                'Purchase Date',
-                'Purchase Cost',
-                'Current Value',
-                'Depreciation Cost',
-                'Estimated Life (Years)',
-                'Estimated Life (Days)',
-                'Fully Depreciated Date',
-                'Last Sighting Date',
-                'Notes',
-                'Created At',
-            ]);
-
-            // Add data
-            foreach ($assets as $asset) {
-                fputcsv($file, [
-                    $asset->asset_name,
-                    $asset->asset_tag_no,
-                    $asset->serial_no ?? 'N/A',
-                    $asset->model ? $asset->model->name : 'N/A',
-                    $asset->category ? $asset->category->name : 'N/A',
-                    $asset->status,
-                    $asset->qty,
-                    $asset->location,
-                    $asset->location_2 ?? 'N/A',
-                    $asset->user ? $asset->user->name : 'Not Assigned',
-                    $asset->purchase_date ? $asset->purchase_date->format('Y-m-d') : 'N/A',
-                    $asset->purchase_cost,
-                    $asset->current_value,
-                    $asset->depreciation_cost,
-                    $asset->estimated_life,
-                    $asset->estimated_life_days,
-                    $asset->fully_depreciated_date ? $asset->fully_depreciated_date->format('Y-m-d') : 'N/A',
-                    $asset->last_sighting_date ? $asset->last_sighting_date->format('Y-m-d') : 'N/A',
-                    $asset->notes ?? 'N/A',
-                    $asset->created_at->format('Y-m-d H:i:s'),
-                ]);
-            }
-
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        return Excel::download(new AssetsExport($assetIds), $filename);
     }
 
     public function exportAssignmentHistory(Asset $asset)
