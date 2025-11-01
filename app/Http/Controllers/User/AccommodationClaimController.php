@@ -5,6 +5,7 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendClaimSubmittedNotification;
 use App\Models\AccommodationClaim;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -16,26 +17,45 @@ class AccommodationClaimController extends Controller
      */
     public function create()
     {
+        $user = auth()->user();
+        
+        // If you need all distinct job titles for something else
+        $allJobTitles = User::distinct()->whereNotNull('job_title')->pluck('job_title');
+        
+        $maxRate = $this->getMaxRateByJobTitle($user->job_title);
+        
         return Inertia::render('User/AccommodationClaim/Create', [
             'currencies' => AccommodationClaim::getCurrencies(),
+            'userJobTitle' => $user->job_title,
+            'allJobTitles' => $allJobTitles, // Optional: if you need it in frontend
             'defaultRates' => [
-                'MYR' => [
-                    'max_rate' => 300.00,
-                    'tax_percentage' => 6.00,
-                    'service_charge_percentage' => 10.00,
-                ],
-                'USD' => [
-                    'max_rate' => 100.00,
-                    'tax_percentage' => 10.00,
-                    'service_charge_percentage' => 15.00,
-                ],
-                'SGD' => [
-                    'max_rate' => 150.00,
-                    'tax_percentage' => 7.00,
-                    'service_charge_percentage' => 10.00,
-                ],
+                'MYR' => ['max_rate' => $maxRate, 'tax_percentage' => 6.00, 'service_charge_percentage' => 10.00],
+                'USD' => ['max_rate' => $maxRate * 0.21, 'tax_percentage' => 10.00, 'service_charge_percentage' => 15.00],
+                'SGD' => ['max_rate' => $maxRate * 0.29, 'tax_percentage' => 7.00, 'service_charge_percentage' => 10.00],
             ],
         ]);
+    }
+
+    /**
+     * Get max rate based on job title
+     */
+    private function getMaxRateByJobTitle($jobTitle)
+    {
+        $rates = [
+            'CHIEF EXECUTIVE OFFICER' => 500.00,
+            'ASSISTANT GENERAL MANAGER' => 500.00,
+            'CHIEF COMPLIANCE & GOVERNANCE OFFICER' => 500.00,
+            'SENIOR MANAGER' => 500.00,
+            'MANAGER' => 500.00,
+            'ASSISTANT MANAGER' => 500.00,
+            'SENIOR EXECUTIVE' => 400.00,
+            'EXECUTIVE' => 300.00,
+            'SENIOR CLERK' => 250.00,
+            'CLERK' => 200.00,
+            'GRADUATEE TRAINEE' => 150.00,
+        ];
+        
+        return $rates[$jobTitle] ?? 300.00; // Default to 300 if job title not found
     }
 
     /**

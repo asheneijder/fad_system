@@ -25,6 +25,10 @@ const props = defineProps({
     defaultRates: {
         type: Object,
         default: () => ({})
+    },
+    userJobTitle: {
+        type: String,
+        default: ''
     }
 });
 
@@ -40,6 +44,7 @@ const items = [
 const showAcknowledgmentDialog = ref(false);
 const agreedToTerms = ref(false);
 const hasScrolledToBottom = ref(false);
+const showRateWarning = ref(false);
 
 const form = useForm({
     hotel_name: '',
@@ -63,6 +68,16 @@ const form = useForm({
     save_as_draft: false,
 });
 
+// Check if rate exceeds maximum
+const checkRateLimit = () => {
+    const currentMaxRate = props.defaultRates[form.currency]?.max_rate;
+    if (currentMaxRate && form.rate_per_night > currentMaxRate) {
+        showRateWarning.value = true;
+    } else {
+        showRateWarning.value = false;
+    }
+};
+
 // Watch currency to update default rates
 watch(() => form.currency, (newCurrency) => {
     const defaultRate = props.defaultRates[newCurrency];
@@ -74,6 +89,9 @@ watch(() => form.currency, (newCurrency) => {
         if (!form.rate_per_night || form.rate_per_night === 0) {
             form.rate_per_night = defaultRate.max_rate;
         }
+        
+        // Check rate limit again when currency changes
+        checkRateLimit();
     }
 });
 
@@ -91,6 +109,13 @@ const numberOfNights = computed(() => {
 watch(numberOfNights, (newNights) => {
     form.number_of_nights = newNights;
 });
+
+// Watch rate_per_night to check limit
+watch(() => form.rate_per_night, () => {
+    checkRateLimit();
+});
+
+
 
 // Calculate all amounts
 const subtotalAmount = computed(() => {
@@ -434,11 +459,18 @@ const currencyOptions = computed(() => {
                                     <div class="relative">
                                         <InputNumber v-model="form.rate_per_night" mode="decimal" :min="0"
                                             placeholder="0.00" class="w-full"
-                                            :class="{ 'p-invalid': form.errors.rate_per_night }" />
+                                            :class="{ 'p-invalid': form.errors.rate_per_night, 'p-invalid border-yellow-500': showRateWarning }" 
+                                            @input="checkRateLimit" />
                                     </div>
-                                    <small class="text-red-500 text-xs" v-if="form.errors.rate_per_night">{{ form.errors.rate_per_night }}</small>
+                                    <small class="text-red-500 text-xs" v-if="form.errors.rate_per_night">
+                                        {{ form.errors.rate_per_night }}
+                                    </small>
+                                    <small class="text-yellow-600 text-xs font-medium" v-if="showRateWarning">
+                                        ⚠️ Your rate exceeds the recommended maximum for your job title
+                                    </small>
                                     <small class="text-gray-500 text-xs">
                                         Max recommended: {{ formatCurrency(defaultRates[form.currency]?.max_rate) }}
+                                        <span class="text-blue-600 ml-1">(Based on your job title: {{ userJobTitle }})</span>
                                     </small>
                                 </div>
 
