@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Jobs\SendClaimSubmittedNotification;
 use App\Models\AccommodationClaim;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -411,5 +413,38 @@ class AccommodationClaimController extends Controller
 
         return redirect()->route('user.accommodation-claims.show', $accommodationClaim)
             ->with('success', 'Accommodation claim submitted for approval successfully!');
+    }
+
+     public function generate(AccommodationClaim $accommodationClaim)
+    {
+        // Load related data
+        $accommodationClaim->load(['user', 'approver']);
+        
+        $data = [
+            'accommodationClaim' => $accommodationClaim,
+            'formatCurrency' => function ($amount, $currency = 'MYR') {
+                $symbols = [
+                    'MYR' => 'RM ',
+                    'USD' => '$ ',
+                    'SGD' => 'S$ '
+                ];
+                return ($symbols[$currency] ?? '') . number_format($amount, 2);
+            },
+            'formatDate' => function ($date) {
+                return $date ? \Carbon\Carbon::parse($date)->format('d/m/Y') : '—';
+            },
+            'currentDate' => now()->format('d/m/Y'),
+        ];
+
+        $pdf = Pdf::loadView('pdf.accommodation-claim', $data);
+        
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'defaultFont' => 'Arial',
+        ]);
+
+        return $pdf->stream("accommodation-claim-{$accommodationClaim->id}.pdf");
     }
 }

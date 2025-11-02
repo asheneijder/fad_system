@@ -5,7 +5,9 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendClaimSubmittedNotification;
 use App\Models\TravelClaim;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
@@ -327,5 +329,33 @@ class TravelClaimController extends Controller
 
         return redirect()->route('user.travel-claims.show', $travelClaim)
             ->with('success', 'Travel claim submitted for approval successfully!');
+    }
+    
+    public function generate(TravelClaim $travelClaim)
+    {
+        // Load related data - only user and approver, no travelLegs
+        $travelClaim->load(['user', 'approver']);
+        
+        $data = [
+            'travelClaim' => $travelClaim,
+            'formatCurrency' => function ($amount) {
+                return 'RM ' . number_format($amount, 2);
+            },
+            'formatDate' => function ($date) {
+                return $date ? \Carbon\Carbon::parse($date)->format('d/m/Y') : '—';
+            },
+            'currentDate' => now()->format('d/m/Y'),
+        ];
+
+        $pdf = Pdf::loadView('pdf.travel-claim', $data);
+        
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'defaultFont' => 'Arial',
+        ]);
+
+        return $pdf->stream("travel-claim-{$travelClaim->id}.pdf");
     }
 }

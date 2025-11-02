@@ -5,6 +5,8 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendClaimSubmittedNotification;
 use App\Models\DailyAllowance;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -302,5 +304,37 @@ class DailyAllowanceController extends Controller
 
         return redirect()->route('user.daily-allowances.show', $dailyAllowance)
             ->with('success', 'Daily allowance claim submitted for approval successfully!');
+    }
+
+    public function generate(DailyAllowance $dailyAllowance)
+    {
+        // Load related data
+        $dailyAllowance->load(['user', 'approver']);
+        
+        $data = [
+            'dailyAllowance' => $dailyAllowance,
+            'formatCurrency' => function ($amount, $currency = 'MYR') {
+                $symbols = [
+                    'MYR' => 'RM ',
+                    'USD' => '$ '
+                ];
+                return ($symbols[$currency] ?? '') . number_format($amount, 2);
+            },
+            'formatDate' => function ($date) {
+                return $date ? \Carbon\Carbon::parse($date)->format('d/m/Y') : '—';
+            },
+            'currentDate' => now()->format('d/m/Y'),
+        ];
+
+        $pdf = Pdf::loadView('pdf.daily-allowance', $data);
+        
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'defaultFont' => 'Arial',
+        ]);
+
+        return $pdf->stream("daily-allowance-{$dailyAllowance->id}.pdf");
     }
 }
