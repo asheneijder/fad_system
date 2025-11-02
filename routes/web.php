@@ -249,6 +249,7 @@ Route::group([
         Route::put('travel/{travelClaim}', [TravelClaimController::class, 'update'])->name('travel-claims.update');
         Route::delete('travel/{travelClaim}', [TravelClaimController::class, 'destroy'])->name('travel-claims.destroy');
         Route::post('travel/{travelClaim}/submit', [TravelClaimController::class, 'submit'])->name('travel-claims.submit');
+        Route::get('travel/{travelClaim}/pdf', [TravelClaimController::class, 'generate'])->name('travel-claims.pdf');
 
         // Daily Allowance Routes
         Route::get('daily-allowance/create', [DailyAllowanceController::class, 'create'])->name('daily-allowances.create');
@@ -258,6 +259,7 @@ Route::group([
         Route::put('daily-allowance/{dailyAllowance}', [DailyAllowanceController::class, 'update'])->name('daily-allowances.update');
         Route::delete('daily-allowance/{dailyAllowance}', [DailyAllowanceController::class, 'destroy'])->name('daily-allowances.destroy');
         Route::post('daily-allowance/{dailyAllowance}/submit', [DailyAllowanceController::class, 'submit'])->name('daily-allowances.submit');
+        Route::get('daily-allowance/{dailyAllowance}/pdf', [DailyAllowanceController::class, 'generate'])->name('daily-allowances.pdf');
 
         // // Accommodation Claims
         Route::get('accommodation/create', [AccommodationClaimController::class, 'create'])->name('accommodation-claims.create');
@@ -267,6 +269,7 @@ Route::group([
         Route::put('accommodation/{accommodationClaim}', [AccommodationClaimController::class, 'update'])->name('accommodation-claims.update');
         Route::delete('accommodation/{accommodationClaim}', [AccommodationClaimController::class, 'destroy'])->name('accommodation-claims.destroy');
         Route::post('accommodation/{accommodationClaim}/submit', [AccommodationClaimController::class, 'submit'])->name('accommodation-claims.submit');
+        Route::get('accommodation/{accommodationClaim}/pdf', [AccommodationClaimController::class, 'generate'])->name('accommodation-claims.pdf');
 
         // Transportation Claims
         Route::get('transportation/create', [TransportationClaimController::class, 'create'])->name('transportation-claims.create');
