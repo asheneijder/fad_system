@@ -75,6 +75,10 @@ class TransportationClaimController extends Controller
             $approverId = $approver->id;
         }
 
+        $amount = (float) $validated['amount'];
+
+        // dd($amount);
+
         // Create the transportation claim
         $transportationClaim = TransportationClaim::create([
             'user_id' => Auth::id(),
@@ -131,7 +135,7 @@ class TransportationClaimController extends Controller
             abort(403);
         }
 
-        $transportationClaim->load('media');
+        $transportationClaim->load('media', 'user.approver');
 
         return Inertia::render('User/TransportationClaim/Show', [
             'transportationClaim' => $transportationClaim->toArray() + [
@@ -151,6 +155,16 @@ class TransportationClaimController extends Controller
                         'type' => $media->mime_type,
                     ];
                 })->toArray(),
+                'user' => [
+                    'name' => $transportationClaim->user->name,
+                    'department' => $transportationClaim->user->department,
+                    'job_title' => $transportationClaim->user->job_title,
+                    'employee_id' => $transportationClaim->user->employee_id, // Add this if needed
+                    'approver' => $transportationClaim->user->approver ? [
+                        'name' => $transportationClaim->user->approver->name,
+                        'email' => $transportationClaim->user->approver->email,
+                    ] : null,
+                ],
                 'transport_type_display' => $transportationClaim->transport_type_display,
                 'trip_type_display' => $transportationClaim->trip_type_display,
                 'currency_display' => $transportationClaim->currency_display,

@@ -539,7 +539,7 @@ const allDocuments = computed(() => {
                                 
                                 <div class="space-y-1">
                                     <label class="block text-sm font-medium text-gray-500">Position</label>
-                                    <p class="text-lg font-semibold text-gray-900">{{ accommodationClaim.user?.position || '—' }}</p>
+                                    <p class="text-lg font-semibold text-gray-900">{{ accommodationClaim.user?.job_title || '—' }}</p>
                                 </div>
                                 
                                 <div class="space-y-1">

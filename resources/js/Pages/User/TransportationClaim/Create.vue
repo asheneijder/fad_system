@@ -68,54 +68,28 @@ const form = useForm({
     save_as_draft: false,
 });
 
-// Watch transport type to update default rate
-watch(() => form.transport_type, (newTransportType) => {
-    if (newTransportType && props.defaultRates[newTransportType] !== undefined) {
-        form.rate_per_km = props.defaultRates[newTransportType];
-        calculateAmount();
-    }
-});
+// Remove all auto-calculation watchers and functions
+// Users will enter the total amount directly for all transport types
 
-// Watch fields that affect amount calculation
+// Watch trip type and number of trips to show info message (but don't auto-calculate)
 watch([
-    () => form.distance_km,
-    () => form.rate_per_km,
     () => form.trip_type,
     () => form.number_of_trips
 ], () => {
-    calculateAmount();
-}, { deep: true });
-
-// Calculate amount based on inputs
-const calculateAmount = () => {
-    let calculatedAmount = 0;
-
-    // For distance-based transport
-    if (form.distance_km && form.rate_per_km) {
-        calculatedAmount = form.distance_km * form.rate_per_km;
+    // Just show info that user should adjust amount manually if needed
+    if (form.amount > 0) {
+        toast.add({
+            severity: 'info',
+            summary: 'Amount Adjustment',
+            detail: 'Remember to adjust the total amount manually for trip type and number of trips',
+            life: 3000
+        });
     }
-
-    // Apply trip type multiplier
-    if (form.trip_type === 'round_trip') {
-        calculatedAmount *= 2;
-    }
-
-    // Apply number of trips
-    if (form.number_of_trips > 1) {
-        calculatedAmount *= form.number_of_trips;
-    }
-
-    form.amount = parseFloat(calculatedAmount.toFixed(2));
-};
-
-// Check if transport type is distance-based
-const isDistanceBased = computed(() => {
-    return !['toll', 'parking'].includes(form.transport_type);
 });
 
-// Check if transport type is fixed amount
-const isFixedAmount = computed(() => {
-    return ['toll', 'parking'].includes(form.transport_type);
+// Check if transport type requires location fields
+const requiresLocation = computed(() => {
+    return form.transport_type && form.transport_type !== 'parking';
 });
 
 // Handle file upload for transport receipts
@@ -253,20 +227,29 @@ const validateForm = () => {
     if (!form.claim_date) return false;
     if (!form.transport_type) return false;
     if (!form.purpose.trim()) return false;
-    if (!form.from_location.trim()) return false;
-    if (!form.to_location.trim()) return false;
+    if (requiresLocation.value) {
+        if (!form.from_location.trim()) return false;
+        if (!form.to_location.trim()) return false;
+    }
     if (!form.currency) return false;
     if (!form.trip_type) return false;
     if (form.number_of_trips <= 0) return false;
 
-    // For distance-based transport, check distance and rate
-    if (isDistanceBased.value) {
-        if (!form.distance_km || form.distance_km <= 0) return false;
-        if (!form.rate_per_km || form.rate_per_km <= 0) return false;
-    }
+    // Check amount (required for all transport types)
+    if (!form.amount || form.amount <= 0) return false;
 
-    // Check amount
-    if (form.amount <= 0) return false;
+    // Check required files
+    if (form.transport_type === 'flight') {
+        if (!form.flight_receipts.length) return false;
+    } else if (form.transport_type === 'train') {
+        if (!form.train_receipts.length) return false;
+    } else if (form.transport_type === 'bus') {
+        if (!form.bus_receipts.length) return false;
+    } else if (form.transport_type === 'car') {
+        if (!form.car_receipts.length) return false;
+    } else if (form.transport_type === 'mrt') {
+        if (!form.mrt_receipts.length) return false;
+    }
 
     return true;
 };
@@ -437,7 +420,7 @@ const getTransportTypeDescription = computed(() => {
                                     <small class="text-red-500 text-xs" v-if="form.errors.purpose">{{ form.errors.purpose }}</small>
                                 </div>
 
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div v-if="requiresLocation" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div class="space-y-2">
                                         <label class="block text-sm font-medium text-gray-700">From Location *</label>
                                         <InputText v-model="form.from_location" placeholder="e.g., Kuala Lumpur"
@@ -451,6 +434,12 @@ const getTransportTypeDescription = computed(() => {
                                             class="w-full" :class="{ 'p-invalid': form.errors.to_location }" />
                                         <small class="text-red-500 text-xs" v-if="form.errors.to_location">{{ form.errors.to_location }}</small>
                                     </div>
+                                </div>
+
+                                <div v-else class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                    <p class="text-sm text-blue-700">
+                                        💡 For {{ getTransportTypeDescription }}, location fields are optional.
+                                    </p>
                                 </div>
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -467,39 +456,10 @@ const getTransportTypeDescription = computed(() => {
                                         <InputNumber v-model="form.number_of_trips" mode="decimal" :min="1" :max="10"
                                             class="w-full" :class="{ 'p-invalid': form.errors.number_of_trips }" />
                                         <small class="text-red-500 text-xs" v-if="form.errors.number_of_trips">{{ form.errors.number_of_trips }}</small>
+                                        <small class="text-gray-500 text-xs">
+                                            Remember to include this in your total amount calculation
+                                        </small>
                                     </div>
-                                </div>
-                            </div>
-                        </template>
-                    </Card>
-
-                    <!-- Distance & Rate Information -->
-                    <Card v-if="isDistanceBased" class="shadow-lg">
-                        <template #title>Distance & Rate Information</template>
-                        <template #content>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="space-y-2">
-                                    <label class="block text-sm font-medium text-gray-700">Distance (KM) *</label>
-                                    <InputNumber v-model="form.distance_km" mode="decimal" :min="0" :max="1000"
-                                        :fractionDigits="2" placeholder="e.g., 15.5" class="w-full"
-                                        :class="{ 'p-invalid': form.errors.distance_km }" />
-                                    <small class="text-red-500 text-xs" v-if="form.errors.distance_km">{{ form.errors.distance_km }}</small>
-                                </div>
-
-                                <div class="space-y-2">
-                                    <label class="block text-sm font-medium text-gray-700">Rate per KM *</label>
-                                    <div class="flex items-center gap-2">
-                                        <InputNumber v-model="form.rate_per_km" mode="decimal" :min="0" :max="10"
-                                            :fractionDigits="2" class="w-full flex-1"
-                                            :class="{ 'p-invalid': form.errors.rate_per_km }" />
-                                        <span class="text-sm text-gray-500 whitespace-nowrap">
-                                            {{ getCurrencySymbol(form.currency) }}/km
-                                        </span>
-                                    </div>
-                                    <small class="text-red-500 text-xs" v-if="form.errors.rate_per_km">{{ form.errors.rate_per_km }}</small>
-                                    <small class="text-gray-500 text-xs">
-                                        Default rate for {{ getTransportTypeDescription }}
-                                    </small>
                                 </div>
                             </div>
                         </template>
@@ -509,74 +469,68 @@ const getTransportTypeDescription = computed(() => {
                     <Card class="shadow-lg">
                         <template #title>Amount Information</template>
                         <template #content>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="space-y-2">
-                                    <label class="block text-sm font-medium text-gray-700">Currency *</label>
-                                    <Select v-model="form.currency" :options="currencies" optionLabel="label" optionValue="value"
-                                        placeholder="Select Currency" class="w-full"
-                                        :class="{ 'p-invalid': form.errors.currency }" />
-                                    <small class="text-red-500 text-xs" v-if="form.errors.currency">{{ form.errors.currency }}</small>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-gray-700">Currency *</label>
+                                        <Select v-model="form.currency" :options="currencies" optionLabel="label" optionValue="value"
+                                            placeholder="Select Currency" class="w-full"
+                                            :class="{ 'p-invalid': form.errors.currency }" />
+                                        <small class="text-red-500 text-xs" v-if="form.errors.currency">{{ form.errors.currency }}</small>
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-gray-700">Total Amount *</label>
+                                        <div class="flex items-center gap-2">
+                                            <InputNumber v-model="form.amount" mode="decimal" :min="0" :max="10000"
+                                                :fractionDigits="2" placeholder="0.00" class="w-full flex-1"
+                                                :class="{ 'p-invalid': form.errors.amount }" />
+                                            <span class="text-sm text-gray-500 whitespace-nowrap">
+                                                {{ getCurrencySymbol(form.currency) }}
+                                            </span>
+                                        </div>
+                                        <small class="text-red-500 text-xs" v-if="form.errors.amount">{{ form.errors.amount }}</small>
+                                        <small class="text-gray-500 text-xs">
+                                            Enter the total amount based on your actual expense
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- Trip Information Helper -->
+                                <div v-if="form.trip_type !== 'one_way' || form.number_of_trips > 1" 
+                                     class="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                                    <h4 class="font-semibold text-yellow-800 text-sm mb-2">Trip Information:</h4>
+                                    <div class="space-y-1 text-sm text-yellow-700">
+                                        <div class="flex justify-between">
+                                            <span>Trip Type:</span>
+                                            <span class="font-medium">{{ form.trip_type === 'round_trip' ? 'Round Trip' : 'One Way' }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Number of Trips:</span>
+                                            <span class="font-medium">{{ form.number_of_trips }}</span>
+                                        </div>
+                                        <div class="mt-2 text-xs">
+                                            💡 Ensure your total amount reflects the {{ form.trip_type === 'round_trip' ? 'round trip' : '' }} 
+                                            and {{ form.number_of_trips > 1 ? form.number_of_trips + ' trips' : 'single trip' }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="space-y-2">
+                                        <label class="block text-sm font-medium text-gray-700">Receipt Number</label>
+                                        <InputText v-model="form.receipt_number" placeholder="e.g., RCPT-001"
+                                            class="w-full" />
+                                        <small class="text-gray-500 text-xs">Optional receipt number for reference</small>
+                                    </div>
                                 </div>
 
                                 <div class="space-y-2">
-                                    <label class="block text-sm font-medium text-gray-700">Total Amount *</label>
-                                    <div class="flex items-center gap-2">
-                                        <InputNumber v-model="form.amount" mode="decimal" :min="0" :max="10000"
-                                            :fractionDigits="2" class="w-full flex-1"
-                                            :class="{ 'p-invalid': form.errors.amount }" 
-                                            :disabled="isDistanceBased" />
-                                        <span class="text-sm text-gray-500 whitespace-nowrap">
-                                            {{ getCurrencySymbol(form.currency) }}
-                                        </span>
-                                    </div>
-                                    <small class="text-red-500 text-xs" v-if="form.errors.amount">{{ form.errors.amount }}</small>
-                                    <small v-if="isDistanceBased" class="text-gray-500 text-xs">
-                                        Amount is auto-calculated based on distance, rate, and trip details
-                                    </small>
-                                    <small v-if="isFixedAmount" class="text-gray-500 text-xs">
-                                        Enter the actual amount spent
-                                    </small>
-                                </div>
-                            </div>
-
-                            <!-- Amount Breakdown -->
-                            <div v-if="isDistanceBased && form.amount > 0" class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                <h4 class="font-semibold text-gray-800 mb-2">Amount Calculation:</h4>
-                                <div class="space-y-1 text-sm">
-                                    <div class="flex justify-between">
-                                        <span>Base Amount:</span>
-                                        <span>{{ formatCurrency((form.distance_km || 0) * (form.rate_per_km || 0), form.currency) }}</span>
-                                    </div>
-                                    <div v-if="form.trip_type === 'round_trip'" class="flex justify-between">
-                                        <span>Round Trip (×2):</span>
-                                        <span>× 2</span>
-                                    </div>
-                                    <div v-if="form.number_of_trips > 1" class="flex justify-between">
-                                        <span>Number of Trips (×{{ form.number_of_trips }}):</span>
-                                        <span>× {{ form.number_of_trips }}</span>
-                                    </div>
-                                    <hr class="my-1">
-                                    <div class="flex justify-between font-semibold">
-                                        <span>Total:</span>
-                                        <span>{{ formatCurrency(form.amount, form.currency) }}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                <div class="space-y-2">
-                                    <label class="block text-sm font-medium text-gray-700">Receipt Number</label>
-                                    <InputText v-model="form.receipt_number" placeholder="e.g., RCPT-001"
+                                    <label class="block text-sm font-medium text-gray-700">Remarks</label>
+                                    <Textarea v-model="form.remarks" rows="2" placeholder="Additional notes or remarks about your claim..."
                                         class="w-full" />
-                                    <small class="text-gray-500 text-xs">Optional receipt number for reference</small>
+                                    <small class="text-gray-500 text-xs">Optional remarks about your transportation claim</small>
                                 </div>
-                            </div>
-
-                            <div class="space-y-2 mt-4">
-                                <label class="block text-sm font-medium text-gray-700">Remarks</label>
-                                <Textarea v-model="form.remarks" rows="2" placeholder="Additional notes or remarks..."
-                                    class="w-full" />
-                                <small class="text-gray-500 text-xs">Optional remarks about your transportation</small>
                             </div>
                         </template>
                     </Card>
@@ -588,13 +542,14 @@ const getTransportTypeDescription = computed(() => {
                             <div class="space-y-6">
                                 <!-- Transport Receipts -->
                                 <div class="space-y-4">
-                                    <h4 class="text-sm font-medium text-gray-700">Transport Receipts</h4>
+                                    <h4 class="text-sm font-medium text-gray-700">Transport Receipts *</h4>
                                     
                                     <div class="space-y-2">
                                         <label class="block text-sm font-medium text-gray-700">Upload Transport Receipts</label>
                                         <input type="file" multiple accept=".jpg,.jpeg,.png,.pdf" @change="onTransportReceiptsSelect"
                                             class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
                                         <small class="text-gray-500 text-xs">Supported formats: JPG, PNG, PDF. Max file size: 10MB each.</small>
+                                        <small class="text-red-500 text-xs" v-if="form.errors.transport_receipts">{{ form.errors.transport_receipts }}</small>
                                     </div>
 
                                     <!-- Transport Receipts List -->
@@ -606,6 +561,11 @@ const getTransportTypeDescription = computed(() => {
                                             <Button icon="pi pi-times" severity="danger" text rounded
                                                 @click="removeTransportReceipt(index)" />
                                         </div>
+                                    </div>
+                                    <div v-else class="p-3 bg-orange-50 rounded border border-orange-200">
+                                        <p class="text-xs text-orange-700">
+                                            ⚠️ Receipts are required for claim verification
+                                        </p>
                                     </div>
                                 </div>
 
@@ -647,7 +607,7 @@ const getTransportTypeDescription = computed(() => {
                                     <span class="text-sm text-gray-600">Transport Type:</span>
                                     <span class="text-sm font-medium">{{ getTransportTypeDescription || '—' }}</span>
                                 </div>
-                                <div class="flex justify-between">
+                                <div v-if="requiresLocation" class="flex justify-between">
                                     <span class="text-sm text-gray-600">Route:</span>
                                     <span class="text-sm font-medium text-right" style="max-width: 150px; word-wrap: break-word;">
                                         {{ form.from_location || '—' }} → {{ form.to_location || '—' }}
@@ -660,14 +620,6 @@ const getTransportTypeDescription = computed(() => {
                                 <div class="flex justify-between">
                                     <span class="text-sm text-gray-600">Number of Trips:</span>
                                     <span class="text-sm font-medium">{{ form.number_of_trips }}</span>
-                                </div>
-                                <div v-if="isDistanceBased" class="flex justify-between">
-                                    <span class="text-sm text-gray-600">Distance:</span>
-                                    <span class="text-sm font-medium">{{ form.distance_km || 0 }} km</span>
-                                </div>
-                                <div v-if="isDistanceBased" class="flex justify-between">
-                                    <span class="text-sm text-gray-600">Rate:</span>
-                                    <span class="text-sm font-medium">{{ form.rate_per_km }} {{ getCurrencySymbol(form.currency) }}/km</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-sm text-gray-600">Currency:</span>
@@ -719,11 +671,12 @@ const getTransportTypeDescription = computed(() => {
                             <div class="space-y-2">
                                 <h4 class="font-semibold text-gray-800 text-sm">Tips:</h4>
                                 <ul class="text-xs text-gray-600 space-y-1 list-disc list-inside">
-                                    <li>Select the appropriate transport type for automatic rate calculation</li>
-                                    <li>For toll and parking, enter the actual amount directly</li>
-                                    <li>Round trip automatically doubles the calculated amount</li>
-                                    <li>Multiple trips multiply the total amount accordingly</li>
-                                    <li>Upload clear photos of receipts and supporting documents</li>
+                                    <li>Select the appropriate transport type</li>
+                                    <li>Enter the actual total amount from your receipts</li>
+                                    <li>For multiple trips, ensure total amount includes all trips</li>
+                                    <li>Location is optional for parking claims</li>
+                                    <li>Upload clear photos of all receipts</li>
+                                    <li>Receipts are required for claim verification</li>
                                     <li>Save as draft to complete later if needed</li>
                                 </ul>
                             </div>

@@ -197,7 +197,7 @@ class AccommodationClaimController extends Controller
                 'user' => [
                     'name' => $accommodationClaim->user->name,
                     'department' => $accommodationClaim->user->department,
-                    'position' => $accommodationClaim->user->job_title,
+                    'job_title' => $accommodationClaim->user->job_title,
                     'employee_id' => $accommodationClaim->user->employee_id, // Add this if needed
                     'approver' => $accommodationClaim->user->approver ? [
                         'name' => $accommodationClaim->user->approver->name,

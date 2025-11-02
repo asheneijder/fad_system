@@ -89,39 +89,6 @@ const formatCurrency = (amount, currency = 'MYR') => {
     }).format(amount || 0);
 };
 
-// Get currency symbol
-const getCurrencySymbol = (currency) => {
-    const symbols = {
-        MYR: 'RM',
-        USD: '$'
-    };
-    return symbols[currency] || currency;
-};
-
-// Check if transport type is distance-based
-const isDistanceBased = computed(() => {
-    return !['toll', 'parking'].includes(props.transportationClaim.transport_type);
-});
-
-// Calculate base amount for display
-const baseAmount = computed(() => {
-    if (!isDistanceBased.value) return props.transportationClaim.amount;
-    
-    let base = props.transportationClaim.distance_km * props.transportationClaim.rate_per_km;
-    
-    // Remove trip type multiplier for display
-    if (props.transportationClaim.trip_type === 'round_trip') {
-        base /= 2;
-    }
-    
-    // Remove number of trips multiplier for display
-    if (props.transportationClaim.number_of_trips > 1) {
-        base /= props.transportationClaim.number_of_trips;
-    }
-    
-    return base;
-});
-
 // Current date for declaration
 const currentDate = computed(() => {
     return new Date().toLocaleDateString('en-MY', {
@@ -347,16 +314,48 @@ const viewDocument = (url) => {
                     <Button v-if="isEditable" label="Delete Claim" icon="pi pi-trash" severity="danger" text
                         @click="deleteClaim"
                         class="responsive-button" />
-                    
-                    <Button label="Back to Claims" icon="pi pi-arrow-left" severity="secondary" outlined
-                        @click="router.get(route('user.request-claim.index'))"
-                        class="responsive-button" />
                 </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Main Content -->
                 <div class="lg:col-span-2 space-y-6">
+                    <!-- Requester Information -->
+                    <Card class="shadow-lg">
+                        <template #title>
+                            <div class="flex items-center gap-2">
+                                <i class="pi pi-user text-blue-500"></i>
+                                <span class="text-lg font-semibold">Requester Information</span>
+                            </div>
+                        </template>
+                        <template #content>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                                <div class="space-y-1">
+                                    <label class="block text-sm font-medium text-gray-500">Submitted By</label>
+                                    <p class="text-lg font-semibold text-gray-900">{{ transportationClaim.user?.name || '—' }}</p>
+                                </div>
+                                
+                                <div class="space-y-1">
+                                    <label class="block text-sm font-medium text-gray-500">Department</label>
+                                    <p class="text-lg font-semibold text-gray-900">{{ transportationClaim.user?.department || '—' }}</p>
+                                </div>
+                                
+                                <div class="space-y-1">
+                                    <label class="block text-sm font-medium text-gray-500">Position</label>
+                                    <p class="text-lg font-semibold text-gray-900">{{ transportationClaim.user?.job_title || '—' }}</p>
+                                </div>
+                                
+                                <div class="space-y-1">
+                                    <label class="block text-sm font-medium text-gray-500">Approver Name</label>
+                                    <p class="text-lg font-semibold text-gray-900">{{ transportationClaim.user?.approver?.name || 'No Approver Assigned' }}</p>
+                                    <p v-if="transportationClaim.user?.approver?.email" class="text-sm text-gray-500">
+                                        {{ transportationClaim.user.approver.email }}
+                                    </p>
+                                </div>
+                            </div>
+                        </template>
+                    </Card>
+
                     <!-- Transportation Details -->
                     <Card class="shadow-lg">
                         <template #title>Transportation Details</template>
@@ -433,59 +432,12 @@ const viewDocument = (url) => {
                                     </div>
                                 </div>
 
-                                <!-- Distance-based Calculation Breakdown -->
-                                <div v-if="isDistanceBased" class="border-t border-gray-200 pt-4">
-                                    <h4 class="font-semibold text-gray-800 mb-3">Amount Calculation:</h4>
-                                    <div class="space-y-3 bg-gray-50 p-4 rounded-lg">
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div class="space-y-1">
-                                                <label class="block text-sm font-medium text-gray-600">Distance</label>
-                                                <p class="text-lg font-semibold text-gray-800">{{ transportationClaim.distance_km }} km</p>
-                                            </div>
-                                            
-                                            <div class="space-y-1">
-                                                <label class="block text-sm font-medium text-gray-600">Rate per KM</label>
-                                                <p class="text-lg font-semibold text-gray-800">
-                                                    {{ formatCurrency(transportationClaim.rate_per_km, transportationClaim.currency) }} / km
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <Divider />
-
-                                        <div class="space-y-2 text-sm">
-                                            <div class="flex justify-between items-center">
-                                                <span class="text-gray-600">Base Amount:</span>
-                                                <span class="font-semibold">{{ formatCurrency(baseAmount, transportationClaim.currency) }}</span>
-                                            </div>
-                                            
-                                            <div v-if="transportationClaim.trip_type === 'round_trip'" class="flex justify-between items-center">
-                                                <span class="text-gray-600">Round Trip Multiplier:</span>
-                                                <span class="font-semibold">× 2</span>
-                                            </div>
-                                            
-                                            <div v-if="transportationClaim.number_of_trips > 1" class="flex justify-between items-center">
-                                                <span class="text-gray-600">Number of Trips:</span>
-                                                <span class="font-semibold">× {{ transportationClaim.number_of_trips }}</span>
-                                            </div>
-                                            
-                                            <Divider />
-                                            
-                                            <div class="flex justify-between items-center text-lg">
-                                                <span class="font-semibold text-gray-800">Total Amount:</span>
-                                                <span class="font-bold text-blue-600">{{ formatCurrency(transportationClaim.amount, transportationClaim.currency) }}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Fixed Amount Note -->
-                                <div v-else class="border-t border-gray-200 pt-4">
+                                <!-- Simple amount note -->
+                                <div class="border-t border-gray-200 pt-4">
                                     <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
                                         <p class="text-sm text-blue-700">
                                             <i class="pi pi-info-circle mr-2"></i>
-                                            This is a fixed amount claim for {{ transportationClaim.transport_type_display.toLowerCase() }}.
-                                            The amount represents the actual expense incurred.
+                                            This amount represents the total transportation expense claimed.
                                         </p>
                                     </div>
                                 </div>
@@ -638,7 +590,7 @@ const viewDocument = (url) => {
                                 <div class="flex justify-between">
                                     <span class="text-sm text-gray-600">Route:</span>
                                     <span class="text-sm font-medium text-right" style="max-width: 150px; word-wrap: break-word;">
-                                        {{ transportationClaim.route }}
+                                        {{ transportationClaim.from_location }} → {{ transportationClaim.to_location }}
                                     </span>
                                 </div>
                                 <div class="flex justify-between">
@@ -649,13 +601,9 @@ const viewDocument = (url) => {
                                     <span class="text-sm text-gray-600">Trips:</span>
                                     <span class="text-sm font-medium">{{ transportationClaim.number_of_trips }}</span>
                                 </div>
-                                <div v-if="isDistanceBased" class="flex justify-between">
-                                    <span class="text-sm text-gray-600">Distance:</span>
-                                    <span class="text-sm font-medium">{{ transportationClaim.distance_km }} km</span>
-                                </div>
                                 <hr class="my-2">
                                 <div class="flex justify-between">
-                                    <span class="text-lg font-semibold text-gray-800">Total:</span>
+                                    <span class="text-lg font-semibold text-gray-800">Total Amount:</span>
                                     <span class="text-lg font-bold text-blue-600">{{ formatCurrency(transportationClaim.amount, transportationClaim.currency) }}</span>
                                 </div>
                             </div>
