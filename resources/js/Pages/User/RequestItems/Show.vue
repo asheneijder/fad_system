@@ -231,14 +231,14 @@ const cancelRequest = () => {
                     </template>
                 </Card>
 
-                <Card class="bg-purple-50 border-purple-200">
+                <!-- <Card class="bg-purple-50 border-purple-200">
                     <template #content>
                         <div class="text-center">
                             <div class="text-sm sm:text-base md:text-2xl font-bold text-purple-600">{{ formatCurrency(totalCost) }}</div>
                             <div class="text-xs sm:text-sm text-purple-700">Total Value</div>
                         </div>
                     </template>
-                </Card>
+                </Card> -->
 
                 <Card class="bg-orange-50 border-orange-200">
                     <template #content>
@@ -326,10 +326,10 @@ const cancelRequest = () => {
                                         <div class="flex-1 w-full">
                                             <h4 class="font-semibold text-gray-900 text-base sm:text-lg">{{ item.stationary_item?.name }}</h4>
                                             <p class="text-xs sm:text-sm text-gray-600 mt-1">{{ item.stationary_item?.description }}</p>
-                                            <p class="text-xs sm:text-sm text-gray-500 mt-1 sm:mt-2">
+                                            <!-- <p class="text-xs sm:text-sm text-gray-500 mt-1 sm:mt-2">
                                                 <i class="pi pi-money-bill text-green-500 mr-1"></i>
                                                 Price: {{ formatCurrency(item.unit_price) }} per {{ item.stationary_item?.unit }}
-                                            </p>
+                                            </p> -->
                                         </div>
                                         <Badge v-if="item.stationary_item?.current_stock < item.quantity" 
                                             value="Low Stock" severity="warning" class="text-xs sm:text-sm" />
@@ -386,10 +386,10 @@ const cancelRequest = () => {
                                         <span class="block text-xs sm:text-sm font-semibold text-gray-500">Total Approved</span>
                                         <span class="block text-lg sm:text-2xl font-bold text-blue-600 mt-1">{{ totalApprovedItems }}</span>
                                     </div>
-                                    <div>
+                                    <!-- <div>
                                         <span class="block text-xs sm:text-sm font-semibold text-gray-500">Total Cost</span>
                                         <span class="block text-sm sm:text-2xl font-bold text-green-600 mt-1">{{ formatCurrency(totalCost) }}</span>
-                                    </div>
+                                    </div> -->
                                 </div>
                                 <div class="mt-3 sm:mt-4">
                                     <div class="flex justify-between items-center text-xs sm:text-sm mb-2">

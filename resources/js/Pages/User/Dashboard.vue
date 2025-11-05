@@ -258,7 +258,7 @@ const formatDate = (date) => {
                                         <p class="font-medium text-gray-900 text-sm">{{ item.name }}</p>
                                         <p class="text-xs text-gray-500 capitalize">{{ item.category }}</p>
                                     </div>
-                                    <Badge :value="item.current_stock" severity="info" class="text-xs" />
+                                    <!-- <Badge :value="item.current_stock" severity="info" class="text-xs" /> -->
                                 </div>
                                 <div class="flex justify-between items-center text-xs text-gray-500">
                                     <span>Requested {{ item.total_requests }} times</span>

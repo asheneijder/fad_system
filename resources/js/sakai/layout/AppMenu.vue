@@ -63,18 +63,18 @@ const baseMenu = ref([
                 to: '/user/request-items',
                 permission: 'can.view.request'
             },
-            {
-                label: 'Manage Claim Requests',
-                icon: 'pi pi-clipboard',
-                to: '/admin/manage/claim-request',
-                permission: 'can.manage.claim-request'
-            },
-            {
-                label: 'Claim Requests',
-                icon: 'pi pi-check-square',
-                to: '/user/request-claim',
-                permission: 'can.view.claim-request'
-            }
+            // {
+            //     label: 'Manage Claim Requests',
+            //     icon: 'pi pi-clipboard',
+            //     to: '/admin/manage/claim-request',
+            //     permission: 'can.manage.claim-request'
+            // },
+            // {
+            //     label: 'Claim Requests',
+            //     icon: 'pi pi-check-square',
+            //     to: '/user/request-claim',
+            //     permission: 'can.view.claim-request'
+            // }
         ]
     },
     {

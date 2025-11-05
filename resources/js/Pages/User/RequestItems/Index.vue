@@ -592,10 +592,10 @@ const clearFilters = () => {
                                     <span>Stock:</span>
                                     <span class="font-medium">{{ item.current_stock }} {{ item.unit }}</span>
                                 </div> -->
-                                <div class="flex justify-between">
+                                <!-- <div class="flex justify-between">
                                     <span>Price:</span>
                                     <span class="font-medium">{{ formatCurrency(item.cost_price) }}</span>
-                                </div>
+                                </div> -->
                             </div>
 
                             <div class="mt-3 sm:mt-4">
@@ -750,10 +750,10 @@ const clearFilters = () => {
                                 <span class="text-gray-500">Current Stock:</span>
                                 <p class="font-medium">{{ selectedItem.current_stock }} {{ selectedItem.unit }}</p>
                             </div> -->
-                            <div>
+                            <!-- <div>
                                 <span class="text-gray-500">Price:</span>
                                 <p class="font-medium">{{ formatCurrency(selectedItem.cost_price) }}</p>
-                            </div>
+                            </div> -->
                         </div>
 
                         <div class="space-y-2">
@@ -803,7 +803,7 @@ const clearFilters = () => {
                                     <h4 class="font-semibold text-sm sm:text-base text-gray-900">{{ cartItem.stationary_item?.name }}</h4>
                                     <p class="text-xs sm:text-sm text-gray-600">{{ cartItem.stationary_item?.description }}</p>
                                     <p class="text-xs sm:text-sm text-gray-500">
-                                        {{ formatCurrency(cartItem.stationary_item?.cost_price || 0) }} per {{ cartItem.stationary_item?.unit }}
+                                        <!-- {{ formatCurrency(cartItem.stationary_item?.cost_price || 0) }} per {{ cartItem.stationary_item?.unit }} -->
                                     </p>
                                     <p v-if="cartItem.notes" class="text-xs sm:text-sm text-gray-500 mt-1">
                                         Notes: {{ cartItem.notes }}
@@ -824,7 +824,7 @@ const clearFilters = () => {
                                     
                                     <div class="text-right min-w-20">
                                         <p class="font-semibold text-sm sm:text-base text-gray-900">
-                                            {{ formatCurrency(cartItem.quantity * (cartItem.stationary_item?.cost_price || 0)) }}
+                                            <!-- {{ formatCurrency(cartItem.quantity * (cartItem.stationary_item?.cost_price || 0)) }} -->
                                         </p>
                                     </div>
                                     
@@ -840,10 +840,10 @@ const clearFilters = () => {
                                 <span class="font-semibold text-sm sm:text-base text-gray-900">Total Items:</span>
                                 <span class="font-semibold text-sm sm:text-base text-gray-900">{{ statistics.cartItems }}</span>
                             </div>
-                            <div class="flex justify-between items-center">
+                            <!-- <div class="flex justify-between items-center">
                                 <span class="font-semibold text-sm sm:text-base text-gray-900">Estimated Total:</span>
                                 <span class="font-semibold text-base sm:text-lg text-blue-600">{{ formatCurrency(statistics.cartTotal) }}</span>
-                            </div>
+                            </div> -->
                         </div>
                     </div>
 
@@ -923,19 +923,19 @@ const clearFilters = () => {
                                             {{ cartItem.quantity }} {{ cartItem.stationary_item?.unit }}
                                         </p>
                                     </div>
-                                    <p class="font-medium text-sm sm:text-base text-gray-900 sm:text-right">
+                                    <!-- <p class="font-medium text-sm sm:text-base text-gray-900 sm:text-right">
                                         {{ formatCurrency(cartItem.quantity * (cartItem.stationary_item?.cost_price || 0)) }}
-                                    </p>
+                                    </p> -->
                                 </div>
                             </div>
-                            <div class="flex justify-between items-center mt-2 sm:mt-3 pt-2 sm:pt-3 border-t">
+                            <!-- <div class="flex justify-between items-center mt-2 sm:mt-3 pt-2 sm:pt-3 border-t">
                                 <span class="font-semibold text-sm sm:text-base text-gray-900">Total:</span>
                                 <span class="font-semibold text-base sm:text-lg text-blue-600">
                                     {{ formatCurrency(statistics.cartTotal) }}
                                 </span>
-                            </div>
+                            </div> -->
                         </div>
-                    </div>
+                    </div> 
 
                     <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
                         <Button label="Cancel" severity="secondary" outlined 
