@@ -51,6 +51,10 @@ const props = defineProps({
         type: Array,
         default: () => []
     },
+    secondaryLocations: {
+        type: Array,
+        default: () => []
+    },
     statistics: {
         type: Object,
         default: () => ({})
@@ -64,6 +68,7 @@ const search = ref(props.filters?.search || "");
 const statusFilter = ref(props.filters?.status || "");
 const categoryFilter = ref(props.filters?.category || "");
 const locationFilter = ref(props.filters?.location || "");
+const secondaryLocationFilter = ref(props.filters?.location_2 || "");
 const assets = ref(props.assets);
 const showCreateEditDialog = ref(false);
 const showViewDialog = ref(false);
@@ -158,6 +163,14 @@ const locationOptions = computed(() => {
     ];
 });
 
+// Secondary Location options
+const secondaryLocationOptions = computed(() => {
+    return [
+        { name: 'All Secondary Locations', id: '' },
+        ...props.secondaryLocations.map(loc => ({ name: loc, id: loc }))
+    ];
+});
+
 // Action menu items
 const actionItems = ref([
     {
@@ -204,12 +217,13 @@ watch(() => props.assets, (newAssets) => {
 }, { immediate: true });
 
 watch([search, statusFilter, categoryFilter, locationFilter], ([newSearch, newStatus, newCategory, newLocation], [oldSearch, oldStatus, oldCategory, oldLocation]) => {
-    if (newSearch !== oldSearch || newStatus !== oldStatus || newCategory !== oldCategory || newLocation !== oldLocation) {
+    if (newSearch !== oldSearch || newStatus !== oldStatus || newCategory !== oldCategory || newLocation !== oldLocation || newSecondaryLocation !== oldSecondaryLocation) {
         router.get(route("admin.assets.index"), {
             search: newSearch,
             status: newStatus,
             category: newCategory,
             location: newLocation,
+            location_2: newSecondaryLocation,
             page: 1,
             per_page: currentPerPage.value
         }, {
@@ -254,6 +268,7 @@ const onPageChange = (event) => {
         status: statusFilter.value,
         category: categoryFilter.value,
         location: locationFilter.value,
+        location_2: secondaryLocationFilter.value,
         page: page,
         per_page: perPage
     }, {
@@ -1182,9 +1197,38 @@ const canReturn = (asset) => {
                             <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Model <span class="text-red-500">*</span>
                             </label>
-                            <Select v-model="assetForm.model_type_id" :options="models" optionLabel="name" 
-                                optionValue="id" placeholder="Select model" class="w-full text-xs sm:text-sm"
-                                :class="{ 'p-invalid': assetForm.errors.model_type_id }" />
+                            <Select
+                                v-model="assetForm.model_type_id"
+                                :options="models"
+                                optionLabel="name"
+                                optionValue="id"
+                                filter
+                                :filterFields="['name', 'brand', 'category']"
+                                placeholder="Select or search model..."
+                                class="w-full text-xs sm:text-sm"
+                                :class="{ 'p-invalid': assetForm.errors.model_type_id }"
+                            >
+                                <!-- Custom Option Template -->
+                                <template #option="slotProps">
+                                    <div class="flex flex-col">
+                                        <span class="font-medium text-sm">{{ slotProps.option.name }}</span>
+                                        <span class="text-xs text-gray-500">
+                                            {{ slotProps.option.brand ?? 'No brand info' }}
+                                        </span>
+                                    </div>
+                                </template>
+
+                                <!-- Custom Value Template -->
+                                <template #value="slotProps">
+                                    <div v-if="slotProps.value" class="flex items-center">
+                                        <span class="text-sm">
+                                            {{ models.find(m => m.id === slotProps.value)?.name }}
+                                        </span>
+                                    </div>
+                                    <span v-else class="text-gray-400">{{ slotProps.placeholder }}</span>
+                                </template>
+                            </Select>
+
                             <small class="text-red-500 text-xs" v-if="assetForm.errors.model_type_id">
                                 {{ assetForm.errors.model_type_id }}
                             </small>
@@ -1195,9 +1239,38 @@ const canReturn = (asset) => {
                             <label class="block text-xs sm:text-sm font-semibold text-gray-700">
                                 Category <span class="text-red-500">*</span>
                             </label>
-                            <Select v-model="assetForm.category_type_id" :options="categories" optionLabel="name" 
-                                optionValue="id" placeholder="Select category" class="w-full text-xs sm:text-sm"
-                                :class="{ 'p-invalid': assetForm.errors.category_type_id }" />
+                            <Select
+                                v-model="assetForm.category_type_id"
+                                :options="categories"
+                                optionLabel="name"
+                                optionValue="id"
+                                filter
+                                :filterFields="['name', 'description']"
+                                placeholder="Select or search category..."
+                                class="w-full text-xs sm:text-sm"
+                                :class="{ 'p-invalid': assetForm.errors.category_type_id }"
+                            >
+                                <!-- Custom Option Template -->
+                                <template #option="slotProps">
+                                    <div class="flex flex-col">
+                                        <span class="font-medium text-sm">{{ slotProps.option.name }}</span>
+                                        <span class="text-xs text-gray-500">
+                                            {{ slotProps.option.description ?? 'No description' }}
+                                        </span>
+                                    </div>
+                                </template>
+
+                                <!-- Custom Value Template -->
+                                <template #value="slotProps">
+                                    <div v-if="slotProps.value" class="flex items-center">
+                                        <span class="text-sm">
+                                            {{ categories.find(c => c.id === slotProps.value)?.name }}
+                                        </span>
+                                    </div>
+                                    <span v-else class="text-gray-400">{{ slotProps.placeholder }}</span>
+                                </template>
+                            </Select>
+
                             <small class="text-red-500 text-xs" v-if="assetForm.errors.category_type_id">
                                 {{ assetForm.errors.category_type_id }}
                             </small>
@@ -1237,24 +1310,51 @@ const canReturn = (asset) => {
 
                         <!-- Location -->
                         <div class="space-y-1 sm:space-y-2">
-                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
-                                Location <span class="text-red-500">*</span>
-                            </label>
-                            <InputText v-model="assetForm.location" 
-                                placeholder="Enter location" 
-                                class="w-full text-xs sm:text-sm"
-                                :class="{ 'p-invalid': assetForm.errors.location }" />
-                            <small class="text-red-500 text-xs" v-if="assetForm.errors.location">
-                                {{ assetForm.errors.location }}
-                            </small>
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">
+                            Location <span class="text-red-500">*</span>
+                        </label>
+                        <Select
+                            v-model="assetForm.location"
+                            :options="locations"
+                            placeholder="Select or search location..."
+                            filter
+                            class="w-full text-xs sm:text-sm"
+                            :class="{ 'p-invalid': assetForm.errors.location }"
+                        >
+                            <template #option="slotProps">
+                                <span class="text-sm">{{ slotProps.option }}</span>
+                            </template>
+
+                            <template #value="slotProps">
+                                <span class="text-sm">{{ slotProps.value || slotProps.placeholder }}</span>
+                            </template>
+                        </Select>
+
+                        <small class="text-red-500 text-xs" v-if="assetForm.errors.location">
+                            {{ assetForm.errors.location }}
+                        </small>
                         </div>
 
-                        <!-- Secondary Location -->
+                       <!-- Secondary Location -->
                         <div class="space-y-1 sm:space-y-2">
-                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Secondary Location</label>
-                            <InputText v-model="assetForm.location_2" 
-                                placeholder="Enter secondary location" 
-                                class="w-full text-xs sm:text-sm" />
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700">
+                            Secondary Location
+                        </label>
+                        <Select
+                            v-model="assetForm.location_2"
+                            :options="secondaryLocations"
+                            placeholder="Select or search secondary location..."
+                            filter
+                            class="w-full text-xs sm:text-sm"
+                        >
+                            <template #option="slotProps">
+                                <span class="text-sm">{{ slotProps.option }}</span>
+                            </template>
+
+                            <template #value="slotProps">
+                                <span class="text-sm">{{ slotProps.value || slotProps.placeholder }}</span>
+                            </template>
+                        </Select>
                         </div>
 
                         <!-- Purchase Date -->

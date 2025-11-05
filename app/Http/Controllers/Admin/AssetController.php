@@ -67,7 +67,62 @@ class AssetController extends Controller
         $categories = Category::where('status', true)->get();
         $users = $this->user->where('status', true)->get(['id', 'name', 'email']);
         $models = $this->modelType->where('status', true)->get();
-        $locations = $this->asset->distinct()->pluck('location')->filter();
+        $locations = collect([
+                                'LD',
+                                'LD STORE',
+                                'SMD',
+                                'SMD STORE',
+                                'FAD',
+                                'FAD STORE',
+                                'DD',
+                                'FA',
+                                'AGM OFFICE',
+                                'CD',
+                                'CD STORE',
+                                'HCD',
+                                'HCD STORE',
+                                'CEO',
+                                'CBO',
+                                'CCGO',
+                                'DCMT',
+                                'DCMT STORE',
+                                'RU',
+                                'RU STORE',
+                                'CU',
+                                'CU STORE',
+                                'SU',
+                                'SU STORE',
+                                'DAMU',
+                                'DAMU STORE',
+                                'GTSU',
+                                'GTSU STORE',
+                                'PANTRY LEVEL 31',
+                                'PANTRY LEVEL 30',
+                                'PANTRY LEVEL 12',
+                                'PANTRY LEVEL 14',
+                                'RECEPTION COUNTER',
+                                'KCP',
+                                'SERVER ROOM',
+                                'SOFTWARE',
+                                'IT SERVER ROOM LEVEL 5',
+                                'IT SERVER CYBERJAYA',
+                                'MEETING ROOM LEVEL 30',
+                                'MEETING ROOM LEVEL 31',
+                                'STRONG ROOM LEVEL 14',
+                                'MEETING ROOM LEVEL 12',
+                                'MEETING ROOM LEVEL 14',
+                                'LIBRARY LEVEL 14',
+                                'DISCUSSION ROOM LEVEL 30',
+                                'MULTIPURPOSE ROOM LEVEL 30',
+                                'OTHERS',
+        ]);
+
+        $secondaryLocations = collect([
+            'VISTA TOWER',
+            'WAR',
+            'KCP',
+            'NULL',
+        ]);
 
         $statistics = [
             'total' => $this->asset->count(),
@@ -87,6 +142,7 @@ class AssetController extends Controller
             'users' => $users,
             'models' => $models,
             'locations' => $locations,
+            'secondaryLocations' => $secondaryLocations,
             'statistics' => $statistics,
         ]);
     }

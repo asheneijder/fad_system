@@ -4,15 +4,15 @@ import DataTable from "primevue/datatable";
 import Column from "primevue/column";
 import InputText from "primevue/inputtext";
 import Button from "primevue/button";
-import Badge from 'primevue/badge';
-import Dialog from 'primevue/dialog';
-import Select from 'primevue/select';
-import Breadcrumb from 'primevue/breadcrumb';
+import Badge from "primevue/badge";
+import Dialog from "primevue/dialog";
+import Select from "primevue/select";
+import Breadcrumb from "primevue/breadcrumb";
 import ConfirmDialog from "primevue/confirmdialog";
 import Toast from "primevue/toast";
 import Card from "primevue/card";
-import InputNumber from 'primevue/inputnumber';
-import Textarea from 'primevue/textarea';
+import InputNumber from "primevue/inputnumber";
+import Textarea from "primevue/textarea";
 import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { router, Head, useForm } from "@inertiajs/vue3";
@@ -24,35 +24,35 @@ const toast = useToast();
 const props = defineProps({
     stationaryItems: {
         type: Object,
-        default: () => ({ data: [], total: 0, per_page: 12, current_page: 1 })
+        default: () => ({ data: [], total: 0, per_page: 12, current_page: 1 }),
     },
     cartItems: {
         type: Array,
-        default: () => []
+        default: () => [],
     },
     requests: {
         type: Object,
-        default: () => ({ data: [], total: 0, per_page: 10, current_page: 1 })
+        default: () => ({ data: [], total: 0, per_page: 10, current_page: 1 }),
     },
     categories: {
         type: Array,
-        default: () => []
+        default: () => [],
     },
     filters: {
         type: Object,
-        default: () => ({ 
-            search: '', 
-            category: '',
+        default: () => ({
+            search: "",
+            category: "",
             page: 1,
-            stationary_page: 1 
-        })
-    }
+            stationary_page: 1,
+        }),
+    },
 });
 
 const route = window.route || (() => {});
 
-const home = { icon: 'pi pi-home', url: route('dashboard') };
-const items = [{ label: 'Request Items' }];
+const home = { icon: "pi pi-home", url: route("dashboard") };
+const items = [{ label: "Request Items" }];
 
 const search = ref(props.filters?.search || "");
 const category = ref(props.filters?.category || "");
@@ -70,60 +70,78 @@ const loadingMore = ref(false);
 const cartForm = useForm({
     stationary_item_id: null,
     quantity: 1,
-    notes: '',
+    notes: "",
 });
 
 const requestForm = useForm({
-    purpose: '',
-    priority: 'medium',
+    purpose: "",
+    priority: "medium",
     needed_by: null,
-    notes: '',
+    notes: "",
     cart_item_ids: [],
 });
 
 // Priority options
 const priorities = ref([
-    { label: 'Low', value: 'low', severity: 'success' },
-    { label: 'Medium', value: 'medium', severity: 'warning' },
-    { label: 'High', value: 'high', severity: 'danger' },
-    { label: 'Urgent', value: 'urgent', severity: 'danger' }
+    { label: "Low", value: "low", severity: "success" },
+    { label: "Medium", value: "medium", severity: "warning" },
+    { label: "High", value: "high", severity: "danger" },
+    { label: "Urgent", value: "urgent", severity: "danger" },
 ]);
 
 // Statistics
 const statistics = computed(() => {
     const requestData = requests.value?.data || [];
     const cartData = Array.isArray(cartItems.value) ? cartItems.value : [];
-    
+
     return {
         totalRequests: requests.value?.total || 0,
-        pending: requestData.filter(req => req.status === 'pending').length,
-        approved: requestData.filter(req => req.status === 'approved').length,
-        rejected: requestData.filter(req => req.status === 'rejected').length,
-        completed: requestData.filter(req => req.status === 'completed').length,
+        pending: requestData.filter((req) => req.status === "pending").length,
+        approved: requestData.filter((req) => req.status === "approved").length,
+        rejected: requestData.filter((req) => req.status === "rejected").length,
+        completed: requestData.filter((req) => req.status === "completed")
+            .length,
         cartItems: cartData.length || 0,
-        cartTotal: cartData.reduce((sum, item) => {
-            const costPrice = item.stationary_item?.cost_price || 0;
-            return sum + (item.quantity * costPrice);
-        }, 0) || 0,
+        cartTotal:
+            cartData.reduce((sum, item) => {
+                const costPrice = item.stationary_item?.cost_price || 0;
+                return sum + item.quantity * costPrice;
+            }, 0) || 0,
     };
 });
 
 // Watchers
-watch(() => props.requests, (newRequests) => {
-    requests.value = newRequests;
-}, { immediate: true });
+watch(
+    () => props.requests,
+    (newRequests) => {
+        requests.value = newRequests;
+    },
+    { immediate: true }
+);
 
-watch(() => props.cartItems, (newCartItems) => {
-    cartItems.value = newCartItems || [];
-}, { immediate: true });
+watch(
+    () => props.cartItems,
+    (newCartItems) => {
+        cartItems.value = newCartItems || [];
+    },
+    { immediate: true }
+);
 
-watch(() => props.stationaryItems, (newItems) => {
-    stationaryItems.value = newItems;
-}, { immediate: true });
+watch(
+    () => props.stationaryItems,
+    (newItems) => {
+        stationaryItems.value = newItems;
+    },
+    { immediate: true }
+);
 
-watch(() => props.categories, (newCategories) => {
-    categories.value = newCategories;
-}, { immediate: true });
+watch(
+    () => props.categories,
+    (newCategories) => {
+        categories.value = newCategories;
+    },
+    { immediate: true }
+);
 
 // Search and filter watchers with debounce
 let searchTimeout;
@@ -148,97 +166,129 @@ watch(showAddToCartDialog, (val) => {
 // Methods
 const onPageChange = (event) => {
     const page = event.page + 1;
-    router.get(route("user.request-items.index"), {
-        search: search.value,
-        category: category.value,
-        page: page,
-        stationary_page: stationaryItems.value.current_page,
-    }, {
-        preserveState: true,
-        replace: true,
-        preserveScroll: true
-    });
+    router.get(
+        route("user.request-items.index"),
+        {
+            search: search.value,
+            category: category.value,
+            page: page,
+            stationary_page: stationaryItems.value.current_page,
+        },
+        {
+            preserveState: true,
+            replace: true,
+            preserveScroll: true,
+        }
+    );
 };
 
 const loadStationaryItems = (page = null) => {
     const targetPage = page || stationaryItems.value.current_page;
-    
-    router.get(route("user.request-items.index"), {
-        search: search.value,
-        category: category.value,
-        page: requests.value.current_page,
-        stationary_page: targetPage,
-    }, {
-        preserveState: true,
-        replace: true,
-        preserveScroll: true
-    });
+
+    router.get(
+        route("user.request-items.index"),
+        {
+            search: search.value,
+            category: category.value,
+            page: requests.value.current_page,
+            stationary_page: targetPage,
+        },
+        {
+            preserveState: true,
+            replace: true,
+            preserveScroll: true,
+        }
+    );
 };
 
 const loadMoreItems = () => {
     if (loadingMore.value) return;
-    
+
     const nextPage = stationaryItems.value.current_page + 1;
     if (nextPage > stationaryItems.value.last_page) return;
-    
+
     loadingMore.value = true;
-    
-    router.get(route("user.request-items.index"), {
-        search: search.value,
-        category: category.value,
-        page: requests.value.current_page,
-        stationary_page: nextPage,
-    }, {
-        preserveState: true,
-        replace: true,
-        preserveScroll: true,
-        onSuccess: () => {
-            loadingMore.value = false;
+
+    router.get(
+        route("user.request-items.index"),
+        {
+            search: search.value,
+            category: category.value,
+            page: requests.value.current_page,
+            stationary_page: nextPage,
         },
-        onError: () => {
-            loadingMore.value = false;
+        {
+            preserveState: true,
+            replace: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                loadingMore.value = false;
+            },
+            onError: () => {
+                loadingMore.value = false;
+            },
         }
-    });
+    );
+};
+
+const showLessItems = () => {
+    const prevPage = stationaryItems.value.current_page - 1;
+    if (prevPage < 1) return;
+
+    router.get(
+        route("user.request-items.index"),
+        {
+            search: search.value,
+            category: category.value,
+            page: requests.value.current_page,
+            stationary_page: prevPage,
+        },
+        {
+            preserveState: true,
+            replace: true,
+            preserveScroll: true,
+        }
+    );
 };
 
 const openAddToCartDialog = (item) => {
     selectedItem.value = item;
     cartForm.stationary_item_id = item.id;
     cartForm.quantity = 1;
-    cartForm.notes = '';
+    cartForm.notes = "";
     showAddToCartDialog.value = true;
 };
 
 const addToCart = () => {
     if (!cartForm.stationary_item_id) {
         toast.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: 'Please select an item',
-            life: 3000
+            severity: "error",
+            summary: "Error",
+            detail: "Please select an item",
+            life: 3000,
         });
         return;
     }
 
-    cartForm.post(route('user.cart-list.store'), {
+    cartForm.post(route("user.cart-list.store"), {
         onSuccess: () => {
             toast.add({
-                severity: 'success',
-                summary: 'Success',
-                detail: 'Item added to cart',
-                life: 3000
+                severity: "success",
+                summary: "Success",
+                detail: "Item added to cart",
+                life: 3000,
             });
             showAddToCartDialog.value = false;
             router.reload();
         },
         onError: (errors) => {
             toast.add({
-                severity: 'error',
-                summary: 'Error',
-                detail: errors.quantity?.[0] || 'Failed to add item to cart',
-                life: 3000
+                severity: "error",
+                summary: "Error",
+                detail: errors.quantity?.[0] || "Failed to add item to cart",
+                life: 3000,
             });
-        }
+        },
     });
 };
 
@@ -268,7 +318,7 @@ const removeFromCart = (cartItemId) => {
                         detail: errors.message || "Failed to remove item",
                         life: 3000,
                     });
-                }
+                },
             });
         },
     });
@@ -281,10 +331,10 @@ const updateCartQuantity = (cartItemId, newQuantity) => {
     }
 
     const form = useForm({
-        quantity: newQuantity
+        quantity: newQuantity,
     });
 
-    form.put(route('user.cart-list.update', cartItemId), {
+    form.put(route("user.cart-list.update", cartItemId), {
         onSuccess: () => {
             router.reload();
         },
@@ -295,61 +345,62 @@ const updateCartQuantity = (cartItemId, newQuantity) => {
                 detail: "Failed to update quantity",
                 life: 3000,
             });
-        }
+        },
     });
 };
 
 const openRequestDialog = () => {
-    const hasCartItems = Array.isArray(cartItems.value) && cartItems.value.length > 0;
-    
+    const hasCartItems =
+        Array.isArray(cartItems.value) && cartItems.value.length > 0;
+
     if (!hasCartItems) {
         toast.add({
-            severity: 'warn',
-            summary: 'Empty Cart',
-            detail: 'Please add items to your cart first',
-            life: 3000
+            severity: "warn",
+            summary: "Empty Cart",
+            detail: "Please add items to your cart first",
+            life: 3000,
         });
         return;
     }
 
-    requestForm.purpose = '';
-    requestForm.priority = 'medium';
+    requestForm.purpose = "";
+    requestForm.priority = "medium";
     requestForm.needed_by = null;
-    requestForm.notes = '';
-    requestForm.cart_item_ids = cartItems.value.map(item => item.id);
+    requestForm.notes = "";
+    requestForm.cart_item_ids = cartItems.value.map((item) => item.id);
     showRequestDialog.value = true;
 };
 
 const submitRequest = () => {
     if (requestForm.cart_item_ids.length === 0) {
         toast.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: 'No items in cart',
-            life: 3000
+            severity: "error",
+            summary: "Error",
+            detail: "No items in cart",
+            life: 3000,
         });
         return;
     }
 
-    requestForm.post(route('user.request-items.store'), {
+    requestForm.post(route("user.request-items.store"), {
         onSuccess: () => {
             toast.add({
-                severity: 'success',
-                summary: 'Success',
-                detail: 'Request submitted successfully',
-                life: 3000
+                severity: "success",
+                summary: "Success",
+                detail: "Request submitted successfully",
+                life: 3000,
             });
             showRequestDialog.value = false;
             router.reload();
         },
         onError: (errors) => {
             toast.add({
-                severity: 'error',
-                summary: 'Error',
-                detail: 'Failed to submit request',
-                life: 3000
+                severity: "error",
+                summary: "Error",
+                detail: "Failed to submit request",
+                life: 3000,
             });
-        }
+        },
     });
 };
 
@@ -378,7 +429,7 @@ const cancelRequest = (requestId) => {
                         detail: errors.message || "Failed to cancel request",
                         life: 3000,
                     });
-                }
+                },
             });
         },
     });
@@ -386,62 +437,66 @@ const cancelRequest = (requestId) => {
 
 const getStatusSeverity = (status) => {
     const statusMap = {
-        pending: 'warning',
-        approved: 'success',
-        rejected: 'danger',
-        completed: 'info',
-        cancelled: 'secondary'
+        pending: "warning",
+        approved: "success",
+        rejected: "danger",
+        completed: "info",
+        cancelled: "secondary",
     };
-    return statusMap[status] || 'secondary';
+    return statusMap[status] || "secondary";
 };
 
 const getStatusText = (status) => {
-    return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown';
+    return status
+        ? status.charAt(0).toUpperCase() + status.slice(1)
+        : "Unknown";
 };
 
 const getPrioritySeverity = (priority) => {
     const priorityMap = {
-        low: 'success',
-        medium: 'warning',
-        high: 'danger',
-        urgent: 'danger'
+        low: "success",
+        medium: "warning",
+        high: "danger",
+        urgent: "danger",
     };
-    return priorityMap[priority] || 'secondary';
+    return priorityMap[priority] || "secondary";
 };
 
 const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-MY', {
-        style: 'currency',
-        currency: 'MYR'
+    return new Intl.NumberFormat("en-MY", {
+        style: "currency",
+        currency: "MYR",
     }).format(amount);
 };
 
 const formatDate = (date) => {
-    if (!date) return '—';
-    return new Date(date).toLocaleDateString('en-MY', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
+    if (!date) return "—";
+    return new Date(date).toLocaleDateString("en-MY", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
     });
 };
 
 const getStockStatus = (item) => {
-    if (!item || item.current_stock === 0) return { text: 'Out of Stock', severity: 'danger' };
-    if (item.current_stock <= item.min_stock) return { text: 'Low Stock', severity: 'warning' };
-    return { text: 'In Stock', severity: 'success' };
+    if (!item || item.current_stock === 0)
+        return { text: "Out of Stock", severity: "danger" };
+    if (item.current_stock <= item.min_stock)
+        return { text: "Low Stock", severity: "warning" };
+    return { text: "In Stock", severity: "success" };
 };
 
 const scrollToAvailableItems = () => {
-    const element = document.getElementById('available-items-section');
+    const element = document.getElementById("available-items-section");
     if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
+        element.scrollIntoView({ behavior: "smooth" });
     }
     showCartDialog.value = false;
 };
 
 const clearFilters = () => {
-    search.value = '';
-    category.value = '';
+    search.value = "";
+    category.value = "";
 };
 </script>
 
@@ -455,39 +510,69 @@ const clearFilters = () => {
             <!-- Breadcrumb -->
             <Breadcrumb :home="home" :model="items" class="mb-4">
                 <template #item="{ item }">
-                    <span class="font-semibold text-gray-700 text-sm sm:text-base">{{ item.label }}</span>
+                    <span
+                        class="font-semibold text-gray-700 text-sm sm:text-base"
+                        >{{ item.label }}</span
+                    >
                 </template>
             </Breadcrumb>
 
             <!-- Page Header -->
-            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div
+                class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+            >
                 <div>
-                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Request Stationary Items</h1>
-                    <p class="mt-1 text-sm sm:text-base text-gray-500">Request office supplies and track your requests</p>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">
+                        Request Stationary Items
+                    </h1>
+                    <p class="mt-1 text-sm sm:text-base text-gray-500">
+                        Request office supplies and track your requests
+                    </p>
                 </div>
                 <div class="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
-                    <Button label="View Cart" icon="pi pi-shopping-cart" severity="info" 
+                    <Button
+                        label="View Cart"
+                        icon="pi pi-shopping-cart"
+                        severity="info"
                         @click="showCartDialog = true"
-                        :badge="statistics.cartItems.toString()" badgeClass="p-badge-danger"
-                        class="flex-1 sm:flex-initial responsive-button" />
-                    <Button label="Submit Request" icon="pi pi-send" severity="success"
-                        @click="openRequestDialog" 
+                        :badge="statistics.cartItems.toString()"
+                        badgeClass="p-badge-danger"
+                        class="flex-1 sm:flex-initial responsive-button"
+                    />
+                    <Button
+                        label="Submit Request"
+                        icon="pi pi-send"
+                        severity="success"
+                        @click="openRequestDialog"
                         :disabled="statistics.cartItems === 0"
-                        class="flex-1 sm:flex-initial responsive-button" />
+                        class="flex-1 sm:flex-initial responsive-button"
+                    />
                 </div>
             </div>
 
             <!-- Statistics Cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+            <div
+                class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6"
+            >
                 <Card class="border-l-4 border-blue-500 shadow-md">
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs sm:text-sm font-medium text-gray-500">Total Requests</p>
-                                <p class="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{{ statistics.totalRequests }}</p>
+                                <p
+                                    class="text-xs sm:text-sm font-medium text-gray-500"
+                                >
+                                    Total Requests
+                                </p>
+                                <p
+                                    class="mt-1 text-xl sm:text-2xl font-bold text-gray-900"
+                                >
+                                    {{ statistics.totalRequests }}
+                                </p>
                             </div>
                             <div class="p-2 sm:p-3 bg-blue-100 rounded-full">
-                                <i class="text-lg sm:text-xl text-blue-600 pi pi-inbox"></i>
+                                <i
+                                    class="text-lg sm:text-xl text-blue-600 pi pi-inbox"
+                                ></i>
                             </div>
                         </div>
                     </template>
@@ -497,11 +582,21 @@ const clearFilters = () => {
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs sm:text-sm font-medium text-gray-500">Pending</p>
-                                <p class="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{{ statistics.pending }}</p>
+                                <p
+                                    class="text-xs sm:text-sm font-medium text-gray-500"
+                                >
+                                    Pending
+                                </p>
+                                <p
+                                    class="mt-1 text-xl sm:text-2xl font-bold text-gray-900"
+                                >
+                                    {{ statistics.pending }}
+                                </p>
                             </div>
                             <div class="p-2 sm:p-3 bg-yellow-100 rounded-full">
-                                <i class="text-lg sm:text-xl text-yellow-600 pi pi-clock"></i>
+                                <i
+                                    class="text-lg sm:text-xl text-yellow-600 pi pi-clock"
+                                ></i>
                             </div>
                         </div>
                     </template>
@@ -511,11 +606,21 @@ const clearFilters = () => {
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs sm:text-sm font-medium text-gray-500">Approved</p>
-                                <p class="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{{ statistics.approved }}</p>
+                                <p
+                                    class="text-xs sm:text-sm font-medium text-gray-500"
+                                >
+                                    Approved
+                                </p>
+                                <p
+                                    class="mt-1 text-xl sm:text-2xl font-bold text-gray-900"
+                                >
+                                    {{ statistics.approved }}
+                                </p>
                             </div>
                             <div class="p-2 sm:p-3 bg-green-100 rounded-full">
-                                <i class="text-lg sm:text-xl text-green-600 pi pi-check-circle"></i>
+                                <i
+                                    class="text-lg sm:text-xl text-green-600 pi pi-check-circle"
+                                ></i>
                             </div>
                         </div>
                     </template>
@@ -525,11 +630,21 @@ const clearFilters = () => {
                     <template #content>
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs sm:text-sm font-medium text-gray-500">Cart Items</p>
-                                <p class="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{{ statistics.cartItems }}</p>
+                                <p
+                                    class="text-xs sm:text-sm font-medium text-gray-500"
+                                >
+                                    Cart Items
+                                </p>
+                                <p
+                                    class="mt-1 text-xl sm:text-2xl font-bold text-gray-900"
+                                >
+                                    {{ statistics.cartItems }}
+                                </p>
                             </div>
                             <div class="p-2 sm:p-3 bg-red-100 rounded-full">
-                                <i class="text-lg sm:text-xl text-red-600 pi pi-shopping-cart"></i>
+                                <i
+                                    class="text-lg sm:text-xl text-red-600 pi pi-shopping-cart"
+                                ></i>
                             </div>
                         </div>
                     </template>
@@ -539,54 +654,92 @@ const clearFilters = () => {
             <!-- Available Items Section -->
             <Card id="available-items-section" class="shadow-lg">
                 <template #content>
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-                        <h2 class="text-lg sm:text-xl font-bold text-gray-800">Available Stationary Items</h2>
+                    <div
+                        class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6"
+                    >
+                        <h2 class="text-lg sm:text-xl font-bold text-gray-800">
+                            Available Stationary Items
+                        </h2>
                         <div class="text-sm text-gray-500">
-                            Showing {{ stationaryItems.data?.length || 0 }} of {{ stationaryItems.total || 0 }} items
+                            Showing {{ stationaryItems.data?.length || 0 }} of
+                            {{ stationaryItems.total || 0 }} items
                         </div>
                     </div>
 
                     <!-- Search and Filter Bar -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 sm:mb-6">
+                    <div
+                        class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 sm:mb-6"
+                    >
                         <div class="sm:col-span-1">
                             <span class="p-input-icon-left block w-full">
                                 <i class="pi pi-search" />
-                                <InputText v-model="search" placeholder="Search items..." 
-                                    class="w-full pl-10" />
+                                <InputText
+                                    v-model="search"
+                                    placeholder="Search items..."
+                                    class="w-full pl-10"
+                                />
                             </span>
                         </div>
                         <div class="sm:col-span-1">
-                            <Select v-model="category" 
-                                :options="categories" 
-                                optionLabel="label" 
+                            <Select
+                                v-model="category"
+                                :options="categories"
+                                optionLabel="label"
                                 optionValue="value"
                                 placeholder="Filter by category"
-                                class="w-full" />
+                                class="w-full"
+                            />
                         </div>
                         <div class="sm:col-span-1">
-                            <Button label="Clear Filters" icon="pi pi-filter-slash" severity="secondary" outlined
-                                @click="clearFilters" 
+                            <Button
+                                label="Clear Filters"
+                                icon="pi pi-filter-slash"
+                                severity="secondary"
+                                outlined
+                                @click="clearFilters"
                                 :disabled="!search && !category"
-                                class="w-full responsive-button" />
+                                class="w-full responsive-button"
+                            />
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                        <div v-for="item in stationaryItems.data" :key="item.id" 
-                            class="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow flex flex-col">
-                            <div class="flex items-start justify-between gap-2 mb-2">
-                                <h3 class="font-semibold text-sm sm:text-base text-gray-900 flex-1 min-w-0 pr-2">{{ item.name }}</h3>
-                                <Badge :value="getStockStatus(item).text"
+                    <div
+                        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4"
+                    >
+                        <div
+                            v-for="item in stationaryItems.data"
+                            :key="item.id"
+                            class="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow flex flex-col"
+                        >
+                            <div
+                                class="flex items-start justify-between gap-2 mb-2"
+                            >
+                                <h3
+                                    class="font-semibold text-sm sm:text-base text-gray-900 flex-1 min-w-0 pr-2"
+                                >
+                                    {{ item.name }}
+                                </h3>
+                                <Badge
+                                    :value="getStockStatus(item).text"
                                     :severity="getStockStatus(item).severity"
-                                    class="responsive-badge flex-shrink-0" />
+                                    class="responsive-badge flex-shrink-0"
+                                />
                             </div>
-                            
-                            <p class="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2 flex-grow-0">{{ item.description }}</p>
-                            
-                            <div class="space-y-1 text-xs sm:text-sm text-gray-600 flex-grow">
+
+                            <p
+                                class="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2 flex-grow-0"
+                            >
+                                {{ item.description }}
+                            </p>
+
+                            <div
+                                class="space-y-1 text-xs sm:text-sm text-gray-600 flex-grow"
+                            >
                                 <div class="flex justify-between">
                                     <span>Category:</span>
-                                    <span class="font-medium capitalize">{{ item.category }}</span>
+                                    <span class="font-medium capitalize">{{
+                                        item.category
+                                    }}</span>
                                 </div>
                                 <!-- <div class="flex justify-between">
                                     <span>Stock:</span>
@@ -599,41 +752,110 @@ const clearFilters = () => {
                             </div>
 
                             <div class="mt-3 sm:mt-4">
-                                <Button label="Add to Cart" icon="pi pi-cart-plus" severity="success"
+                                <Button
+                                    label="Add to Cart"
+                                    icon="pi pi-cart-plus"
+                                    severity="success"
                                     @click="openAddToCartDialog(item)"
                                     :disabled="item.current_stock === 0"
-                                    class="w-full responsive-button" />
+                                    class="w-full responsive-button"
+                                />
                             </div>
                         </div>
 
                         <!-- Empty State -->
-                        <div v-if="stationaryItems.data?.length === 0" class="col-span-full">
-                            <div class="flex flex-col items-center justify-center py-8 sm:py-12 px-4">
-                                <div class="p-4 sm:p-6 mb-3 sm:mb-4 bg-gray-100 rounded-full">
-                                    <i class="text-4xl sm:text-6xl text-gray-400 pi pi-box"></i>
+                        <div
+                            v-if="stationaryItems.data?.length === 0"
+                            class="col-span-full"
+                        >
+                            <div
+                                class="flex flex-col items-center justify-center py-8 sm:py-12 px-4"
+                            >
+                                <div
+                                    class="p-4 sm:p-6 mb-3 sm:mb-4 bg-gray-100 rounded-full"
+                                >
+                                    <i
+                                        class="text-4xl sm:text-6xl text-gray-400 pi pi-box"
+                                    ></i>
                                 </div>
-                                <h3 class="mb-2 text-lg sm:text-xl font-semibold text-gray-700">No Items Found</h3>
-                                <p class="text-sm sm:text-base text-gray-500 text-center">
-                                    {{ search || category ? 'Try adjusting your search or filters' : 'No stationary items are currently available for request.' }}
+                                <h3
+                                    class="mb-2 text-lg sm:text-xl font-semibold text-gray-700"
+                                >
+                                    No Items Found
+                                </h3>
+                                <p
+                                    class="text-sm sm:text-base text-gray-500 text-center"
+                                >
+                                    {{
+                                        search || category
+                                            ? "Try adjusting your search or filters"
+                                            : "No stationary items are currently available for request."
+                                    }}
                                 </p>
-                                <Button v-if="search || category" label="Clear Filters" severity="primary"
-                                    @click="clearFilters" class="mt-3 responsive-button" />
+                                <Button
+                                    v-if="search || category"
+                                    label="Clear Filters"
+                                    severity="primary"
+                                    @click="clearFilters"
+                                    class="mt-3 responsive-button"
+                                />
                             </div>
                         </div>
                     </div>
 
-                    <!-- Load More Button -->
-                    <div v-if="stationaryItems.data?.length > 0 && stationaryItems.current_page < stationaryItems.last_page" 
-                         class="flex justify-center mt-6">
-                        <Button label="Load More Items" icon="pi pi-chevron-down" severity="secondary" outlined
-                            @click="loadMoreItems" 
+                    <!-- Pagination Controls -->
+                    <div
+                        v-if="stationaryItems.data?.length > 0"
+                        class="flex justify-center items-center gap-3 mt-6"
+                    >
+                        <!-- Show Less Button (Left) -->
+                        <Button
+                            v-if="stationaryItems.current_page > 1"
+                            icon="pi pi-chevron-left"
+                            severity="secondary"
+                            label="Show Less"
+                            outlined
+                            @click="showLessItems"
+                            :disabled="stationaryItems.current_page <= 1"
+                            class="responsive-button"
+                        />
+
+                        <!-- Page Info -->
+                        <span
+                            class="text-sm text-gray-600 min-w-[80px] text-center"
+                        >
+                            Page {{ stationaryItems.current_page }} of
+                            {{ stationaryItems.last_page }}
+                        </span>
+
+                        <!-- Load More Button (Right) -->
+                        <Button
+                            v-if="
+                                stationaryItems.current_page <
+                                stationaryItems.last_page
+                            "
+                            icon="pi pi-chevron-right"
+                            iconPos="right"
+                            label="Load More"
+                            severity="secondary"
+                            outlined
+                            @click="loadMoreItems"
                             :loading="loadingMore"
-                            class="responsive-button" />
+                            :disabled="
+                                stationaryItems.current_page >=
+                                stationaryItems.last_page
+                            "
+                            class="responsive-button"
+                        />
                     </div>
 
                     <!-- Showing information -->
-                    <div v-if="stationaryItems.data?.length > 0" class="text-center text-sm text-gray-500 mt-4">
-                        Showing page {{ stationaryItems.current_page }} of {{ stationaryItems.last_page }} • 
+                    <div
+                        v-if="stationaryItems.data?.length > 0"
+                        class="text-center text-sm text-gray-500 mt-4"
+                    >
+                        Showing page {{ stationaryItems.current_page }} of
+                        {{ stationaryItems.last_page }} •
                         {{ stationaryItems.total }} total items
                     </div>
                 </template>
@@ -642,72 +864,167 @@ const clearFilters = () => {
             <!-- My Requests Section -->
             <Card class="shadow-lg">
                 <template #content>
-                    <h2 class="text-lg sm:text-xl font-bold text-gray-800 mb-4 sm:mb-6">My Requests</h2>
+                    <h2
+                        class="text-lg sm:text-xl font-bold text-gray-800 mb-4 sm:mb-6"
+                    >
+                        My Requests
+                    </h2>
 
                     <div class="overflow-x-auto">
-                        <DataTable :value="requests.data" showGridlines stripedRows
-                            :rowHover="true" paginator :rows="requests.per_page" :totalRecords="requests.total"
-                            :first="(requests.current_page - 1) * requests.per_page" @page="onPageChange"
-                            responsiveLayout="scroll" class="p-datatable-custom">
-
+                        <DataTable
+                            :value="requests.data"
+                            showGridlines
+                            stripedRows
+                            :rowHover="true"
+                            paginator
+                            :rows="requests.per_page"
+                            :totalRecords="requests.total"
+                            :first="
+                                (requests.current_page - 1) * requests.per_page
+                            "
+                            @page="onPageChange"
+                            responsiveLayout="scroll"
+                            class="p-datatable-custom"
+                        >
                             <!-- Empty State -->
                             <template #empty>
-                                <div class="flex flex-col items-center justify-center py-8 sm:py-12 px-4">
-                                    <div class="p-4 sm:p-6 mb-3 sm:mb-4 bg-gray-100 rounded-full">
-                                        <i class="text-4xl sm:text-6xl text-gray-400 pi pi-inbox"></i>
+                                <div
+                                    class="flex flex-col items-center justify-center py-8 sm:py-12 px-4"
+                                >
+                                    <div
+                                        class="p-4 sm:p-6 mb-3 sm:mb-4 bg-gray-100 rounded-full"
+                                    >
+                                        <i
+                                            class="text-4xl sm:text-6xl text-gray-400 pi pi-inbox"
+                                        ></i>
                                     </div>
-                                    <h3 class="mb-2 text-lg sm:text-xl font-semibold text-gray-700">No Requests Found</h3>
-                                    <p class="mb-3 sm:mb-4 text-sm sm:text-base text-gray-500 text-center">You haven't made any requests yet.</p>
-                                    <Button label="Browse Items" icon="pi pi-shopping-cart" severity="success"
-                                        @click="scrollToAvailableItems" class="responsive-button" />
+                                    <h3
+                                        class="mb-2 text-lg sm:text-xl font-semibold text-gray-700"
+                                    >
+                                        No Requests Found
+                                    </h3>
+                                    <p
+                                        class="mb-3 sm:mb-4 text-sm sm:text-base text-gray-500 text-center"
+                                    >
+                                        You haven't made any requests yet.
+                                    </p>
+                                    <Button
+                                        label="Browse Items"
+                                        icon="pi pi-shopping-cart"
+                                        severity="success"
+                                        @click="scrollToAvailableItems"
+                                        class="responsive-button"
+                                    />
                                 </div>
                             </template>
 
                             <!-- Columns -->
-                            <Column header="#" style="width: 60px;">
+                            <Column header="#" style="width: 60px">
                                 <template #body="slotProps">
-                                    <Badge :value="(requests.current_page - 1) * requests.per_page + slotProps.index + 1"
-                                        severity="secondary" class="responsive-badge" />
+                                    <Badge
+                                        :value="
+                                            (requests.current_page - 1) *
+                                                requests.per_page +
+                                            slotProps.index +
+                                            1
+                                        "
+                                        severity="secondary"
+                                        class="responsive-badge"
+                                    />
                                 </template>
                             </Column>
 
-                            <Column field="purpose" header="Purpose" sortable style="min-width: 200px;">
+                            <Column
+                                field="purpose"
+                                header="Purpose"
+                                sortable
+                                style="min-width: 200px"
+                            >
                                 <template #body="slotProps">
-                                    <div class="font-semibold text-sm sm:text-base text-gray-900">{{ slotProps.data.purpose }}</div>
-                                    <div class="text-xs sm:text-sm text-gray-500">
-                                        {{ slotProps.data.items?.length || 0 }} item(s)
+                                    <div
+                                        class="font-semibold text-sm sm:text-base text-gray-900"
+                                    >
+                                        {{ slotProps.data.purpose }}
+                                    </div>
+                                    <div
+                                        class="text-xs sm:text-sm text-gray-500"
+                                    >
+                                        {{
+                                            slotProps.data.items?.length || 0
+                                        }}
+                                        item(s)
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column header="Priority" sortable style="min-width: 100px;">
+                            <Column
+                                header="Priority"
+                                sortable
+                                style="min-width: 100px"
+                            >
                                 <template #body="slotProps">
-                                    <Badge :value="slotProps.data.priority"
-                                        :severity="getPrioritySeverity(slotProps.data.priority)"
-                                        class="capitalize responsive-badge" />
+                                    <Badge
+                                        :value="slotProps.data.priority"
+                                        :severity="
+                                            getPrioritySeverity(
+                                                slotProps.data.priority
+                                            )
+                                        "
+                                        class="capitalize responsive-badge"
+                                    />
                                 </template>
                             </Column>
 
-                            <Column header="Status" sortable style="min-width: 100px;">
+                            <Column
+                                header="Status"
+                                sortable
+                                style="min-width: 100px"
+                            >
                                 <template #body="slotProps">
-                                    <Badge :value="getStatusText(slotProps.data.status)"
-                                        :severity="getStatusSeverity(slotProps.data.status)"
-                                        class="capitalize responsive-badge" />
+                                    <Badge
+                                        :value="
+                                            getStatusText(slotProps.data.status)
+                                        "
+                                        :severity="
+                                            getStatusSeverity(
+                                                slotProps.data.status
+                                            )
+                                        "
+                                        class="capitalize responsive-badge"
+                                    />
                                 </template>
                             </Column>
 
-                            <Column header="Needed By" sortable style="min-width: 120px;">
+                            <Column
+                                header="Needed By"
+                                sortable
+                                style="min-width: 120px"
+                            >
                                 <template #body="slotProps">
-                                    <div class="text-xs sm:text-sm text-gray-600">
-                                        {{ formatDate(slotProps.data.needed_by) }}
+                                    <div
+                                        class="text-xs sm:text-sm text-gray-600"
+                                    >
+                                        {{
+                                            formatDate(slotProps.data.needed_by)
+                                        }}
                                     </div>
                                 </template>
                             </Column>
 
-                            <Column header="Requested" sortable style="min-width: 120px;">
+                            <Column
+                                header="Requested"
+                                sortable
+                                style="min-width: 120px"
+                            >
                                 <template #body="slotProps">
-                                    <div class="text-xs sm:text-sm text-gray-600">
-                                        {{ formatDate(slotProps.data.created_at) }}
+                                    <div
+                                        class="text-xs sm:text-sm text-gray-600"
+                                    >
+                                        {{
+                                            formatDate(
+                                                slotProps.data.created_at
+                                            )
+                                        }}
                                     </div>
                                 </template>
                             </Column>
@@ -716,16 +1033,38 @@ const clearFilters = () => {
                             <Column header="Actions" style="min-width: 120px">
                                 <template #body="slotProps">
                                     <div class="flex flex-wrap gap-2">
-                                        <Button icon="pi pi-eye" outlined rounded severity="info"
-                                            v-tooltip.top="'View Details'" 
-                                            @click="router.get(route('user.request-items.show', slotProps.data.id))"
-                                            class="responsive-icon-button" />
+                                        <Button
+                                            icon="pi pi-eye"
+                                            outlined
+                                            rounded
+                                            severity="info"
+                                            v-tooltip.top="'View Details'"
+                                            @click="
+                                                router.get(
+                                                    route(
+                                                        'user.request-items.show',
+                                                        slotProps.data.id
+                                                    )
+                                                )
+                                            "
+                                            class="responsive-icon-button"
+                                        />
 
-                                        <Button v-if="slotProps.data.status === 'pending'" 
-                                            icon="pi pi-times" outlined rounded severity="danger"
-                                            v-tooltip.top="'Cancel Request'" 
-                                            @click="cancelRequest(slotProps.data.id)"
-                                            class="responsive-icon-button" />
+                                        <Button
+                                            v-if="
+                                                slotProps.data.status ===
+                                                'pending'
+                                            "
+                                            icon="pi pi-times"
+                                            outlined
+                                            rounded
+                                            severity="danger"
+                                            v-tooltip.top="'Cancel Request'"
+                                            @click="
+                                                cancelRequest(slotProps.data.id)
+                                            "
+                                            class="responsive-icon-button"
+                                        />
                                     </div>
                                 </template>
                             </Column>
@@ -735,17 +1074,29 @@ const clearFilters = () => {
             </Card>
 
             <!-- Add to Cart Dialog -->
-            <Dialog v-model:visible="showAddToCartDialog" modal header="Add to Cart" 
+            <Dialog
+                v-model:visible="showAddToCartDialog"
+                modal
+                header="Add to Cart"
                 :style="{ width: '95vw', maxWidth: '500px' }"
-                :breakpoints="{ '1199px': '50vw', '575px': '90vw' }">
+                :breakpoints="{ '1199px': '50vw', '575px': '90vw' }"
+            >
                 <div class="space-y-4 sm:space-y-6" v-if="selectedItem">
                     <div class="space-y-3 sm:space-y-4">
                         <div>
-                            <h3 class="font-semibold text-sm sm:text-base text-gray-900">{{ selectedItem.name }}</h3>
-                            <p class="text-xs sm:text-sm text-gray-600">{{ selectedItem.description }}</p>
+                            <h3
+                                class="font-semibold text-sm sm:text-base text-gray-900"
+                            >
+                                {{ selectedItem.name }}
+                            </h3>
+                            <p class="text-xs sm:text-sm text-gray-600">
+                                {{ selectedItem.description }}
+                            </p>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
+                        <div
+                            class="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm"
+                        >
                             <!-- <div>
                                 <span class="text-gray-500">Current Stock:</span>
                                 <p class="font-medium">{{ selectedItem.current_stock }} {{ selectedItem.unit }}</p>
@@ -757,88 +1108,183 @@ const clearFilters = () => {
                         </div>
 
                         <div class="space-y-2">
-                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Quantity</label>
-                            <InputNumber v-model="cartForm.quantity" 
-                                :min="1" 
+                            <label
+                                class="block text-xs sm:text-sm font-semibold text-gray-700"
+                                >Quantity</label
+                            >
+                            <InputNumber
+                                v-model="cartForm.quantity"
+                                :min="1"
                                 :max="selectedItem.current_stock"
                                 class="w-full"
-                                :class="{ 'p-invalid': cartForm.errors.quantity }" />
-                            <small class="text-red-500 text-xs" v-if="cartForm.errors.quantity">
+                                :class="{
+                                    'p-invalid': cartForm.errors.quantity,
+                                }"
+                            />
+                            <small
+                                class="text-red-500 text-xs"
+                                v-if="cartForm.errors.quantity"
+                            >
                                 {{ cartForm.errors.quantity }}
                             </small>
                             <small class="text-gray-500 text-xs">
-                                Maximum available: {{ selectedItem.current_stock }} {{ selectedItem.unit }}
+                                Maximum available:
+                                {{ selectedItem.current_stock }}
+                                {{ selectedItem.unit }}
                             </small>
                         </div>
 
                         <div class="space-y-2">
-                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Notes (Optional)</label>
-                            <Textarea v-model="cartForm.notes" rows="3" placeholder="Add any special notes..."
-                                class="w-full" />
+                            <label
+                                class="block text-xs sm:text-sm font-semibold text-gray-700"
+                                >Notes (Optional)</label
+                            >
+                            <Textarea
+                                v-model="cartForm.notes"
+                                rows="3"
+                                placeholder="Add any special notes..."
+                                class="w-full"
+                            />
                         </div>
                     </div>
 
-                    <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
-                        <Button label="Cancel" severity="secondary" outlined 
+                    <div
+                        class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t"
+                    >
+                        <Button
+                            label="Cancel"
+                            severity="secondary"
+                            outlined
                             @click="showAddToCartDialog = false"
                             :disabled="cartForm.processing"
-                            class="w-full sm:w-auto responsive-button" />
-                        <Button label="Add to Cart" icon="pi pi-cart-plus" severity="success" 
-                            @click="addToCart" :loading="cartForm.processing"
-                            class="w-full sm:w-auto responsive-button" />
+                            class="w-full sm:w-auto responsive-button"
+                        />
+                        <Button
+                            label="Add to Cart"
+                            icon="pi pi-cart-plus"
+                            severity="success"
+                            @click="addToCart"
+                            :loading="cartForm.processing"
+                            class="w-full sm:w-auto responsive-button"
+                        />
                     </div>
                 </div>
             </Dialog>
 
             <!-- Cart Dialog -->
-            <Dialog v-model:visible="showCartDialog" modal header="My Cart" 
+            <Dialog
+                v-model:visible="showCartDialog"
+                modal
+                header="My Cart"
                 :style="{ width: '95vw', maxWidth: '700px' }"
-                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
+                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }"
+            >
                 <div class="space-y-4 sm:space-y-6">
-                    <div v-if="Array.isArray(cartItems) && cartItems.length > 0">
+                    <div
+                        v-if="Array.isArray(cartItems) && cartItems.length > 0"
+                    >
                         <div class="space-y-3 sm:space-y-4">
-                            <div v-for="cartItem in cartItems" :key="cartItem.id"
-                                class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border border-gray-200 rounded-lg">
+                            <div
+                                v-for="cartItem in cartItems"
+                                :key="cartItem.id"
+                                class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border border-gray-200 rounded-lg"
+                            >
                                 <div class="flex-1 w-full">
-                                    <h4 class="font-semibold text-sm sm:text-base text-gray-900">{{ cartItem.stationary_item?.name }}</h4>
-                                    <p class="text-xs sm:text-sm text-gray-600">{{ cartItem.stationary_item?.description }}</p>
+                                    <h4
+                                        class="font-semibold text-sm sm:text-base text-gray-900"
+                                    >
+                                        {{ cartItem.stationary_item?.name }}
+                                    </h4>
+                                    <p class="text-xs sm:text-sm text-gray-600">
+                                        {{
+                                            cartItem.stationary_item
+                                                ?.description
+                                        }}
+                                    </p>
                                     <p class="text-xs sm:text-sm text-gray-500">
                                         <!-- {{ formatCurrency(cartItem.stationary_item?.cost_price || 0) }} per {{ cartItem.stationary_item?.unit }} -->
                                     </p>
-                                    <p v-if="cartItem.notes" class="text-xs sm:text-sm text-gray-500 mt-1">
+                                    <p
+                                        v-if="cartItem.notes"
+                                        class="text-xs sm:text-sm text-gray-500 mt-1"
+                                    >
                                         Notes: {{ cartItem.notes }}
                                     </p>
                                 </div>
-                                
-                                <div class="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
+
+                                <div
+                                    class="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto"
+                                >
                                     <div class="flex items-center gap-2">
-                                        <Button icon="pi pi-minus" outlined rounded severity="secondary"
-                                            @click="updateCartQuantity(cartItem.id, cartItem.quantity - 1)"
-                                            class="responsive-icon-button" />
-                                        <span class="font-semibold w-8 text-center text-sm sm:text-base">{{ cartItem.quantity }}</span>
-                                        <Button icon="pi pi-plus" outlined rounded severity="secondary"
-                                            @click="updateCartQuantity(cartItem.id, cartItem.quantity + 1)"
-                                            :disabled="cartItem.quantity >= (cartItem.stationary_item?.current_stock || 0)"
-                                            class="responsive-icon-button" />
+                                        <Button
+                                            icon="pi pi-minus"
+                                            outlined
+                                            rounded
+                                            severity="secondary"
+                                            @click="
+                                                updateCartQuantity(
+                                                    cartItem.id,
+                                                    cartItem.quantity - 1
+                                                )
+                                            "
+                                            class="responsive-icon-button"
+                                        />
+                                        <span
+                                            class="font-semibold w-8 text-center text-sm sm:text-base"
+                                            >{{ cartItem.quantity }}</span
+                                        >
+                                        <Button
+                                            icon="pi pi-plus"
+                                            outlined
+                                            rounded
+                                            severity="secondary"
+                                            @click="
+                                                updateCartQuantity(
+                                                    cartItem.id,
+                                                    cartItem.quantity + 1
+                                                )
+                                            "
+                                            :disabled="
+                                                cartItem.quantity >=
+                                                (cartItem.stationary_item
+                                                    ?.current_stock || 0)
+                                            "
+                                            class="responsive-icon-button"
+                                        />
                                     </div>
-                                    
+
                                     <div class="text-right min-w-20">
-                                        <p class="font-semibold text-sm sm:text-base text-gray-900">
+                                        <p
+                                            class="font-semibold text-sm sm:text-base text-gray-900"
+                                        >
                                             <!-- {{ formatCurrency(cartItem.quantity * (cartItem.stationary_item?.cost_price || 0)) }} -->
                                         </p>
                                     </div>
-                                    
-                                    <Button icon="pi pi-trash" outlined rounded severity="danger"
+
+                                    <Button
+                                        icon="pi pi-trash"
+                                        outlined
+                                        rounded
+                                        severity="danger"
                                         @click="removeFromCart(cartItem.id)"
-                                        class="responsive-icon-button" />
+                                        class="responsive-icon-button"
+                                    />
                                 </div>
                             </div>
                         </div>
 
                         <div class="border-t pt-3 sm:pt-4 mt-3 sm:mt-4">
-                            <div class="flex justify-between items-center mb-3 sm:mb-4">
-                                <span class="font-semibold text-sm sm:text-base text-gray-900">Total Items:</span>
-                                <span class="font-semibold text-sm sm:text-base text-gray-900">{{ statistics.cartItems }}</span>
+                            <div
+                                class="flex justify-between items-center mb-3 sm:mb-4"
+                            >
+                                <span
+                                    class="font-semibold text-sm sm:text-base text-gray-900"
+                                    >Total Items:</span
+                                >
+                                <span
+                                    class="font-semibold text-sm sm:text-base text-gray-900"
+                                    >{{ statistics.cartItems }}</span
+                                >
                             </div>
                             <!-- <div class="flex justify-between items-center">
                                 <span class="font-semibold text-sm sm:text-base text-gray-900">Estimated Total:</span>
@@ -848,79 +1294,156 @@ const clearFilters = () => {
                     </div>
 
                     <div v-else class="text-center py-6 sm:py-8">
-                        <div class="p-4 sm:p-6 mb-3 sm:mb-4 bg-gray-100 rounded-full inline-block">
-                            <i class="text-3xl sm:text-4xl text-gray-400 pi pi-shopping-cart"></i>
+                        <div
+                            class="p-4 sm:p-6 mb-3 sm:mb-4 bg-gray-100 rounded-full inline-block"
+                        >
+                            <i
+                                class="text-3xl sm:text-4xl text-gray-400 pi pi-shopping-cart"
+                            ></i>
                         </div>
-                        <h3 class="mb-2 text-lg sm:text-xl font-semibold text-gray-700">Your Cart is Empty</h3>
-                        <p class="text-sm sm:text-base text-gray-500 mb-3 sm:mb-4">Add some items to your cart to make a request.</p>
-                        <Button label="Browse Items" severity="primary" 
-                            @click="scrollToAvailableItems" class="responsive-button" />
+                        <h3
+                            class="mb-2 text-lg sm:text-xl font-semibold text-gray-700"
+                        >
+                            Your Cart is Empty
+                        </h3>
+                        <p
+                            class="text-sm sm:text-base text-gray-500 mb-3 sm:mb-4"
+                        >
+                            Add some items to your cart to make a request.
+                        </p>
+                        <Button
+                            label="Browse Items"
+                            severity="primary"
+                            @click="scrollToAvailableItems"
+                            class="responsive-button"
+                        />
                     </div>
 
-                    <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t" v-if="Array.isArray(cartItems) && cartItems.length > 0">
-                        <Button label="Continue Choosing Items" severity="secondary" outlined 
+                    <div
+                        class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t"
+                        v-if="Array.isArray(cartItems) && cartItems.length > 0"
+                    >
+                        <Button
+                            label="Continue Choosing Items"
+                            severity="secondary"
+                            outlined
                             @click="scrollToAvailableItems"
-                            class="w-full sm:w-auto responsive-button" />
-                        <Button label="Submit Request" icon="pi pi-send" severity="success" 
-                            @click="showCartDialog = false; openRequestDialog()"
-                            class="w-full sm:w-auto responsive-button" />
+                            class="w-full sm:w-auto responsive-button"
+                        />
+                        <Button
+                            label="Submit Request"
+                            icon="pi pi-send"
+                            severity="success"
+                            @click="
+                                showCartDialog = false;
+                                openRequestDialog();
+                            "
+                            class="w-full sm:w-auto responsive-button"
+                        />
                     </div>
                 </div>
             </Dialog>
 
             <!-- Submit Request Dialog -->
-            <Dialog v-model:visible="showRequestDialog" modal header="Submit Request" 
+            <Dialog
+                v-model:visible="showRequestDialog"
+                modal
+                header="Submit Request"
                 :style="{ width: '95vw', maxWidth: '600px' }"
-                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }">
+                :breakpoints="{ '1199px': '75vw', '575px': '95vw' }"
+            >
                 <div class="space-y-4 sm:space-y-6">
                     <div class="space-y-3 sm:space-y-4">
                         <div class="space-y-2">
-                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">
+                            <label
+                                class="block text-xs sm:text-sm font-semibold text-gray-700"
+                            >
                                 Purpose <span class="text-red-500">*</span>
                             </label>
-                            <InputText v-model="requestForm.purpose" 
-                                placeholder="Enter the purpose of this request" 
+                            <InputText
+                                v-model="requestForm.purpose"
+                                placeholder="Enter the purpose of this request"
                                 class="w-full"
-                                :class="{ 'p-invalid': requestForm.errors.purpose }" />
-                            <small class="text-red-500 text-xs" v-if="requestForm.errors.purpose">
+                                :class="{
+                                    'p-invalid': requestForm.errors.purpose,
+                                }"
+                            />
+                            <small
+                                class="text-red-500 text-xs"
+                                v-if="requestForm.errors.purpose"
+                            >
                                 {{ requestForm.errors.purpose }}
                             </small>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <div
+                            class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4"
+                        >
                             <div class="space-y-2">
-                                <label class="block text-xs sm:text-sm font-semibold text-gray-700">Priority</label>
-                                <Select v-model="requestForm.priority" 
-                                    :options="priorities" 
-                                    optionLabel="label" 
+                                <label
+                                    class="block text-xs sm:text-sm font-semibold text-gray-700"
+                                    >Priority</label
+                                >
+                                <Select
+                                    v-model="requestForm.priority"
+                                    :options="priorities"
+                                    optionLabel="label"
                                     optionValue="value"
-                                    class="w-full" />
+                                    class="w-full"
+                                />
                             </div>
 
                             <div class="space-y-2">
-                                <label class="block text-xs sm:text-sm font-semibold text-gray-700">Needed By</label>
-                                <InputText v-model="requestForm.needed_by" 
+                                <label
+                                    class="block text-xs sm:text-sm font-semibold text-gray-700"
+                                    >Needed By</label
+                                >
+                                <InputText
+                                    v-model="requestForm.needed_by"
                                     type="date"
-                                    class="w-full" />
+                                    class="w-full"
+                                />
                             </div>
                         </div>
 
                         <div class="space-y-2">
-                            <label class="block text-xs sm:text-sm font-semibold text-gray-700">Additional Notes</label>
-                            <Textarea v-model="requestForm.notes" rows="3" 
+                            <label
+                                class="block text-xs sm:text-sm font-semibold text-gray-700"
+                                >Additional Notes</label
+                            >
+                            <Textarea
+                                v-model="requestForm.notes"
+                                rows="3"
                                 placeholder="Add any additional information..."
-                                class="w-full" />
+                                class="w-full"
+                            />
                         </div>
 
                         <div class="border rounded-lg p-3 sm:p-4">
-                            <h4 class="font-semibold text-sm sm:text-base text-gray-900 mb-2 sm:mb-3">Items in Request</h4>
+                            <h4
+                                class="font-semibold text-sm sm:text-base text-gray-900 mb-2 sm:mb-3"
+                            >
+                                Items in Request
+                            </h4>
                             <div class="space-y-2">
-                                <div v-for="cartItem in (Array.isArray(cartItems) ? cartItems : [])" :key="cartItem.id"
-                                    class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 py-2 border-b border-gray-100 last:border-b-0">
+                                <div
+                                    v-for="cartItem in Array.isArray(cartItems)
+                                        ? cartItems
+                                        : []"
+                                    :key="cartItem.id"
+                                    class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 py-2 border-b border-gray-100 last:border-b-0"
+                                >
                                     <div class="w-full sm:w-auto">
-                                        <p class="font-medium text-sm sm:text-base text-gray-900">{{ cartItem.stationary_item?.name }}</p>
-                                        <p class="text-xs sm:text-sm text-gray-600">
-                                            {{ cartItem.quantity }} {{ cartItem.stationary_item?.unit }}
+                                        <p
+                                            class="font-medium text-sm sm:text-base text-gray-900"
+                                        >
+                                            {{ cartItem.stationary_item?.name }}
+                                        </p>
+                                        <p
+                                            class="text-xs sm:text-sm text-gray-600"
+                                        >
+                                            {{ cartItem.quantity }}
+                                            {{ cartItem.stationary_item?.unit }}
                                         </p>
                                     </div>
                                     <!-- <p class="font-medium text-sm sm:text-base text-gray-900 sm:text-right">
@@ -935,16 +1458,27 @@ const clearFilters = () => {
                                 </span>
                             </div> -->
                         </div>
-                    </div> 
+                    </div>
 
-                    <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
-                        <Button label="Cancel" severity="secondary" outlined 
+                    <div
+                        class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t"
+                    >
+                        <Button
+                            label="Cancel"
+                            severity="secondary"
+                            outlined
                             @click="showRequestDialog = false"
                             :disabled="requestForm.processing"
-                            class="w-full sm:w-auto responsive-button" />
-                        <Button label="Submit Request" icon="pi pi-send" severity="success" 
-                            @click="submitRequest" :loading="requestForm.processing"
-                            class="w-full sm:w-auto responsive-button" />
+                            class="w-full sm:w-auto responsive-button"
+                        />
+                        <Button
+                            label="Submit Request"
+                            icon="pi pi-send"
+                            severity="success"
+                            @click="submitRequest"
+                            :loading="requestForm.processing"
+                            class="w-full sm:w-auto responsive-button"
+                        />
                     </div>
                 </div>
             </Dialog>
@@ -1161,7 +1695,7 @@ const clearFilters = () => {
     :deep(.p-datatable .p-datatable-tbody > tr > td) {
         padding: 0.75rem 0.5rem;
     }
-    
+
     :deep(.p-datatable .p-datatable-thead > tr > th) {
         padding: 0.75rem 0.5rem;
     }
