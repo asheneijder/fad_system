@@ -153,9 +153,6 @@ class LicensesController extends Controller
             'available_qty' => $newQuantity,
         ]);
 
-        // You can log the quantity change here if needed
-        // ActivityLog::create([...]);
-
         return redirect()->route('admin.licenses.index')
             ->with('success', 'License quantity updated successfully.');
     }

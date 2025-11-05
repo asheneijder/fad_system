@@ -4,12 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 class TravelClaim extends Model implements HasMedia
 {
-    use InteractsWithMedia;
+    use InteractsWithMedia, LogsActivity;
 
     protected $table = 'travel_claims';
 
@@ -103,5 +105,15 @@ class TravelClaim extends Model implements HasMedia
         }
 
         return array_sum(array_column($legs, 'distance'));
+    }
+
+     public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['user_id', 'vehicle_type', 'total_distance', 'total_cost', 'status', 'approver_id'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->setDescriptionForEvent(fn (string $eventName) => "Travel Claim {$eventName}")
+            ->useLogName('travel_claims');
     }
 }

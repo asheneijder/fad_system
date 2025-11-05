@@ -171,9 +171,13 @@ class User extends Authenticatable
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'serial_number', 'asset_tag', 'status']) // Add your asset fields
+            ->logOnly(['name', 'email', 'department', 'job_title', 'status', 'can_approve'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
-            ->setDescriptionForEvent(fn (string $eventName) => "Asset {$eventName}");
+            ->setDescriptionForEvent(fn (string $eventName) => "User {$eventName}")
+            ->useLogName('users');
     }
+
+    // Enable logging for all events
+    protected static $recordEvents = ['created', 'updated', 'deleted'];
 }

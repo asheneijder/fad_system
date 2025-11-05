@@ -176,12 +176,8 @@ Route::group([
         ->name('permissions.assign-roles');
 
     Route::resource('audit-logs', AuditLogController::class)->only(['index', 'show']);
-
-    Route::get('/audit-logs/export/csv', [AuditLogController::class, 'export'])->name('audit-logs.export');
-    Route::get('/audit-logs/export/excel', [AuditLogController::class, 'exportExcel'])->name('audit-logs.export-excel');
-    Route::get('/audit-logs/export/pdf', [AuditLogController::class, 'exportPdf'])->name('audit-logs.export-pdf');
-    Route::get('/audit-logs/statistics', [AuditLogController::class, 'statistics'])->name('audit-logs.statistics');
-    Route::post('/audit-logs/cleanup', [AuditLogController::class, 'cleanup'])->name('audit-logs.cleanup');
+    Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
+    Route::post('/audit-logs/clear', [AuditLogController::class, 'clearOldLogs'])->name('audit-logs.clear');
 
     // Remove this line: Route::resource('reports', ReportController::class);
 

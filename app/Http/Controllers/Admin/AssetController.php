@@ -133,10 +133,10 @@ class AssetController extends Controller
 
             $asset->save();
 
-            activity()
-                ->causedBy(Auth::user())
-                ->performedOn($asset)
-                ->log('created asset');
+            // activity()
+            //     ->causedBy(Auth::user())
+            //     ->performedOn($asset)
+            //     ->log('created asset');
 
             DB::commit();
 
@@ -225,10 +225,10 @@ class AssetController extends Controller
                 }
             }
 
-            activity()
-                ->causedBy(Auth::user())
-                ->performedOn($asset)
-                ->log('updated asset');
+            // activity()
+            //     ->causedBy(Auth::user())
+            //     ->performedOn($asset)
+            //     ->log('updated asset');
 
             DB::commit();
 
@@ -256,9 +256,9 @@ class AssetController extends Controller
             $assetName = $asset->asset_name;
             $asset->delete();
 
-            activity()
-                ->causedBy(Auth::user())
-                ->log('deleted asset: '.$assetName);
+            // activity()
+            //     ->causedBy(Auth::user())
+            //     ->log('deleted asset: '.$assetName);
 
             DB::commit();
 
@@ -372,10 +372,10 @@ class AssetController extends Controller
                 }
             }
 
-            activity()
-                ->causedBy(Auth::user())
-                ->performedOn($asset)
-                ->log("changed asset status from {$oldStatus} to {$validated['status']}");
+            // activity()
+            //     ->causedBy(Auth::user())
+            //     ->performedOn($asset)
+            //     ->log("changed asset status from {$oldStatus} to {$validated['status']}");
 
             DB::commit();
 
@@ -428,11 +428,11 @@ class AssetController extends Controller
             // Dispatch email job to notify the USER
             SendAssetAssignmentNotification::dispatch($asset, $user, $assignment, Auth::user());
 
-            activity()
-                ->causedBy(Auth::user())
-                ->performedOn($asset)
-                ->withProperties(['assigned_to' => $validated['user_id']])
-                ->log('assigned asset to user');
+            // activity()
+            //     ->causedBy(Auth::user())
+            //     ->performedOn($asset)
+            //     ->withProperties(['assigned_to' => $validated['user_id']])
+            //     ->log('assigned asset to user');
 
             DB::commit();
 
@@ -468,10 +468,10 @@ class AssetController extends Controller
                 return back()->with('error', 'No active assignment found for this asset.');
             }
 
-            activity()
-                ->causedBy(Auth::user())
-                ->performedOn($asset)
-                ->log('returned asset from user');
+            // activity()
+            //     ->causedBy(Auth::user())
+            //     ->performedOn($asset)
+            //     ->log('returned asset from user');
 
             DB::commit();
 

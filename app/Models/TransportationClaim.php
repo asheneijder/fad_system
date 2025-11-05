@@ -5,11 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\MediaLibrary\HasMedia;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 class TransportationClaim extends Model implements HasMedia
 {
-    use InteractsWithMedia;
+    use InteractsWithMedia, LogsActivity;
 
     protected $table = 'transportation_claims';
 
@@ -260,5 +262,15 @@ class TransportationClaim extends Model implements HasMedia
             $model->setDefaultRate();
             $model->calculateAmount();
         });
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['user_id', 'transport_type', 'amount', 'status', 'approver_id'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->setDescriptionForEvent(fn (string $eventName) => "Transportation Claim {$eventName}")
+            ->useLogName('transportation_claims');
     }
 }

@@ -12,85 +12,81 @@ use Spatie\Activitylog\Models\Activity;
 class AuditLogController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of the audit logs.
      */
     public function index(Request $request)
     {
-        $query = Activity::with('causer')
+        $query = Activity::with(['causer', 'subject'])
             ->latest();
 
         // Search filter
-        if ($request->filled('search')) {
+        if ($request->has('search') && $request->search) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('description', 'like', "%{$search}%")
-                    ->orWhere('subject_type', 'like', "%{$search}%")
-                    ->orWhere('log_name', 'like', "%{$search}%")
-                    ->orWhere('subject_id', 'like', "%{$search}%")
-                    ->orWhereHas('causer', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    });
+                  ->orWhere('log_name', 'like', "%{$search}%")
+                  ->orWhere('event', 'like', "%{$search}%")
+                  ->orWhereHas('causer', function ($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('subject', function ($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                  });
             });
         }
 
+        // Log name filter
+        if ($request->has('log_name') && $request->log_name) {
+            $query->where('log_name', $request->log_name);
+        }
+
+        // Event filter
+        if ($request->has('event') && $request->event) {
+            $query->where('event', $request->event);
+        }
+
         // Date range filter
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $query->whereBetween('created_at', [
-                Carbon::parse($request->start_date)->startOfDay(),
-                Carbon::parse($request->end_date)->endOfDay(),
-            ]);
+        if ($request->has('date_from') && $request->date_from) {
+            $query->whereDate('created_at', '>=', $request->date_from);
         }
 
-        // Action type filter
-        if ($request->filled('action')) {
-            $query->where('description', $request->action);
+        if ($request->has('date_to') && $request->date_to) {
+            $query->whereDate('created_at', '<=', $request->date_to);
         }
 
-        // Model type filter
-        if ($request->filled('model')) {
-            $query->where('subject_type', $request->model);
-        }
+        $logs = $query->paginate($request->per_page ?? 25);
 
-        $logs = $query->paginate($request->per_page ?? 15)->withQueryString();
+        // Get unique log names and events for filters
+        $logNames = Activity::distinct()->pluck('log_name')->filter()->values();
+        $events = Activity::distinct()->pluck('event')->filter()->values();
 
-        // Get statistics
-        $stats = [
-            'total' => Activity::count(),
-            'created' => Activity::where('description', 'created')->count(),
-            'updated' => Activity::where('description', 'updated')->count(),
-            'deleted' => Activity::where('description', 'deleted')->count(),
-            'today' => Activity::whereDate('created_at', today())->count(),
-        ];
-
-        // Get unique models for filter
-        $models = Activity::select('subject_type')
-            ->distinct()
-            ->whereNotNull('subject_type')
-            ->pluck('subject_type')
-            ->map(fn ($model) => [
-                'label' => class_basename($model),
-                'value' => $model,
-            ])
-            ->values();
-
-        return Inertia::render('Admin/AuditLog/Index', [
+        return Inertia::render('Admin/AuditLogs/Index', [
             'logs' => $logs,
-            'filters' => $request->only(['search', 'start_date', 'end_date', 'action', 'model']),
-            'stats' => $stats,
-            'models' => $models,
+            'filters' => [
+                'search' => $request->search ?? '',
+                'log_name' => $request->log_name ?? '',
+                'event' => $request->event ?? '',
+                'date_from' => $request->date_from ?? '',
+                'date_to' => $request->date_to ?? '',
+                'per_page' => $request->per_page ?? 25,
+            ],
+            'logNames' => $logNames,
+            'events' => $events,
         ]);
     }
 
     /**
-     * Display the specified resource.
+     * Display the specified audit log.
      */
-    public function show(string $id)
+    public function show($id)
     {
-        $activity = Activity::with('causer', 'subject')->findOrFail($id);
+        $log = Activity::with(['causer', 'subject'])
+            ->findOrFail($id);
 
-        return Inertia::render('Admin/AuditLog/Show', [
-            'log' => $activity,
+        return Inertia::render('Admin/AuditLogs/Show', [
+            'log' => $log,
         ]);
     }
 
@@ -99,85 +95,85 @@ class AuditLogController extends Controller
      */
     public function export(Request $request)
     {
-        $query = Activity::with('causer')->latest();
+        $query = Activity::with(['causer', 'subject'])
+            ->latest();
 
-        // Apply same filters as index
-        if ($request->filled('search')) {
+        // Apply filters same as index
+        if ($request->has('search') && $request->search) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('description', 'like', "%{$search}%")
-                    ->orWhere('subject_type', 'like', "%{$search}%")
-                    ->orWhere('subject_id', 'like', "%{$search}%")
-                    ->orWhereHas('causer', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    });
+                  ->orWhere('log_name', 'like', "%{$search}%")
+                  ->orWhere('event', 'like', "%{$search}%")
+                  ->orWhereHas('causer', function ($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                  });
             });
         }
 
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $query->whereBetween('created_at', [
-                Carbon::parse($request->start_date)->startOfDay(),
-                Carbon::parse($request->end_date)->endOfDay(),
-            ]);
+        if ($request->has('log_name') && $request->log_name) {
+            $query->where('log_name', $request->log_name);
         }
 
-        if ($request->filled('action')) {
-            $query->where('description', $request->action);
+        if ($request->has('event') && $request->event) {
+            $query->where('event', $request->event);
         }
 
-        if ($request->filled('model')) {
-            $query->where('subject_type', $request->model);
+        if ($request->has('date_from') && $request->date_from) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->has('date_to') && $request->date_to) {
+            $query->whereDate('created_at', '<=', $request->date_to);
         }
 
         $logs = $query->get();
 
-        $filename = 'audit-logs-'.now()->format('Y-m-d-His').'.csv';
+        $fileName = 'audit-logs-' . Carbon::now()->format('Y-m-d-H-i-s') . '.csv';
 
         $headers = [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Content-Disposition' => "attachment; filename={$fileName}",
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
         ];
 
         $callback = function () use ($logs) {
             $file = fopen('php://output', 'w');
-
-            // Add BOM for UTF-8
-            fwrite($file, "\xEF\xBB\xBF");
-
+            
             // Add CSV headers
             fputcsv($file, [
                 'ID',
-                'Action',
-                'Model',
-                'Model ID',
+                'Description',
+                'Event',
                 'Log Name',
-                'User Name',
-                'User Email',
-                'User ID',
-                'Properties (JSON)',
+                'Causer',
+                'Causer Email',
+                'Subject Type',
+                'Subject ID',
+                'Properties',
                 'IP Address',
                 'User Agent',
                 'Created At',
-                'Updated At',
             ]);
 
             // Add data rows
             foreach ($logs as $log) {
                 fputcsv($file, [
                     $log->id,
-                    ucfirst($log->description ?? 'N/A'),
-                    $log->subject_type ?? 'N/A',
+                    $log->description,
+                    $log->event,
+                    $log->log_name,
+                    $log->causer ? $log->causer->name : 'System',
+                    $log->causer ? $log->causer->email : 'N/A',
+                    $log->subject_type ? class_basename($log->subject_type) : 'N/A',
                     $log->subject_id ?? 'N/A',
-                    $log->log_name ?? 'default',
-                    $log->causer->name ?? 'System',
-                    $log->causer->email ?? 'N/A',
-                    $log->causer_id ?? 'N/A',
-                    json_encode($log->properties ?? []),
-                    $log->properties['ip_address'] ?? 'N/A',
-                    $log->properties['user_agent'] ?? 'N/A',
+                    json_encode($log->properties->toArray()),
+                    $log->properties->get('ip_address') ?? 'N/A',
+                    $log->properties->get('user_agent') ?? 'N/A',
                     $log->created_at->format('Y-m-d H:i:s'),
-                    $log->updated_at->format('Y-m-d H:i:s'),
                 ]);
             }
 
@@ -188,74 +184,18 @@ class AuditLogController extends Controller
     }
 
     /**
-     * Get audit log statistics
+     * Clear old audit logs
      */
-    public function statistics()
-    {
-        $stats = [
-            'total' => Activity::count(),
-            'today' => Activity::whereDate('created_at', today())->count(),
-            'this_week' => Activity::whereBetween('created_at', [
-                now()->startOfWeek(),
-                now()->endOfWeek(),
-            ])->count(),
-            'this_month' => Activity::whereMonth('created_at', now()->month)
-                ->whereYear('created_at', now()->year)
-                ->count(),
-            'by_action' => [
-                'created' => Activity::where('description', 'created')->count(),
-                'updated' => Activity::where('description', 'updated')->count(),
-                'deleted' => Activity::where('description', 'deleted')->count(),
-            ],
-            'by_model' => Activity::select('subject_type', \DB::raw('count(*) as count'))
-                ->whereNotNull('subject_type')
-                ->groupBy('subject_type')
-                ->get()
-                ->map(fn ($item) => [
-                    'model' => class_basename($item->subject_type),
-                    'count' => $item->count,
-                ]),
-            'top_users' => Activity::select('causer_id', \DB::raw('count(*) as count'))
-                ->whereNotNull('causer_id')
-                ->groupBy('causer_id')
-                ->with('causer:id,name,email')
-                ->orderByDesc('count')
-                ->limit(10)
-                ->get()
-                ->map(fn ($item) => [
-                    'user' => $item->causer->name ?? 'Unknown',
-                    'email' => $item->causer->email ?? 'N/A',
-                    'count' => $item->count,
-                ]),
-        ];
-
-        return response()->json($stats);
-    }
-
-    /**
-     * Delete old audit logs (cleanup)
-     */
-    public function cleanup(Request $request)
+    public function clearOldLogs(Request $request)
     {
         $request->validate([
-            'days' => 'required|integer|min:30',
+            'days' => 'required|integer|min:1|max:3650', // Max 10 years
         ]);
 
-        $date = now()->subDays($request->days);
-        $deleted = Activity::where('created_at', '<', $date)->delete();
+        $cutoffDate = Carbon::now()->subDays($request->days);
+        
+        $deletedCount = Activity::where('created_at', '<', $cutoffDate)->delete();
 
-        return back()->with('success', "Deleted {$deleted} audit log(s) older than {$request->days} days.");
-    }
-
-    /**
-     * Delete a specific audit log
-     */
-    public function destroy(string $id)
-    {
-        $activity = Activity::findOrFail($id);
-        $activity->delete();
-
-        return redirect()->route('admin.audit-logs.index')
-            ->with('success', 'Audit log deleted successfully.');
+        return redirect()->back()->with('success', "Successfully cleared {$deletedCount} audit logs older than {$request->days} days.");
     }
 }
