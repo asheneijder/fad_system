@@ -141,7 +141,7 @@ const submit = () => {
                                         Need immediate assistance?
                                     </p>
                                     <p class="text-xs text-amber-600 dark:text-amber-400">
-                                        Contact IT Helpdesk: <strong>digidept@artrustees.com.my</strong> or extension <strong>5099</strong>
+                                        Contact IT Helpdesk: <strong>digidept@artrustees.com.my</strong>
                                     </p>
                                 </div>
                             </div>

@@ -198,7 +198,7 @@ const passwordVisible = ref(false);
                                                 First time user?
                                             </p>
                                             <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                                                Contact IT Helpdesk at <strong>digidept@artrustees.com.my</strong> or extension <strong>5099</strong>
+                                                Contact IT Helpdesk at <strong>digidept@artrustees.com.my</strong>
                                             </p>
                                         </div>
                                     </div>
