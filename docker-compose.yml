@@ -59,13 +59,19 @@ services:
             - "6384:6379"
         networks:
             - app-network
-    mailhog:
-        image: mailhog/mailhog:latest
-        container_name: art-fad-mailhog
+    mailpit:
+        image: axllent/mailpit:latest
+        container_name: art-fad-mailpit
         platform: linux/amd64
+        restart: unless-stopped
         ports:
-            - 1027:1025
-            - 8027:8025
+            - "1027:1025"
+            - "8027:8025"
+        environment:
+            MP_MAX_MESSAGES: 5000
+            MP_UI_BIND_ADDR: 0.0.0.0:8025
+            # Optional: enable web login
+            # MP_UI_AUTH: "admin:password"
         networks:
             - app-network
     
