@@ -102,12 +102,29 @@ class DashboardController extends Controller
             ->groupBy('status')
             ->get();
 
+        $specifiedItems = [
+            'A4 Paper', // Check if this exact name exists in DB
+            'BULLET STAPLES MAX NO-10', // From your DB dump
+            'PAPER CLIP SMALL', // You'll need to check the exact name
+            'FABER CASTLE CLICK',
+            'FABER CASTLE CLICK PEN BLACK', // You'll need to check the exact name
+            'FABER CASTLE CLICK PEN BLUE', // You'll need to check the exact name
+            'HILIGHTER (RED)', // From your DB dump - note this is RED not GREEN
+            'HILIGHTER (YELLOW)', // From your DB dump - note this is YELLOW not PINK
+            'POST IT', // You'll need to check the exact name
+            'FAIL PUTIH', // You'll need to check the exact name
+            'PETTY CASH VOUCHER', // You'll need to check the exact name
+            'LETTER HEAD ARTB', // You'll need to check the exact name
+        ];
+
         // Low Stock Alert Items
-        $lowStockItems = StationaryItem::where('current_stock', '<=', DB::raw('min_stock'))
-            ->where('status', true)
+        $lowStockItems = StationaryItem::where('status', true)
+            ->whereIn('name', $specifiedItems)
             ->orderBy('current_stock', 'asc')
             ->limit(10)
             ->get(['id', 'name', 'current_stock', 'min_stock', 'unit']);
+
+        // dd($lowStockItems);
 
         // Recent Pending Requests
         $recentPendingRequests = RequestItem::with(['user:id,name,email', 'items.stationaryItem:id,name'])

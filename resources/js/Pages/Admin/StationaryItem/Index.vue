@@ -119,6 +119,10 @@ const categories = ref([
     { label: 'Computer Supplies', value: 'computer' },
     { label: 'Mailing Supplies', value: 'mailing' },
     { label: 'Cleaning Supplies', value: 'cleaning' },
+    { label: 'Photostat Paper', value: 'photostat_paper' }, // Added
+    { label: 'Printed Paper', value: 'printed_paper' }, // Added
+    { label: 'Stationaries', value: 'stationaries' }, // Added
+    { label: 'Office Supplies', value: 'office_supplies' }, // Added
     { label: 'Other', value: 'other' }
 ]);
 
@@ -156,6 +160,15 @@ const statistics = computed(() => {
         writing: data.filter(item => item.category === 'writing').length,
         paper: data.filter(item => item.category === 'paper').length,
         desk: data.filter(item => item.category === 'desk').length,
+        filing: data.filter(item => item.category === 'filing').length,
+        computer: data.filter(item => item.category === 'computer').length,
+        mailing: data.filter(item => item.category === 'mailing').length,
+        cleaning: data.filter(item => item.category === 'cleaning').length,
+        photostat_paper: data.filter(item => item.category === 'photostat_paper').length, // Added
+        printed_paper: data.filter(item => item.category === 'printed_paper').length, // Added
+        stationaries: data.filter(item => item.category === 'stationaries').length, // Added
+        office_supplies: data.filter(item => item.category === 'office_supplies').length, // Added
+        other: data.filter(item => item.category === 'other').length, // Added
     };
 });
 
@@ -529,6 +542,10 @@ const getCategoryBadge = (category) => {
         computer: { label: 'Computer', severity: 'success' },
         mailing: { label: 'Mailing', severity: 'danger' },
         cleaning: { label: 'Cleaning', severity: 'secondary' },
+        photostat_paper: { label: 'Photostat Paper', severity: 'info' }, // Added
+        printed_paper: { label: 'Printed Paper', severity: 'info' }, // Added
+        stationaries: { label: 'Stationaries', severity: 'info' }, // Added
+        office_supplies: { label: 'Office Supplies', severity: 'info' }, // Added
         other: { label: 'Other', severity: 'contrast' }
     };
     
