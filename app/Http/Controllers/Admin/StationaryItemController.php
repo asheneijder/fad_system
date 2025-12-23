@@ -47,7 +47,7 @@ class StationaryItemController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'category' => 'required|string|in:writing,paper,desk,filing,computer,mailing,cleaning,other',
+            'category' => 'required|string|in:writing,paper,desk,filing,computer,mailing,cleaning,photostat_paper,printed_paper,stationaries,office_supplies,other',
             'unit' => 'required|string|in:pcs,boxes,packs,reams,sets,bottles,rolls,units',
             'sku' => 'nullable|string|max:100|unique:stationary_items,sku',
             'min_stock' => 'nullable|integer|min:0',
@@ -73,7 +73,7 @@ class StationaryItemController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'category' => 'required|string|in:writing,paper,desk,filing,computer,mailing,cleaning,other',
+            'category' => 'required|string|in:writing,paper,desk,filing,computer,mailing,cleaning,photostat_paper,printed_paper,stationaries,office_supplies,other',
             'unit' => 'required|string|in:pcs,boxes,packs,reams,sets,bottles,rolls,units',
             'sku' => 'nullable|string|max:100|unique:stationary_items,sku,'.$stationaryItem->id,
             'min_stock' => 'nullable|integer|min:0',
