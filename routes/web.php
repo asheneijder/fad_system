@@ -175,9 +175,9 @@ Route::group([
     Route::post('permissions/{permission}/assign-roles', [PermissionController::class, 'assignRoles'])
         ->name('permissions.assign-roles');
 
-    Route::resource('audit-logs', AuditLogController::class)->only(['index', 'show']);
     Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
     Route::post('/audit-logs/clear', [AuditLogController::class, 'clearOldLogs'])->name('audit-logs.clear');
+    Route::resource('audit-logs', AuditLogController::class)->only(['index', 'show']);
 
     // Remove this line: Route::resource('reports', ReportController::class);
 
@@ -278,4 +278,4 @@ Route::group([
     });
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

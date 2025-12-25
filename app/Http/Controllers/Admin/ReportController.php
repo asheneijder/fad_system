@@ -47,15 +47,10 @@ class ReportController extends Controller
         // Start with a basic query
         $query = Asset::with(['category', 'model', 'user']);
 
-        \Log::info('Base query count: '.$query->count());
+        \Log::info('Base query count: ' . $query->count());
 
         // Apply filters one by one and log the count after each
-        if ($request->date_range && $request->date_range !== 'all_time') {
-            $query->when($request->date_range, function ($q) use ($request) {
-                $this->applyDateFilter($q, $request->date_range, 'purchase_date');
-            });
-            \Log::info('After date filter count: '.$query->count());
-        }
+
 
         if ($request->category) {
             $query->when($request->category, function ($q, $category) {
@@ -63,14 +58,14 @@ class ReportController extends Controller
                     $query->where('name', $category);
                 });
             });
-            \Log::info('After category filter count: '.$query->count());
+            \Log::info('After category filter count: ' . $query->count());
         }
 
         if ($request->status) {
             $query->when($request->status, function ($q, $status) {
                 $q->where('status', $status);
             });
-            \Log::info('After status filter count: '.$query->count());
+            \Log::info('After status filter count: ' . $query->count());
         }
 
         if ($request->search) {
@@ -81,18 +76,20 @@ class ReportController extends Controller
                         ->orWhere('serial_no', 'like', "%{$search}%");
                 });
             });
-            \Log::info('After search filter count: '.$query->count());
+            \Log::info('After search filter count: ' . $query->count());
         }
 
         $query->orderBy('category_type_id')->orderBy('asset_tag_no');
 
         $assets = $query->get();
 
-        \Log::info('Final assets count: '.$assets->count());
+        \Log::info('Final assets count: ' . $assets->count());
 
         if ($request->boolean('export')) {
-            return Excel::download(new AssetReportExport($query->get()),
-                'fixed-asset-listing-'.date('Y-m-d').'.xlsx');
+            return Excel::download(
+                new AssetReportExport($query->get()),
+                'fixed-asset-listing-' . date('Y-m-d') . '.xlsx'
+            );
         }
 
         // Get all categories for filter dropdown
@@ -112,7 +109,7 @@ class ReportController extends Controller
             'categoryBreakdown' => $categoryBreakdown,
             'allCategories' => $allCategories,
             'statusOptions' => ['active', 'assigned', 'available', 'maintenance', 'retired'],
-            'filters' => $request->only(['date_range', 'category', 'status', 'search']),
+            'filters' => $request->only(['category', 'status', 'search']),
         ]);
     }
 
@@ -121,10 +118,11 @@ class ReportController extends Controller
      */
     private function getEnhancedAssetSummary($assets)
     {
-        $fullyDepreciated = $assets->filter(fn ($asset) => $asset->is_fully_depreciated);
-        $depreciatingSoon = $assets->filter(fn ($asset) => $asset->remaining_life_percentage <= 20 && ! $asset->is_fully_depreciated
+        $fullyDepreciated = $assets->filter(fn($asset) => $asset->is_fully_depreciated);
+        $depreciatingSoon = $assets->filter(
+            fn($asset) => $asset->remaining_life_percentage <= 20 && !$asset->is_fully_depreciated
         );
-        $needsSighting = $assets->filter(fn ($asset) => $asset->needs_sighting);
+        $needsSighting = $assets->filter(fn($asset) => $asset->needs_sighting);
 
         $totalPurchaseCost = $assets->sum('purchase_cost');
         $totalDepreciation = $assets->sum('depreciation_cost');
@@ -169,7 +167,7 @@ class ReportController extends Controller
 
         return [
             'status_chart' => [
-                'labels' => $statusData->keys()->map(fn ($status) => ucfirst($status))->toArray(),
+                'labels' => $statusData->keys()->map(fn($status) => ucfirst($status))->toArray(),
                 'series' => $statusData->values()->toArray(),
             ],
             'category_chart' => [
@@ -217,8 +215,10 @@ class ReportController extends Controller
         });
 
         if ($request->boolean('export')) {
-            return Excel::download(new LicenseReportExport($query->get()),
-                'license-report-'.date('Y-m-d').'.xlsx');
+            return Excel::download(
+                new LicenseReportExport($query->get()),
+                'license-report-' . date('Y-m-d') . '.xlsx'
+            );
         }
 
         $licenses = $query->get();
@@ -250,7 +250,7 @@ class ReportController extends Controller
         if ($request->boolean('export')) {
             return Excel::download(
                 new StationaryReportExport($query->get(), $request->date_range),
-                'stationary-report-'.date('Y-m-d').'.xlsx'
+                'stationary-report-' . date('Y-m-d') . '.xlsx'
             );
         }
 
@@ -286,8 +286,10 @@ class ReportController extends Controller
             });
 
         if ($request->boolean('export')) {
-            return Excel::download(new UserActivityReportExport($query->get()),
-                'user-activity-report-'.date('Y-m-d').'.xlsx');
+            return Excel::download(
+                new UserActivityReportExport($query->get()),
+                'user-activity-report-' . date('Y-m-d') . '.xlsx'
+            );
         }
 
         $users = $query->get();
@@ -310,8 +312,10 @@ class ReportController extends Controller
         $summary = $this->getDashboardSummary();
 
         if ($request->boolean('export')) {
-            return Excel::download(new DashboardReportExport($summary),
-                'dashboard-report-'.date('Y-m-d').'.xlsx');
+            return Excel::download(
+                new DashboardReportExport($summary),
+                'dashboard-report-' . date('Y-m-d') . '.xlsx'
+            );
         }
 
         $chartData = $this->getDashboardChartData($request->date_range);
@@ -359,9 +363,9 @@ class ReportController extends Controller
             'total_users' => User::where('status', 'active')->count(),
             'low_stock_items' => StationaryItem::whereColumn('current_stock', '<=', 'min_stock')->count(),
             'pending_claims' => TravelClaim::where('status', 'pending')->count() +
-                              TransportationClaim::where('status', 'pending')->count() +
-                              DailyAllowance::where('status', 'pending')->count() +
-                              AccommodationClaim::where('status', 'pending')->count(),
+                TransportationClaim::where('status', 'pending')->count() +
+                DailyAllowance::where('status', 'pending')->count() +
+                AccommodationClaim::where('status', 'pending')->count(),
             'total_asset_value' => number_format(Asset::sum('current_value')),
             'assets_assigned' => Asset::whereNotNull('assigned_to')->count(),
             'licenses_expiring' => License::where('expiration_date', '<=', now()->addDays(30))->count(),
@@ -402,7 +406,7 @@ class ReportController extends Controller
         });
 
         $depreciatingSoon = $assets->filter(function ($asset) {
-            return $asset->remaining_life_percentage <= 20 && ! $asset->is_fully_depreciated;
+            return $asset->remaining_life_percentage <= 20 && !$asset->is_fully_depreciated;
         });
 
         return [
@@ -573,7 +577,7 @@ class ReportController extends Controller
                     if ($user) {
                         $userKey = $user->id;
 
-                        if (! isset($usageStats[$userKey])) {
+                        if (!isset($usageStats[$userKey])) {
                             $usageStats[$userKey] = [
                                 'user' => $user->name,
                                 'department' => $user->department ?? 'Unknown Department',
@@ -588,7 +592,7 @@ class ReportController extends Controller
                         $usageStats[$userKey]['total_used'] += $detail->final_quantity;
 
                         $requestDate = $detail->requestItem->created_at;
-                        if (! $usageStats[$userKey]['last_used'] || $requestDate > $usageStats[$userKey]['last_used']) {
+                        if (!$usageStats[$userKey]['last_used'] || $requestDate > $usageStats[$userKey]['last_used']) {
                             $usageStats[$userKey]['last_used'] = $requestDate->format('M d, Y');
                         }
                     }
@@ -642,13 +646,13 @@ class ReportController extends Controller
             ],
             'claims' => [
                 'pending' => TravelClaim::where('status', 'pending')->count() +
-                            TransportationClaim::where('status', 'pending')->count() +
-                            DailyAllowance::where('status', 'pending')->count() +
-                            AccommodationClaim::where('status', 'pending')->count(),
+                    TransportationClaim::where('status', 'pending')->count() +
+                    DailyAllowance::where('status', 'pending')->count() +
+                    AccommodationClaim::where('status', 'pending')->count(),
                 'approved' => TravelClaim::where('status', 'approved')->count() +
-                             TransportationClaim::where('status', 'approved')->count() +
-                             DailyAllowance::where('status', 'approved')->count() +
-                             AccommodationClaim::where('status', 'approved')->count(),
+                    TransportationClaim::where('status', 'approved')->count() +
+                    DailyAllowance::where('status', 'approved')->count() +
+                    AccommodationClaim::where('status', 'approved')->count(),
                 'total' => TravelClaim::count() + TransportationClaim::count() + DailyAllowance::count() + AccommodationClaim::count(),
             ],
         ];

@@ -35,20 +35,6 @@ const props = defineProps({
 const search = ref(props.filters.search || '');
 const category = ref(props.filters.category || null);
 const status = ref(props.filters.status || null);
-const dateRange = ref(props.filters.date_range || 'all_time');
-
-// Date range options
-const dateRangeOptions = [
-    { label: 'All Time', value: 'all_time' },
-    { label: 'Today', value: 'today' },
-    { label: 'Yesterday', value: 'yesterday' },
-    { label: 'Last 7 Days', value: 'last_7_days' },
-    { label: 'Last 30 Days', value: 'last_30_days' },
-    { label: 'This Month', value: 'this_month' },
-    { label: 'Last Month', value: 'last_month' },
-    { label: 'This Quarter', value: 'this_quarter' },
-    { label: 'This Year', value: 'this_year' },
-];
 
 // Debounced search
 const debouncedSearch = debounce(() => {
@@ -63,7 +49,6 @@ const applyFilters = () => {
         search: search.value,
         category: category.value,
         status: status.value,
-        date_range: dateRange.value === 'all_time' ? null : dateRange.value
     }, {
         preserveState: true,
         replace: true
@@ -75,7 +60,6 @@ const clearFilters = () => {
     search.value = '';
     category.value = null;
     status.value = null;
-    dateRange.value = 'all_time';
     router.get(route('admin.reports.asset'), {}, {
         preserveState: true,
         replace: true
@@ -84,13 +68,14 @@ const clearFilters = () => {
 
 // Export function
 const exportReport = () => {
-    router.get(route('admin.reports.asset'), {
-        search: search.value,
-        category: category.value,
-        status: status.value,
-        date_range: dateRange.value === 'all_time' ? null : dateRange.value,
-        export: true
+    const params = new URLSearchParams({
+        search: search.value || '',
+        category: category.value || '',
+        status: status.value || '',
+        export: 'true'
     });
+    
+    window.location.href = route('admin.reports.asset') + '?' + params.toString();
 };
 
 // Chart configurations
@@ -249,11 +234,6 @@ const getStatusSeverity = (status) => {
                             <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
                             <Dropdown v-model="status" :options="statusOptions" placeholder="All Status"
                                 class="w-full" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
-                            <Dropdown v-model="dateRange" :options="dateRangeOptions" optionLabel="label"
-                                optionValue="value" class="w-full" />
                         </div>
                         <div class="flex items-end space-x-2">
                             <Button label="Clear" @click="clearFilters" severity="secondary" class="w-full" />

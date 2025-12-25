@@ -94,7 +94,21 @@ const viewLog = (id) => {
 
 const exportLogs = () => {
     exporting.value = true;
-    const queryParams = new URLSearchParams(filters.value).toString();
+    
+    // Create a copy of filters to modify dates
+    const params = { ...filters.value };
+    
+    // Helper to format date as YYYY-MM-DD
+    const formatDateParam = (date) => {
+        if (!date) return '';
+        const d = new Date(date);
+        return d.toISOString().split('T')[0];
+    };
+
+    if (params.date_from) params.date_from = formatDateParam(params.date_from);
+    if (params.date_to) params.date_to = formatDateParam(params.date_to);
+
+    const queryParams = new URLSearchParams(params).toString();
     window.location.href = route('admin.audit-logs.export') + '?' + queryParams;
     
     // Reset after a delay
@@ -179,12 +193,6 @@ watch(filters, () => {
                         severity="secondary"
                         @click="exportLogs"
                         :loading="exporting"
-                    />
-                    <Button 
-                        label="Clear Old Logs" 
-                        icon="pi pi-trash" 
-                        severity="danger"
-                        @click="showClearDialog = true"
                     />
                 </div>
             </div>
@@ -332,13 +340,13 @@ watch(filters, () => {
                         <!-- Subject -->
                         <Column header="Subject">
                             <template #body="{ data }">
-                                <div v-if="data.subject">
-                                    <div class="font-medium">
-                                        {{ data.subject_type ? data.subject_type.split('\\').pop() : 'N/A' }}
+                                <div v-if="data.subject_type">
+                                    <div class="font-medium text-gray-900">
+                                        {{ data.subject_type.split('\\').pop() }}
                                     </div>
                                     <div class="text-xs text-gray-500">ID: {{ data.subject_id }}</div>
                                 </div>
-                                <span v-else class="text-gray-400">N/A</span>
+                                <span v-else class="text-gray-400 italic">N/A</span>
                             </template>
                         </Column>
 
@@ -367,47 +375,5 @@ watch(filters, () => {
                 </template>
             </Card>
         </div>
-
-        <!-- Clear Logs Dialog -->
-        <Dialog 
-            v-model:visible="showClearDialog" 
-            header="Clear Old Logs" 
-            :modal="true"
-            :style="{ width: '400px' }"
-        >
-            <div class="space-y-4">
-                <p class="text-gray-700">
-                    This will permanently delete audit logs older than the specified number of days.
-                </p>
-                
-                <div class="space-y-2">
-                    <label class="block text-sm font-medium text-gray-700">Delete logs older than (days):</label>
-                    <InputText 
-                        v-model="clearDays" 
-                        type="number" 
-                        min="1" 
-                        max="3650"
-                        placeholder="e.g., 30"
-                        class="w-full"
-                    />
-                </div>
-            </div>
-
-            <template #footer>
-                <Button 
-                    label="Cancel" 
-                    icon="pi pi-times" 
-                    severity="secondary"
-                    @click="showClearDialog = false"
-                />
-                <Button 
-                    label="Clear Logs" 
-                    icon="pi pi-trash" 
-                    severity="danger"
-                    @click="clearOldLogs"
-                    :loading="clearing"
-                />
-            </template>
-        </Dialog>
     </AppLayout>
 </template>
