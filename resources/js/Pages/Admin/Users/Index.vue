@@ -142,18 +142,23 @@ watch(() => props.users, (newUsers) => {
     currentPerPage.value = newUsers?.per_page || 10;
 }, { immediate: true });
 
+let debounceTimeout = null;
+
 watch(search, (newSearch, oldSearch) => {
     if (newSearch !== oldSearch) {
-        router.get(route("admin.users.index"), {
-            search: newSearch,
-            status: statusFilter.value,
-            page: 1,
-            per_page: currentPerPage.value
-        }, {
-            preserveState: false,
-            replace: true,
-            preserveScroll: true
-        });
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(() => {
+            router.get(route("admin.users.index"), {
+                search: newSearch,
+                status: statusFilter.value,
+                page: 1,
+                per_page: currentPerPage.value
+            }, {
+                preserveState: true,
+                replace: true,
+                preserveScroll: true
+            });
+        }, 300);
     }
 });
 

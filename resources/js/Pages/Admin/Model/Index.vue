@@ -117,19 +117,26 @@ watch(() => props.models, (newModels) => {
     currentPerPage.value = newModels?.per_page || 10;
 }, { immediate: true });
 
-watch([search, statusFilter, categoryFilter], ([newSearch, newStatus, newCategory]) => {
-    router.get(route("admin.models.index"), {
-        search: newSearch,
-        status: newStatus,
-        category_id: newCategory,
-        page: 1,
-        per_page: currentPerPage.value
-    }, {
-        preserveState: false,
-        replace: true,
-        preserveScroll: true
-    });
-}, 300);
+let debounceTimeout = null;
+
+watch([search, statusFilter, categoryFilter], ([newSearch, newStatus, newCategory], [oldSearch, oldStatus, oldCategory]) => {
+    if (newSearch !== oldSearch || newStatus !== oldStatus || newCategory !== oldCategory) {
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(() => {
+            router.get(route("admin.models.index"), {
+                search: newSearch,
+                status: newStatus,
+                category_id: newCategory,
+                page: 1,
+                per_page: currentPerPage.value
+            }, {
+                preserveState: true,
+                replace: true,
+                preserveScroll: true
+            });
+        }, 300);
+    }
+});
 
 watch(showCreateEditDialog, (val) => {
     if (!val) {

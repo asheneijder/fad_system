@@ -17,7 +17,7 @@ class DashboardController extends Controller
     public function index()
     {
         // Check if user is admin or FAD approver
-        if (! auth()->user()->isAdmin() && ! auth()->user()->isFadApprover()) {
+        if (!auth()->user()->isAdmin() && !auth()->user()->isFadApprover()) {
             abort(403, 'Unauthorized access.');
         }
         $currentMonth = Carbon::now()->month;
@@ -158,8 +158,8 @@ class DashboardController extends Controller
 
     public function getChartData(Request $request)
     {
-        // Check if user is admin
-        if (! auth()->user()->isAdmin()) {
+        // Check if user is admin or FAD approver
+        if (!auth()->user()->isAdmin() && !auth()->user()->isFadApprover()) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -217,7 +217,7 @@ class DashboardController extends Controller
             ->get()
             ->map(function ($item) {
                 return [
-                    'label' => 'Week '.$item->week.' '.$item->year,
+                    'label' => 'Week ' . $item->week . ' ' . $item->year,
                     'total' => $item->total,
                     'approved' => $item->approved,
                 ];

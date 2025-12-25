@@ -69,18 +69,25 @@ const priorityOptions = ref([
 ]);
 
 // Watchers for filters
-watch([search, statusFilter, priorityFilter], ([newSearch, newStatus, newPriority]) => {
-    router.get(route("admin.manage-request-items.index"), {
-        search: newSearch,
-        status: newStatus,
-        priority: newPriority,
-        page: 1,
-        per_page: currentPerPage.value
-    }, {
-        preserveState: false,
-        replace: true,
-        preserveScroll: true
-    });
+let debounceTimeout = null;
+
+watch([search, statusFilter, priorityFilter], ([newSearch, newStatus, newPriority], [oldSearch, oldStatus, oldPriority]) => {
+    if (newSearch !== oldSearch || newStatus !== oldStatus || newPriority !== oldPriority) {
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(() => {
+            router.get(route("admin.manage-request-items.index"), {
+                search: newSearch,
+                status: newStatus,
+                priority: newPriority,
+                page: 1,
+                per_page: currentPerPage.value
+            }, {
+                preserveState: true,
+                replace: true,
+                preserveScroll: true
+            });
+        }, 300);
+    }
 });
 
 // Methods

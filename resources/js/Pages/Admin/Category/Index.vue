@@ -97,20 +97,25 @@ watch(() => props.categories, (newCategories) => {
     currentPerPage.value = newCategories?.per_page || 10;
 }, { immediate: true });
 
+let debounceTimeout = null;
+
 watch([search, typeFilter], ([newSearch, newType], [oldSearch, oldType]) => {
     if (newSearch !== oldSearch || newType !== oldType) {
-        router.get(route("admin.categories.index"), {
-            search: newSearch,
-            type: newType,
-            page: 1,
-            per_page: currentPerPage.value
-        }, {
-            preserveState: false,
-            replace: true,
-            preserveScroll: true
-        });
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(() => {
+            router.get(route("admin.categories.index"), {
+                search: newSearch,
+                type: newType,
+                page: 1,
+                per_page: currentPerPage.value
+            }, {
+                preserveState: true,
+                replace: true,
+                preserveScroll: true
+            });
+        }, 300);
     }
-}, 300);
+});
 
 watch(showCreateEditDialog, (val) => {
     if (!val) resetForm();

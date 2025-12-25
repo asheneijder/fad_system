@@ -178,17 +178,22 @@ watch(() => props.stationaryItems, (newItems) => {
     currentPerPage.value = newItems?.per_page || 10;
 }, { immediate: true });
 
+let debounceTimeout = null;
+
 watch(search, (newSearch, oldSearch) => {
     if (newSearch !== oldSearch) {
-        router.get(route("admin.stationary-items.index"), {
-            search: newSearch,
-            page: 1,
-            per_page: currentPerPage.value
-        }, {
-            preserveState: false,
-            replace: true,
-            preserveScroll: true
-        });
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(() => {
+            router.get(route("admin.stationary-items.index"), {
+                search: newSearch,
+                page: 1,
+                per_page: currentPerPage.value
+            }, {
+                preserveState: true,
+                replace: true,
+                preserveScroll: true
+            });
+        }, 300);
     }
 });
 

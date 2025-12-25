@@ -216,23 +216,28 @@ watch(() => props.assets, (newAssets) => {
     currentPerPage.value = newAssets?.per_page || 10;
 }, { immediate: true });
 
-watch([search, statusFilter, categoryFilter, locationFilter], ([newSearch, newStatus, newCategory, newLocation], [oldSearch, oldStatus, oldCategory, oldLocation]) => {
+let debounceTimeout = null;
+
+watch([search, statusFilter, categoryFilter, locationFilter, secondaryLocationFilter], ([newSearch, newStatus, newCategory, newLocation, newSecondaryLocation], [oldSearch, oldStatus, oldCategory, oldLocation, oldSecondaryLocation]) => {
     if (newSearch !== oldSearch || newStatus !== oldStatus || newCategory !== oldCategory || newLocation !== oldLocation || newSecondaryLocation !== oldSecondaryLocation) {
-        router.get(route("admin.assets.index"), {
-            search: newSearch,
-            status: newStatus,
-            category: newCategory,
-            location: newLocation,
-            location_2: newSecondaryLocation,
-            page: 1,
-            per_page: currentPerPage.value
-        }, {
-            preserveState: false,
-            replace: true,
-            preserveScroll: true
-        });
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(() => {
+            router.get(route("admin.assets.index"), {
+                search: newSearch,
+                status: newStatus,
+                category: newCategory,
+                location: newLocation,
+                location_2: newSecondaryLocation,
+                page: 1,
+                per_page: currentPerPage.value
+            }, {
+                preserveState: true,
+                replace: true,
+                preserveScroll: true
+            });
+        }, 300);
     }
-}, 300);
+});
 
 watch(showCreateEditDialog, (val) => {
     if (!val) resetForm();
