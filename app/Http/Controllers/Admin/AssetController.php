@@ -24,7 +24,8 @@ class AssetController extends Controller
         protected User $user,
         protected AssetAssignment $assetAssignment,
         protected ModelType $modelType
-    ) {}
+    ) {
+    }
 
     public function index(Request $request)
     {
@@ -68,53 +69,53 @@ class AssetController extends Controller
         $users = $this->user->where('status', true)->get(['id', 'name', 'email']);
         $models = $this->modelType->where('status', true)->get();
         $locations = collect([
-                                'LD',
-                                'LD STORE',
-                                'SMD',
-                                'SMD STORE',
-                                'FAD',
-                                'FAD STORE',
-                                'DD',
-                                'FA',
-                                'AGM OFFICE',
-                                'CD',
-                                'CD STORE',
-                                'HCD',
-                                'HCD STORE',
-                                'CEO',
-                                'CBO',
-                                'CCGO',
-                                'DCMT',
-                                'DCMT STORE',
-                                'RU',
-                                'RU STORE',
-                                'CU',
-                                'CU STORE',
-                                'SU',
-                                'SU STORE',
-                                'DAMU',
-                                'DAMU STORE',
-                                'GTSU',
-                                'GTSU STORE',
-                                'PANTRY LEVEL 31',
-                                'PANTRY LEVEL 30',
-                                'PANTRY LEVEL 12',
-                                'PANTRY LEVEL 14',
-                                'RECEPTION COUNTER',
-                                'KCP',
-                                'SERVER ROOM',
-                                'SOFTWARE',
-                                'IT SERVER ROOM LEVEL 5',
-                                'IT SERVER CYBERJAYA',
-                                'MEETING ROOM LEVEL 30',
-                                'MEETING ROOM LEVEL 31',
-                                'STRONG ROOM LEVEL 14',
-                                'MEETING ROOM LEVEL 12',
-                                'MEETING ROOM LEVEL 14',
-                                'LIBRARY LEVEL 14',
-                                'DISCUSSION ROOM LEVEL 30',
-                                'MULTIPURPOSE ROOM LEVEL 30',
-                                'OTHERS',
+            'LD',
+            'LD STORE',
+            'SMD',
+            'SMD STORE',
+            'FAD',
+            'FAD STORE',
+            'DD',
+            'FA',
+            'AGM OFFICE',
+            'CD',
+            'CD STORE',
+            'HCD',
+            'HCD STORE',
+            'CEO',
+            'CBO',
+            'CCGO',
+            'DCMT',
+            'DCMT STORE',
+            'RU',
+            'RU STORE',
+            'CU',
+            'CU STORE',
+            'SU',
+            'SU STORE',
+            'DAMU',
+            'DAMU STORE',
+            'GTSU',
+            'GTSU STORE',
+            'PANTRY LEVEL 31',
+            'PANTRY LEVEL 30',
+            'PANTRY LEVEL 12',
+            'PANTRY LEVEL 14',
+            'RECEPTION COUNTER',
+            'KCP',
+            'SERVER ROOM',
+            'SOFTWARE',
+            'IT SERVER ROOM LEVEL 5',
+            'IT SERVER CYBERJAYA',
+            'MEETING ROOM LEVEL 30',
+            'MEETING ROOM LEVEL 31',
+            'STRONG ROOM LEVEL 14',
+            'MEETING ROOM LEVEL 12',
+            'MEETING ROOM LEVEL 14',
+            'LIBRARY LEVEL 14',
+            'DISCUSSION ROOM LEVEL 30',
+            'MULTIPURPOSE ROOM LEVEL 30',
+            'OTHERS',
         ]);
 
         $secondaryLocations = collect([
@@ -178,12 +179,12 @@ class AssetController extends Controller
             $asset->updated_by = Auth::id();
 
             // Calculate initial values if not provided
-            if ($asset->purchase_cost && ! $asset->current_value) {
+            if ($asset->purchase_cost && !$asset->current_value) {
                 $asset->current_value = $asset->purchase_cost;
             }
 
             // Auto-calculate estimated_life_days if not provided but estimated_life is
-            if ($asset->estimated_life && ! $asset->estimated_life_days) {
+            if ($asset->estimated_life && !$asset->estimated_life_days) {
                 $asset->estimated_life_days = $asset->estimated_life * 365;
             }
 
@@ -203,7 +204,7 @@ class AssetController extends Controller
             DB::rollBack();
 
             return redirect()->back()
-                ->with('error', 'Failed to create asset: '.$e->getMessage());
+                ->with('error', 'Failed to create asset: ' . $e->getMessage());
         }
     }
 
@@ -228,8 +229,8 @@ class AssetController extends Controller
     {
         $validated = $request->validate([
             'asset_name' => 'required|string|max:255',
-            'asset_tag_no' => 'required|string|max:100|unique:assets,asset_tag_no,'.$asset->id,
-            'serial_no' => 'nullable|string|max:100|unique:assets,serial_no,'.$asset->id,
+            'asset_tag_no' => 'required|string|max:100|unique:assets,asset_tag_no,' . $asset->id,
+            'serial_no' => 'nullable|string|max:100|unique:assets,serial_no,' . $asset->id,
             'model_type_id' => 'required|exists:model_types,id',
             'category_type_id' => 'required|exists:categories,id',
             'status' => 'required|in:active,available,assigned,maintenance,retired',
@@ -257,7 +258,7 @@ class AssetController extends Controller
             $asset->updated_by = Auth::id();
 
             // Auto-calculate estimated_life_days if not provided but estimated_life is
-            if ($asset->estimated_life && ! $asset->estimated_life_days) {
+            if ($asset->estimated_life && !$asset->estimated_life_days) {
                 $asset->estimated_life_days = $asset->estimated_life * 365;
             }
 
@@ -295,7 +296,7 @@ class AssetController extends Controller
             DB::rollBack();
 
             return redirect()->back()
-                ->with('error', 'Failed to update asset: '.$e->getMessage());
+                ->with('error', 'Failed to update asset: ' . $e->getMessage());
         }
     }
 
@@ -325,21 +326,21 @@ class AssetController extends Controller
             DB::rollBack();
 
             return redirect()->back()
-                ->with('error', 'Failed to delete asset: '.$e->getMessage());
+                ->with('error', 'Failed to delete asset: ' . $e->getMessage());
         }
     }
 
-    public function listAssetAssign() 
+    public function listAssetAssign()
     {
         $assetAssignments = AssetAssignment::with([
-            'asset', 
-            'asset.model', 
+            'asset',
+            'asset.model',
             'asset.category',
             'user',
             'assignedBy'
         ])
-        ->orderBy('assigned_at', 'desc')
-        ->paginate(20);
+            ->orderBy('assigned_at', 'desc')
+            ->paginate(20);
 
         $summary = [
             'total' => AssetAssignment::count(),
@@ -358,26 +359,26 @@ class AssetController extends Controller
     {
         $users = User::withCount([
             'assetAssignments as total_assignments',
-            'assetAssignments as acknowledged_assignments' => function($query) {
+            'assetAssignments as acknowledged_assignments' => function ($query) {
                 $query->whereNotNull('acknowledged_at');
             },
-            'assetAssignments as pending_assignments' => function($query) {
+            'assetAssignments as pending_assignments' => function ($query) {
                 $query->whereNull('acknowledged_at')->whereNull('returned_at');
             },
-            'assetAssignments as returned_assignments' => function($query) {
+            'assetAssignments as returned_assignments' => function ($query) {
                 $query->whereNotNull('returned_at');
             }
         ])
-        ->has('assetAssignments')
-        ->with(['assetAssignments.asset'])
-        ->paginate(20);
+            ->has('assetAssignments')
+            ->with(['assetAssignments.asset'])
+            ->paginate(20);
 
         return Inertia::render('Admin/AssetAssignments/UserAcknowledgmentReport', [
             'users' => $users
         ]);
     }
 
-      public function sendReminder(Request $request, User $user)
+    public function sendReminder(Request $request, User $user)
     {
         try {
             // Get user's pending assignments
@@ -446,7 +447,7 @@ class AssetController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update asset status: '.$e->getMessage(),
+                'message' => 'Failed to update asset status: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -458,6 +459,7 @@ class AssetController extends Controller
             'user_id' => 'required|exists:users,id',
             'notes' => 'nullable|string',
             'condition_assigned' => 'required|string|max:500',
+            'assigned_at' => 'nullable|date',
         ]);
 
         try {
@@ -466,7 +468,7 @@ class AssetController extends Controller
             $asset = Asset::findOrFail($validated['asset_id']);
             $user = User::findOrFail($validated['user_id']); // Get the user being assigned
 
-            if (! $asset->canBeAssigned()) {
+            if (!$asset->canBeAssigned()) {
                 return back()->with('error', 'Asset is not available for assignment.');
             }
 
@@ -474,7 +476,8 @@ class AssetController extends Controller
                 $validated['user_id'],
                 Auth::id(),
                 $validated['condition_assigned'],
-                $validated['notes']
+                $validated['notes'],
+                $validated['assigned_at'] ?? null
             );
 
             $assignment->update([
@@ -497,7 +500,7 @@ class AssetController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Failed to assign asset: '.$e->getMessage());
+            return back()->with('error', 'Failed to assign asset: ' . $e->getMessage());
         }
     }
 
@@ -511,7 +514,7 @@ class AssetController extends Controller
         try {
             DB::beginTransaction();
 
-            if (! $asset->canBeReturned()) {
+            if (!$asset->canBeReturned()) {
                 return back()->with('error', 'Asset is not currently assigned.');
             }
 
@@ -520,7 +523,7 @@ class AssetController extends Controller
                 $validated['notes'] ?? null
             );
 
-            if (! $success) {
+            if (!$success) {
                 return back()->with('error', 'No active assignment found for this asset.');
             }
 
@@ -536,7 +539,7 @@ class AssetController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Failed to return asset: '.$e->getMessage());
+            return back()->with('error', 'Failed to return asset: ' . $e->getMessage());
         }
     }
 
@@ -588,8 +591,8 @@ class AssetController extends Controller
             DB::commit();
 
             $message = "Successfully assigned {$successCount} asset(s).";
-            if (! empty($failedAssets)) {
-                $message .= ' Failed to assign: '.implode(', ', $failedAssets);
+            if (!empty($failedAssets)) {
+                $message .= ' Failed to assign: ' . implode(', ', $failedAssets);
             }
 
             return response()->json([
@@ -604,12 +607,12 @@ class AssetController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to assign assets: '.$e->getMessage(),
+                'message' => 'Failed to assign assets: ' . $e->getMessage(),
             ], 500);
         }
     }
 
-   public function bulkUpdateStatus(Request $request)
+    public function bulkUpdateStatus(Request $request)
     {
         $validated = $request->validate([
             'asset_ids' => 'required|array|min:1',
@@ -659,13 +662,13 @@ class AssetController extends Controller
             DB::rollBack();
 
             // Return Inertia response with error message
-            return back()->with('error', 'Failed to update assets status: '.$e->getMessage());
+            return back()->with('error', 'Failed to update assets status: ' . $e->getMessage());
         }
     }
 
     public function cancelAcknowledgment(AssetAssignment $assignment)
     {
-            try {
+        try {
             // Check if this is the current assignment and update asset status if needed
             if (!$assignment->returned_at) {
                 // If this is an active assignment, update the asset status back to available
@@ -682,7 +685,7 @@ class AssetController extends Controller
             $assignment->delete();
 
             return back()->with('success', 'Assignment has been permanently deleted.');
-            
+
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to delete assignment: ' . $e->getMessage());
         }
@@ -691,12 +694,12 @@ class AssetController extends Controller
     public function export(Request $request)
     {
         $assetIds = $request->input('asset_ids', []);
-        
+
         // Handle both array and string input
         if (is_string($assetIds)) {
             $assetIds = explode(',', $assetIds);
         }
-        
+
         $filename = 'assets_' . now()->format('Y-m-d') . '.xlsx';
 
         return Excel::download(new AssetsExport($assetIds), $filename);
@@ -709,11 +712,11 @@ class AssetController extends Controller
             ->orderBy('assigned_at', 'desc')
             ->get();
 
-        $filename = 'assignment_history_'.$asset->asset_tag_no.'_'.now()->format('Y-m-d').'.csv';
+        $filename = 'assignment_history_' . $asset->asset_tag_no . '_' . now()->format('Y-m-d') . '.csv';
 
         $headers = [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
         $callback = function () use ($assignments, $asset) {

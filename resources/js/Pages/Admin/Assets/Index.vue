@@ -109,6 +109,7 @@ const assetForm = useForm({
 const assignForm = useForm({
     asset_id: null,
     user_id: null,
+    assigned_at: new Date(),
     notes: '',
     condition_assigned: '',
 });
@@ -981,6 +982,22 @@ const canReturn = (asset) => {
                         </Select>
                         <small class="text-red-500 text-xs" v-if="assignForm.errors.user_id">
                             {{ assignForm.errors.user_id }}
+                        </small>
+                    </div>
+
+                    <!-- Assignment Date -->
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                            Assignment Date <span class="text-red-500">*</span>
+                        </label>
+                        <DatePicker v-model="assignForm.assigned_at" 
+                            dateFormat="yy-mm-dd" 
+                            showIcon 
+                            :maxDate="new Date()"
+                            class="w-full text-xs sm:text-sm"
+                            :class="{ 'p-invalid': assignForm.errors.assigned_at }" />
+                        <small class="text-red-500 text-xs" v-if="assignForm.errors.assigned_at">
+                            {{ assignForm.errors.assigned_at }}
                         </small>
                     </div>
 

@@ -130,7 +130,7 @@ class Asset extends Model
     // Accessors
     public function getWarrantyExpiryAttribute()
     {
-        if (! $this->purchase_date || ! $this->model?->warranty_period) {
+        if (!$this->purchase_date || !$this->model?->warranty_period) {
             return null;
         }
 
@@ -145,13 +145,13 @@ class Asset extends Model
     public function getIsWarrantyExpiringSoonAttribute()
     {
         return $this->warranty_expiry &&
-               $this->warranty_expiry->isFuture() &&
-               $this->warranty_expiry->diffInDays(now()) <= 30;
+            $this->warranty_expiry->isFuture() &&
+            $this->warranty_expiry->diffInDays(now()) <= 30;
     }
 
     public function getDaysUntilWarrantyExpiryAttribute()
     {
-        if (! $this->warranty_expiry) {
+        if (!$this->warranty_expiry) {
             return null;
         }
 
@@ -165,7 +165,7 @@ class Asset extends Model
 
     public function getRemainingLifeDaysAttribute()
     {
-        if (! $this->estimated_life_days || ! $this->purchase_date) {
+        if (!$this->estimated_life_days || !$this->purchase_date) {
             return null;
         }
 
@@ -176,7 +176,7 @@ class Asset extends Model
 
     public function getRemainingLifePercentageAttribute()
     {
-        if (! $this->estimated_life_days || $this->estimated_life_days <= 0) {
+        if (!$this->estimated_life_days || $this->estimated_life_days <= 0) {
             return 100;
         }
 
@@ -187,7 +187,7 @@ class Asset extends Model
 
     public function getAnnualDepreciationAttribute()
     {
-        if (! $this->purchase_cost || ! $this->estimated_life) {
+        if (!$this->purchase_cost || !$this->estimated_life) {
             return 0;
         }
 
@@ -201,7 +201,7 @@ class Asset extends Model
 
     public function getDaysSinceLastSightingAttribute()
     {
-        if (! $this->last_sighting_date) {
+        if (!$this->last_sighting_date) {
             return null;
         }
 
@@ -210,7 +210,7 @@ class Asset extends Model
 
     public function getNeedsSightingAttribute()
     {
-        return ! $this->last_sighting_date || $this->last_sighting_date->diffInDays(now()) > 365;
+        return !$this->last_sighting_date || $this->last_sighting_date->diffInDays(now()) > 365;
     }
 
     // Methods
@@ -224,13 +224,15 @@ class Asset extends Model
         return $this->status === 'assigned';
     }
 
-    public function assignToUser($userId, $assignedById, $condition, $notes = null): AssetAssignment
+    public function assignToUser($userId, $assignedById, $condition, $notes = null, $assignedAt = null): AssetAssignment
     {
+        $assignmentDate = $assignedAt ? \Carbon\Carbon::parse($assignedAt) : now();
+
         $assignment = AssetAssignment::create([
             'asset_id' => $this->id,
             'assigned_to' => $userId,
             'assigned_by' => $assignedById,
-            'assigned_at' => now(),
+            'assigned_at' => $assignmentDate,
             'condition_assigned' => $condition,
             'notes' => $notes,
         ]);
@@ -238,7 +240,7 @@ class Asset extends Model
         $this->update([
             'status' => 'assigned',
             'assigned_to' => $userId,
-            'assigned_at' => now(),
+            'assigned_at' => $assignmentDate,
             'updated_by' => $assignedById,
         ]);
 
@@ -249,14 +251,14 @@ class Asset extends Model
     {
         $assignment = $this->assignments()->active()->first();
 
-        if (! $assignment) {
+        if (!$assignment) {
             return false;
         }
 
         $assignment->update([
             'returned_at' => now(),
             'condition_returned' => $condition,
-            'notes' => $assignment->notes.($notes ? "\nReturn: ".$notes : ''),
+            'notes' => $assignment->notes . ($notes ? "\nReturn: " . $notes : ''),
         ]);
 
         $this->update([
@@ -271,7 +273,7 @@ class Asset extends Model
 
     public function calculateDepreciation(): void
     {
-        if (! $this->purchase_date || ! $this->estimated_life_days || ! $this->purchase_cost) {
+        if (!$this->purchase_date || !$this->estimated_life_days || !$this->purchase_cost) {
             return;
         }
 
@@ -344,6 +346,6 @@ class Asset extends Model
             ])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
-            ->setDescriptionForEvent(fn (string $eventName) => "Asset {$eventName}");
+            ->setDescriptionForEvent(fn(string $eventName) => "Asset {$eventName}");
     }
 }
