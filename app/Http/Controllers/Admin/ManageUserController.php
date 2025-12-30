@@ -14,7 +14,9 @@ use Spatie\Permission\Models\Role;
 
 class ManageUserController extends Controller
 {
-    public function __construct(protected User $user) {}
+    public function __construct(protected User $user)
+    {
+    }
 
     /**
      * Display a listing of the resource.
@@ -117,26 +119,19 @@ class ManageUserController extends Controller
             ]);
 
             // Assign roles if provided
-            if (! empty($validated['role_ids'])) {
+            if (!empty($validated['role_ids'])) {
                 $roles = Role::whereIn('id', $validated['role_ids'])->get();
                 $user->syncRoles($roles);
             }
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'User created successfully',
-                'user' => $user->load('roles'),
-            ]);
+            return redirect()->back()->with('success', 'User created successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create user: '.$e->getMessage(),
-            ], 500);
+            return redirect()->back()->with('error', 'Failed to create user: ' . $e->getMessage());
         }
     }
 
@@ -191,7 +186,7 @@ class ManageUserController extends Controller
             ];
 
             // Only update password if provided
-            if (! empty($validated['password'])) {
+            if (!empty($validated['password'])) {
                 $updateData['password'] = Hash::make($validated['password']);
             }
 
@@ -205,19 +200,12 @@ class ManageUserController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'User updated successfully',
-                'user' => $user->fresh(['roles']),
-            ]);
+            return redirect()->back()->with('success', 'User updated successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update user: '.$e->getMessage(),
-            ], 500);
+            return redirect()->back()->with('error', 'Failed to update user: ' . $e->getMessage());
         }
     }
 
@@ -228,10 +216,7 @@ class ManageUserController extends Controller
     {
         // Prevent deletion of current user
         if ($user->id === Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You cannot delete your own account.',
-            ], 422);
+            return redirect()->back()->with('error', 'You cannot delete your own account.');
         }
 
         try {
@@ -241,18 +226,12 @@ class ManageUserController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'User deleted successfully',
-            ]);
+            return redirect()->back()->with('success', 'User deleted successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete user: '.$e->getMessage(),
-            ], 500);
+            return redirect()->back()->with('error', 'Failed to delete user: ' . $e->getMessage());
         }
     }
 
@@ -274,18 +253,12 @@ class ManageUserController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Approver assigned successfully',
-            ]);
+            return redirect()->back()->with('success', 'Approver assigned successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to assign approver: '.$e->getMessage(),
-            ], 500);
+            return redirect()->back()->with('error', 'Failed to assign approver: ' . $e->getMessage());
         }
     }
 
@@ -303,18 +276,12 @@ class ManageUserController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Approver removed successfully',
-            ]);
+            return redirect()->back()->with('success', 'Approver removed successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to remove approver: '.$e->getMessage(),
-            ], 500);
+            return redirect()->back()->with('error', 'Failed to remove approver: ' . $e->getMessage());
         }
     }
 
@@ -340,18 +307,12 @@ class ManageUserController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => count($userIds).' user(s) assigned to approver successfully',
-            ]);
+            return redirect()->back()->with('success', count($userIds) . ' user(s) assigned to approver successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to assign approvers: '.$e->getMessage(),
-            ], 500);
+            return redirect()->back()->with('error', 'Failed to assign approvers: ' . $e->getMessage());
         }
     }
 
@@ -362,10 +323,7 @@ class ManageUserController extends Controller
     {
         // Prevent resetting own password via this method
         if ($user->id === Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You cannot reset your own password using this method.',
-            ], 422);
+            return redirect()->back()->with('error', 'You cannot reset your own password using this method.');
         }
 
         try {
@@ -378,18 +336,12 @@ class ManageUserController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Password reset to default successfully',
-            ]);
+            return redirect()->back()->with('success', 'Password reset to default successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to reset password: '.$e->getMessage(),
-            ], 500);
+            return redirect()->back()->with('error', 'Failed to reset password: ' . $e->getMessage());
         }
     }
 
@@ -406,13 +358,10 @@ class ManageUserController extends Controller
         $userIds = $validated['user_ids'];
 
         // Remove current user from reset list
-        $userIds = array_filter($userIds, fn ($id) => $id != Auth::id());
+        $userIds = array_filter($userIds, fn($id) => $id != Auth::id());
 
         if (empty($userIds)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No valid users selected for password reset.',
-            ], 422);
+            return redirect()->back()->with('error', 'No valid users selected for password reset.');
         }
 
         try {
@@ -425,18 +374,12 @@ class ManageUserController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => count($userIds).' user password(s) reset successfully',
-            ]);
+            return redirect()->back()->with('success', count($userIds) . ' user password(s) reset successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to reset passwords: '.$e->getMessage(),
-            ], 500);
+            return redirect()->back()->with('error', 'Failed to reset passwords: ' . $e->getMessage());
         }
     }
 
@@ -453,13 +396,10 @@ class ManageUserController extends Controller
         $userIds = $validated['user_ids'];
 
         // Remove current user from deletion list
-        $userIds = array_filter($userIds, fn ($id) => $id != Auth::id());
+        $userIds = array_filter($userIds, fn($id) => $id != Auth::id());
 
         if (empty($userIds)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No valid users selected for deletion.',
-            ], 422);
+            return redirect()->back()->with('error', 'No valid users selected for deletion.');
         }
 
         try {
@@ -469,18 +409,12 @@ class ManageUserController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => $deletedCount.' user(s) deleted successfully',
-            ]);
+            return redirect()->back()->with('success', $deletedCount . ' user(s) deleted successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete users: '.$e->getMessage(),
-            ], 500);
+            return redirect()->back()->with('error', 'Failed to delete users: ' . $e->getMessage());
         }
     }
 
@@ -492,7 +426,7 @@ class ManageUserController extends Controller
         $userIds = $request->input('user_ids', []);
 
         $users = $this->user->query()
-            ->when(! empty($userIds), function ($query) use ($userIds) {
+            ->when(!empty($userIds), function ($query) use ($userIds) {
                 $query->whereIn('id', $userIds);
             })
             ->select('name', 'email', 'job_title', 'department', 'office_location', 'created_at')
@@ -508,7 +442,7 @@ class ManageUserController extends Controller
                 ];
             });
 
-        $filename = 'users_'.now()->format('Y-m-d').'.csv';
+        $filename = 'users_' . now()->format('Y-m-d') . '.csv';
 
         // For CSV export
         if ($request->wantsJson()) {
@@ -522,7 +456,7 @@ class ManageUserController extends Controller
         // For direct download
         $headers = [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
         $callback = function () use ($users) {
